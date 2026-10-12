@@ -330,7 +330,7 @@ dialog::backdrop{background:rgba(5,15,22,.55)}
 <script>
 (() => {
 'use strict';
-const VERSION = '1.1';
+const VERSION = '1.2';
 const APP = 'P² Gebietskarte';
 const $ = id => document.getElementById(id);
 const msgEl = $('message');
@@ -535,11 +535,12 @@ function updateLabels() {
 }
 
 /* --- Overpass --- */
-const ENDPOINTS = ['https://overpass-api.de/api/interpreter', 'https://overpass.private.coffee/api/interpreter', 'https://overpass.kumi.systems/api/interpreter'];
+const ENDPOINTS = ['https://overpass-api.de/api/interpreter', 'https://overpass.private.coffee/api/interpreter', 'https://maps.mail.ru/osm/tools/overpass/api/interpreter', 'https://overpass.kumi.systems/api/interpreter'];
 let epIdx = 0;
 async function overpass(q) {
   let last;
-  for (let k = 0; k < ENDPOINTS.length; k++) {
+  for (let k = 0; k < ENDPOINTS.length * 2; k++) {
+    if (k === ENDPOINTS.length) await new Promise(r => setTimeout(r, 3000)); // alle besetzt: kurz warten, zweite Runde
     const i = (epIdx + k) % ENDPOINTS.length, c = new AbortController(), tm = setTimeout(() => c.abort(), 40000);
     try {
       const r = await fetch(ENDPOINTS[i], { method: 'POST', body: 'data=' + encodeURIComponent(q), headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, signal: c.signal });
@@ -651,17 +652,19 @@ async function loadTiles(manual) {
   if (!need.length) { if (manual) say('Alle Häuser in diesem Ausschnitt sind schon geladen.'); return; }
   if (need.length > 12) { if (manual) say('Ausschnitt zu groß. Bitte etwas näher heranzoomen.', true); return; }
   loading = true; $('btnLoad').classList.add('busy');
-  let added = 0;
+  let added = 0, failed = 0, lastErr = null;
   try {
     for (let i = 0; i < need.length; i++) {
       say(`Häuser werden geladen … ${i + 1}/${need.length}`, false, true);
-      added += ingest(await overpass(tileQuery(need[i])));
-      loadedTiles[need[i].key] = Date.now(); LS.set(K.tiles, loadedTiles);
+      try {
+        added += ingest(await overpass(tileQuery(need[i])));
+        loadedTiles[need[i].key] = Date.now(); LS.set(K.tiles, loadedTiles);
+      } catch (e) { failed++; lastErr = e; }
     }
     updateLabels(); updateTally();
-    say(added ? `${added} Häuser geladen. Haus antippen zum Markieren.` : 'Keine neuen Häuser in diesem Ausschnitt.');
-  } catch (e) {
-    say('Häuser konnten nicht geladen werden (' + e.message + '). Bitte gleich nochmal „Häuser finden“ tippen.', true);
+    if (failed === need.length) say('Häuser konnten nicht geladen werden (' + lastErr.message + '). Die Server sind gerade überlastet – bitte in einer Minute nochmal „Häuser finden“ tippen.', true);
+    else if (failed) say(`${added} Häuser geladen, ein Teil des Ausschnitts fehlt noch. Gleich nochmal „Häuser finden“ tippen.`, true);
+    else say(added ? `${added} Häuser geladen. Haus antippen zum Markieren.` : 'Keine neuen Häuser in diesem Ausschnitt.');
   } finally { loading = false; $('btnLoad').classList.remove('busy'); }
 }
 $('btnLoad').addEventListener('click', () => loadTiles(true));
@@ -1116,12 +1119,13 @@ function resultItem(p) {
 function goTo(p) {
   openSearch(false);
   const bb = p.bb && L.latLngBounds([p.bb[0], p.bb[2]], [p.bb[1], p.bb[3]]);
-  if (p.type === 'postcode' || !bb || !bb.isValid()) map.setView([p.lat, p.lon], p.type === 'road' || p.type === 'building' ? 17 : 15);
-  else map.fitBounds(bb, { maxZoom: 17, padding: [20, 20] });
+  let z;
+  if (p.type === 'postcode' || !bb || !bb.isValid()) { z = p.type === 'road' || p.type === 'building' ? 17 : 15; map.setView([p.lat, p.lon], z); }
+  else { z = Math.min(17, map.getBoundsZoom(bb, false, L.point(40, 40))); map.fitBounds(bb, { maxZoom: 17, padding: [20, 20] }); }
   if (searchPin) map.removeLayer(searchPin);
   searchPin = L.marker([p.lat, p.lon], { icon: L.divIcon({ className: '', html: '<div class="search-pin"></div>', iconSize: [22, 22], iconAnchor: [11, 26] }), interactive: false }).addTo(map);
   settings.recent = [p].concat((settings.recent || []).filter(x => x.title !== p.title || x.detail !== p.detail)).slice(0, 5); saveSettings();
-  say(map.getZoom() < 15 ? `${p.title}: näher an die Straße heranzoomen, dann „Häuser finden“.` : `${p.title} – „Häuser finden“ tippen.`);
+  say(z < 15 ? `${p.title}: näher an die Straße heranzoomen, dann „Häuser finden“.` : `${p.title} – „Häuser finden“ tippen.`);
 }
 searchBox.addEventListener('submit', async e => {
   e.preventDefault();
@@ -1133,7 +1137,13 @@ searchBox.addEventListener('submit', async e => {
     if (/^\d{5}$/.test(q)) prm.set('postalcode', q); else prm.set('q', q);
     const r = await fetch('https://nominatim.openstreetmap.org/search?' + prm, { headers: { Accept: 'application/json' } });
     if (!r.ok) throw new Error('Server antwortet ' + r.status);
-    const list = (await r.json()).map(x => Object.assign(placeLabel(x), { lat: +x.lat, lon: +x.lon, bb: (x.boundingbox || []).map(Number), type: x.addresstype }));
+    const list = [];
+    for (const x of await r.json()) {
+      const p = Object.assign(placeLabel(x), { lat: +x.lat, lon: +x.lon, bb: (x.boundingbox || []).map(Number), type: x.addresstype });
+      const dup = list.find(o => o.title === p.title && o.detail === p.detail);
+      if (!dup) { list.push(p); continue; }
+      if (dup.bb.length === 4 && p.bb.length === 4) dup.bb = [Math.min(dup.bb[0], p.bb[0]), Math.max(dup.bb[1], p.bb[1]), Math.min(dup.bb[2], p.bb[2]), Math.max(dup.bb[3], p.bb[3])];
+    }
     searchRes.textContent = '';
     if (!list.length) { const li = document.createElement('li'); li.className = 'hint'; li.textContent = `Nichts gefunden für „${q}“. Tipp: Ortsname oder 5-stellige PLZ, bei Straßen den Ort dazuschreiben.`; searchRes.append(li); return; }
     if (list.length === 1) { goTo(list[0]); return; }
