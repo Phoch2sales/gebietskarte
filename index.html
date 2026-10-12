@@ -54,6 +54,17 @@ header.top{background:var(--chrome);color:var(--chrome-fg);display:flex;align-it
 .backup-bar span{flex:1;min-width:160px}
 .backup-bar button{border:0;border-radius:8px;padding:6px 12px;font-weight:700;background:var(--mark-ink);color:var(--mark)}
 .backup-bar button.ghost{background:transparent;color:var(--mark-ink);text-decoration:underline}
+.search{position:absolute;top:10px;left:12px;right:60px;z-index:950;max-width:560px;margin:0 auto;background:var(--panel);color:var(--fg);border:1px solid var(--line);border-radius:12px;box-shadow:0 8px 24px rgba(0,0,0,.22);padding:8px;display:grid;grid-template-columns:1fr auto;gap:8px}
+.search input{min-width:0;width:100%;border:1px solid var(--line);background:var(--field);color:var(--fg);border-radius:10px;padding:0 12px;height:var(--btn-h);font-size:16px}
+.search-res{grid-column:1/-1;list-style:none;margin:0;padding:0;max-height:50vh;overflow:auto}
+.search-res:empty{display:none}
+.search-res button{width:100%;text-align:left;border:0;border-top:1px solid var(--line);background:none;color:var(--fg);padding:10px 6px;display:grid;gap:2px}
+.search-res button:hover{background:var(--field)}
+.search-res b{font-weight:700}
+.search-res small{color:var(--muted)}
+.search-res .hint{padding:8px 6px;color:var(--muted);font-size:.85em;border-top:1px solid var(--line)}
+@media (max-width:430px){.brand small{display:none}.tally{gap:7px}}
+.search-pin{width:22px;height:22px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);background:var(--mark);border:3px solid #13212b;box-shadow:0 2px 6px rgba(0,0,0,.35)}
 
 footer.tools{background:var(--chrome);color:var(--chrome-fg);padding:8px 12px calc(env(safe-area-inset-bottom,0px) + 8px);display:flex;gap:8px;overflow-x:auto;scrollbar-width:none}
 footer.tools::-webkit-scrollbar{display:none}
@@ -145,6 +156,9 @@ dialog::backdrop{background:rgba(5,15,22,.55)}
   <header class="top">
     <div class="brand">P² Gebietskarte<small id="ver"></small></div>
     <div class="tally" id="tally" aria-label="Zähler"></div>
+    <button class="iconbtn" id="btnSearch" aria-label="Ort oder PLZ suchen" aria-expanded="false">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5L21 21"/></svg>
+    </button>
     <button class="iconbtn" id="btnMore" aria-label="Mehr: Sicherung, Team, Excel, Einstellungen">
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
     </button>
@@ -156,6 +170,11 @@ dialog::backdrop{background:rgba(5,15,22,.55)}
       <button id="barSave">Jetzt sichern</button>
       <button class="ghost" id="barLater">Später</button>
     </div>
+    <form class="search" id="searchBox" role="search" hidden>
+      <input id="searchIn" type="search" placeholder="Ort, PLZ oder Straße, z. B. Erkrath" autocomplete="off" enterkeyhint="search" aria-label="Ort, PLZ oder Straße">
+      <button class="btn primary" type="submit">Suchen</button>
+      <ul class="search-res" id="searchRes"></ul>
+    </form>
     <div class="msg" id="message" role="status" aria-live="polite"></div>
   </main>
 
@@ -267,7 +286,7 @@ dialog::backdrop{background:rgba(5,15,22,.55)}
       <button class="btn" type="button" id="mSnapRestore">Diesen Stand wiederherstellen</button>
     </div>
     <p class="ver" id="mStats"></p>
-    <p class="ver">Kartendaten © OpenStreetMap-Mitwirkende · Luftbild © Esri bzw. © Geobasis NRW (dl-de/zero-2-0). Tipp: über „Zum Startbildschirm hinzufügen“ installieren, dann läuft die Karte auch mit schlechtem Netz.</p>
+    <p class="ver">Ortssuche: Nominatim / OpenStreetMap. Kartendaten © OpenStreetMap-Mitwirkende · Luftbild © Esri bzw. © Geobasis NRW (dl-de/zero-2-0). Tipp: über „Zum Startbildschirm hinzufügen“ installieren, dann läuft die Karte auch mit schlechtem Netz.</p>
     <div class="row-wrap"><button class="btn primary" value="close">Schließen</button></div>
   </form>
 </dialog>
@@ -311,7 +330,7 @@ dialog::backdrop{background:rgba(5,15,22,.55)}
 <script>
 (() => {
 'use strict';
-const VERSION = '1.0';
+const VERSION = '1.1';
 const APP = 'P² Gebietskarte';
 const $ = id => document.getElementById(id);
 const msgEl = $('message');
@@ -332,7 +351,7 @@ const STATUS = {
   kein:   { label: 'Kein Interesse',    short: '–', fill: '#7c4dcc', line: '#542f99' }
 };
 const PART = { label: 'Teilweise erledigt', fill: '#f08c00', line: '#a85f00' };
-const OPEN = { fill: '#7d8b95', line: '#4b5961' };
+const OPEN = { fill: '#4f6d85', line: '#16324a' };
 const DONE = s => s === 'green' || s === 'kein';
 const DAY = 864e5;
 
@@ -486,10 +505,10 @@ function styleFor(id) {
   return {
     renderer,
     color: sel ? '#ffd23f' : due ? '#111' : col.line,
-    weight: sel ? 4 : due ? 3 : 1.4,
+    weight: sel ? 4 : due ? 3 : s ? 1.6 : 2,
     dashArray: due && !sel ? '6 4' : null,
     fillColor: col.fill,
-    fillOpacity: vis ? (s ? 0.62 : 0.22) : 0.03,
+    fillOpacity: vis ? (s ? 0.62 : 0.38) : 0.03,
     opacity: vis ? 1 : 0.12
   };
 }
@@ -1061,6 +1080,69 @@ async function exportXlsx(scope) {
 }
 $('mXlsAll').addEventListener('click', () => exportXlsx('all'));
 $('mXlsView').addEventListener('click', () => exportXlsx('view'));
+
+/* ===== Ortssuche (OpenStreetMap Nominatim) ===== */
+const searchBox = $('searchBox'), searchIn = $('searchIn'), searchRes = $('searchRes');
+let searchPin = null, searching = false;
+function openSearch(open) {
+  searchBox.hidden = !open; $('btnSearch').setAttribute('aria-expanded', String(open));
+  if (open) { if (current) closeSheet(); showRecent(); setTimeout(() => searchIn.focus(), 30); }
+}
+$('btnSearch').addEventListener('click', () => openSearch(searchBox.hidden));
+searchIn.addEventListener('keydown', e => { if (e.key === 'Escape') openSearch(false); });
+searchIn.addEventListener('input', () => { if (!searchIn.value.trim()) showRecent(); });
+function placeLabel(r) {
+  const a = r.address || {};
+  const ort = a.city || a.town || a.village || a.municipality || a.suburb || a.county || '';
+  const title = r.addresstype === 'postcode' ? (a.postcode || r.name) + (ort ? ' ' + ort : '')
+    : a.road && r.addresstype !== 'city' && r.addresstype !== 'town' && r.addresstype !== 'village' ? a.road + (a.house_number ? ' ' + a.house_number : '')
+    : (r.name || r.display_name.split(',')[0]);
+  const parts = [a.postcode, ort, a.county !== ort ? a.county : '', a.state].filter(Boolean).filter((v, i, l) => l.indexOf(v) === i && !title.includes(v));
+  return { title, detail: parts.join(' · ') };
+}
+function showRecent() {
+  searchRes.textContent = '';
+  const rec = settings.recent || [];
+  if (!rec.length) { const li = document.createElement('li'); li.className = 'hint'; li.textContent = 'Ortsname, 5-stellige PLZ oder Straße mit Ort eingeben, dann „Suchen“.'; searchRes.append(li); return; }
+  for (const p of rec) searchRes.append(resultItem(p));
+}
+function resultItem(p) {
+  const li = document.createElement('li'), b = document.createElement('button');
+  b.type = 'button';
+  const t = document.createElement('b'); t.textContent = p.title;
+  const d = document.createElement('small'); d.textContent = p.detail || '';
+  b.append(t, d); b.addEventListener('click', () => goTo(p)); li.append(b); return li;
+}
+function goTo(p) {
+  openSearch(false);
+  const bb = p.bb && L.latLngBounds([p.bb[0], p.bb[2]], [p.bb[1], p.bb[3]]);
+  if (p.type === 'postcode' || !bb || !bb.isValid()) map.setView([p.lat, p.lon], p.type === 'road' || p.type === 'building' ? 17 : 15);
+  else map.fitBounds(bb, { maxZoom: 17, padding: [20, 20] });
+  if (searchPin) map.removeLayer(searchPin);
+  searchPin = L.marker([p.lat, p.lon], { icon: L.divIcon({ className: '', html: '<div class="search-pin"></div>', iconSize: [22, 22], iconAnchor: [11, 26] }), interactive: false }).addTo(map);
+  settings.recent = [p].concat((settings.recent || []).filter(x => x.title !== p.title || x.detail !== p.detail)).slice(0, 5); saveSettings();
+  say(map.getZoom() < 15 ? `${p.title}: näher an die Straße heranzoomen, dann „Häuser finden“.` : `${p.title} – „Häuser finden“ tippen.`);
+}
+searchBox.addEventListener('submit', async e => {
+  e.preventDefault();
+  const q = searchIn.value.trim(); if (!q || searching) return;
+  searching = true; searchRes.textContent = '';
+  const wait = document.createElement('li'); wait.className = 'hint'; wait.textContent = 'Suche läuft …'; searchRes.append(wait);
+  try {
+    const prm = new URLSearchParams({ format: 'jsonv2', addressdetails: '1', limit: '8', 'accept-language': 'de', countrycodes: 'de' });
+    if (/^\d{5}$/.test(q)) prm.set('postalcode', q); else prm.set('q', q);
+    const r = await fetch('https://nominatim.openstreetmap.org/search?' + prm, { headers: { Accept: 'application/json' } });
+    if (!r.ok) throw new Error('Server antwortet ' + r.status);
+    const list = (await r.json()).map(x => Object.assign(placeLabel(x), { lat: +x.lat, lon: +x.lon, bb: (x.boundingbox || []).map(Number), type: x.addresstype }));
+    searchRes.textContent = '';
+    if (!list.length) { const li = document.createElement('li'); li.className = 'hint'; li.textContent = `Nichts gefunden für „${q}“. Tipp: Ortsname oder 5-stellige PLZ, bei Straßen den Ort dazuschreiben.`; searchRes.append(li); return; }
+    if (list.length === 1) { goTo(list[0]); return; }
+    for (const p of list) searchRes.append(resultItem(p));
+  } catch (err) {
+    searchRes.textContent = '';
+    const li = document.createElement('li'); li.className = 'hint'; li.textContent = 'Suche gerade nicht erreichbar (' + err.message + '). Bitte gleich nochmal versuchen.'; searchRes.append(li);
+  } finally { searching = false; }
+});
 
 /* ===== Mehr-Dialog ===== */
 $('btnMore').addEventListener('click', () => {
