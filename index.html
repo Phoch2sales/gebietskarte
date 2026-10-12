@@ -1,0 +1,1092 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0f2a3a">
+<title>P² Gebietskarte</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon.svg">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" crossorigin="anonymous">
+<style>
+/* Layout: Vollbild-Karte, dunkle Kopfleiste mit Tageszahlen, Werkzeugleiste unten, Haus-Blatt von unten (Desktop: rechts) */
+:root{
+  --chrome:#0f2a3a; --chrome-2:#183c50; --chrome-fg:#f1f5f7; --chrome-muted:#9fb6c3;
+  --bg:#e9eef1; --panel:#ffffff; --fg:#13212b; --muted:#566874; --line:#d3dce2; --field:#f4f7f9;
+  --mark:#ffd23f; --mark-ink:#1d1600;
+  --s-green:#1f9d55; --s-red:#e03e3e; --s-termin:#2f6fde; --s-kein:#7c4dcc; --s-part:#f08c00; --s-open:#7d8b95;
+  --danger:#c62828;
+  --font:system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+  --btn-h:44px; --fs:15px;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0c161d; --panel:#13212b; --fg:#e8eef2; --muted:#9db0bc; --line:#2a3d4a; --field:#0f1b23; color-scheme:dark;
+}}
+:root[data-theme="dark"]{--bg:#0c161d; --panel:#13212b; --fg:#e8eef2; --muted:#9db0bc; --line:#2a3d4a; --field:#0f1b23; color-scheme:dark}
+:root.sun{--btn-h:56px; --fs:17px; --chrome:#000; --chrome-2:#1a1a1a; --chrome-fg:#fff; --chrome-muted:#e6e6e6; --panel:#fff; --fg:#000; --muted:#222; --line:#000; --field:#fff; --bg:#fff; color-scheme:light}
+
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{height:100%;margin:0}
+body{font:var(--fs)/1.4 var(--font);background:var(--bg);color:var(--fg);overflow:hidden;-webkit-tap-highlight-color:transparent}
+button,select,input,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:3px solid var(--mark);outline-offset:2px}
+
+.app{position:fixed;inset:0;display:grid;grid-template-rows:auto 1fr auto}
+header.top{background:var(--chrome);color:var(--chrome-fg);display:flex;align-items:center;gap:12px;padding:calc(env(safe-area-inset-top,0px) + 8px) 16px 8px}
+.brand{font-weight:750;letter-spacing:.01em;font-size:1.05em;white-space:nowrap}
+.brand small{font-weight:500;color:var(--chrome-muted);font-size:.72em;margin-left:6px;letter-spacing:.06em}
+.tally{display:flex;gap:10px;flex-wrap:wrap;margin-left:auto;font-variant-numeric:tabular-nums;font-size:.86em}
+.tally span{display:inline-flex;align-items:center;gap:5px;white-space:nowrap}
+.tally i{width:10px;height:10px;border-radius:2px;display:inline-block}
+.iconbtn{background:var(--chrome-2);border:0;color:var(--chrome-fg);height:var(--btn-h);min-width:var(--btn-h);border-radius:10px;display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:0 12px;font-weight:600}
+
+#map{position:relative;min-height:0;background:#cfd8dc}
+.leaflet-container{font:inherit}
+.leaflet-container:focus,.leaflet-container:focus-visible{outline:none}
+.msg{position:absolute;left:12px;right:12px;bottom:12px;z-index:900;background:var(--panel);color:var(--fg);border:1px solid var(--line);border-radius:10px;padding:8px 12px;font-size:.9em;box-shadow:0 4px 16px rgba(0,0,0,.18);max-width:560px;margin:0 auto}
+.msg.error{border-color:var(--danger);color:var(--danger)}
+.msg:empty{display:none}
+.backup-bar{position:absolute;top:10px;left:12px;right:60px;z-index:900;background:var(--mark);color:var(--mark-ink);border-radius:10px;padding:8px 10px 8px 12px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;max-width:560px;margin:0 auto;font-weight:600;font-size:.9em;box-shadow:0 4px 16px rgba(0,0,0,.2)}
+.backup-bar span{flex:1;min-width:160px}
+.backup-bar button{border:0;border-radius:8px;padding:6px 12px;font-weight:700;background:var(--mark-ink);color:var(--mark)}
+.backup-bar button.ghost{background:transparent;color:var(--mark-ink);text-decoration:underline}
+
+footer.tools{background:var(--chrome);color:var(--chrome-fg);padding:8px 12px calc(env(safe-area-inset-bottom,0px) + 8px);display:flex;gap:8px;overflow-x:auto;scrollbar-width:none}
+footer.tools::-webkit-scrollbar{display:none}
+.tool{flex:0 0 auto;background:var(--chrome-2);border:2px solid transparent;color:var(--chrome-fg);height:var(--btn-h);border-radius:10px;padding:0 12px;display:inline-flex;align-items:center;gap:7px;font-weight:600;white-space:nowrap}
+.tool svg{width:20px;height:20px;flex:0 0 auto}
+.tool[aria-pressed="true"]{background:var(--mark);color:var(--mark-ink)}
+.tool.busy{opacity:.7}
+.tool.busy svg{animation:spin 1s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){.tool.busy svg{animation:none}}
+select.tool{appearance:none;-webkit-appearance:none;padding-right:28px;background-image:linear-gradient(45deg,transparent 50%,currentColor 50%),linear-gradient(135deg,currentColor 50%,transparent 50%);background-position:calc(100% - 15px) 52%,calc(100% - 10px) 52%;background-size:5px 5px;background-repeat:no-repeat}
+select.tool option{color:#13212b;background:#fff}
+.auto{flex:0 0 auto;display:inline-flex;align-items:center;gap:6px;font-size:.82em;color:var(--chrome-muted);padding:0 4px;white-space:nowrap}
+.auto input{width:18px;height:18px;accent-color:var(--mark)}
+
+/* Haus-Blatt */
+.sheet{position:fixed;z-index:1000;left:0;right:0;bottom:0;max-height:78%;overflow:auto;background:var(--panel);color:var(--fg);border-radius:16px 16px 0 0;box-shadow:0 -8px 30px rgba(0,0,0,.25);padding:14px 16px calc(env(safe-area-inset-bottom,0px) + 16px);display:grid;gap:12px}
+@media (min-width:900px){.sheet{left:auto;top:calc(env(safe-area-inset-top,0px) + 70px);bottom:76px;right:12px;width:380px;max-height:none;border-radius:14px}}
+.sh-head{display:flex;gap:10px;align-items:flex-start}
+.sh-head > div{flex:1;min-width:0}
+.sh-head h2{margin:0;font-size:1.25em;line-height:1.2;text-wrap:balance}
+.sh-head p{margin:2px 0 0;color:var(--muted);font-size:.88em}
+.close{border:1px solid var(--line);background:var(--field);border-radius:10px;width:var(--btn-h);height:var(--btn-h);font-size:1.1em}
+.states{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.st{min-height:calc(var(--btn-h) + 6px);border-radius:10px;border:2px solid var(--line);background:var(--field);font-weight:700;display:flex;align-items:center;gap:8px;padding:0 12px;text-align:left}
+.st b{width:22px;height:22px;border-radius:6px;display:inline-grid;place-items:center;color:#fff;font-size:.8em;flex:0 0 auto}
+.st[aria-pressed="true"]{border-color:currentColor;background:var(--panel)}
+.st[data-s="green"]{color:var(--s-green)} .st[data-s="green"] b{background:var(--s-green)}
+.st[data-s="red"]{color:var(--s-red)} .st[data-s="red"] b{background:var(--s-red)}
+.st[data-s="termin"]{color:var(--s-termin)} .st[data-s="termin"] b{background:var(--s-termin)}
+.st[data-s="kein"]{color:var(--s-kein)} .st[data-s="kein"] b{background:var(--s-kein)}
+.st span{color:var(--fg)}
+.info{margin:0;font-size:.88em;color:var(--muted)}
+.info.due{color:var(--danger);font-weight:700}
+.field{display:grid;gap:4px;font-size:.85em;color:var(--muted);font-weight:600}
+.field input,.field textarea,.units input[type=text]{width:100%;border:1px solid var(--line);background:var(--field);border-radius:10px;padding:10px 12px;color:var(--fg);font-weight:400;font-size:var(--fs)}
+.field textarea{min-height:64px;resize:vertical}
+.mfh{display:flex;align-items:center;gap:10px;flex-wrap:wrap;border-top:1px solid var(--line);padding-top:12px}
+.mfh label{display:flex;align-items:center;gap:8px;font-weight:700}
+.mfh input[type=checkbox]{width:22px;height:22px;accent-color:var(--chrome)}
+.stepper{display:inline-flex;align-items:center;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.stepper button{border:0;background:var(--field);width:40px;height:40px;font-size:1.2em;font-weight:700}
+.stepper output{min-width:44px;text-align:center;font-variant-numeric:tabular-nums;font-weight:700}
+.units{list-style:none;margin:0;padding:0;display:grid;gap:8px}
+.units li{border:1px solid var(--line);border-radius:10px;padding:8px;display:grid;gap:6px}
+.units .row{display:flex;gap:6px;align-items:center}
+.units .row input{flex:1;min-width:0;padding:8px 10px}
+.chips{display:flex;gap:6px;flex-wrap:wrap}
+.chip{border:2px solid var(--line);background:var(--field);border-radius:8px;height:36px;min-width:40px;padding:0 8px;font-weight:700;font-size:.85em}
+.chip[aria-pressed="true"]{color:#fff;border-color:transparent}
+.chip[data-s="green"][aria-pressed="true"]{background:var(--s-green)}
+.chip[data-s="red"][aria-pressed="true"]{background:var(--s-red)}
+.chip[data-s="termin"][aria-pressed="true"]{background:var(--s-termin)}
+.chip[data-s="kein"][aria-pressed="true"]{background:var(--s-kein)}
+.units small{color:var(--muted)}
+.units small.due{color:var(--danger);font-weight:700}
+.sh-foot{display:flex;gap:8px;flex-wrap:wrap;border-top:1px solid var(--line);padding-top:12px}
+.btn{border:1px solid var(--line);background:var(--field);color:var(--fg);border-radius:10px;min-height:var(--btn-h);padding:0 14px;font-weight:600;display:inline-flex;align-items:center;justify-content:center;gap:6px;text-decoration:none}
+.btn.primary{background:var(--chrome);color:var(--chrome-fg);border-color:var(--chrome)}
+.btn.danger{color:var(--danger)}
+
+/* Hausnummern */
+.hn{background:none;border:0}
+.hn span{display:inline-block;transform:translate(-50%,-50%);background:rgba(255,255,255,.92);color:#13212b;border:1px solid rgba(0,0,0,.25);border-radius:5px;padding:0 4px;font-size:11px;font-weight:700;line-height:16px;white-space:nowrap;pointer-events:none;font-variant-numeric:tabular-nums}
+.hn span.due{background:#13212b;color:var(--mark)}
+.pos-dot{width:18px;height:18px;border-radius:50%;background:#1a73e8;border:3px solid #fff;box-shadow:0 0 0 2px rgba(26,115,232,.35)}
+
+/* Dialoge */
+dialog{border:0;border-radius:14px;padding:0;background:var(--panel);color:var(--fg);width:min(520px,calc(100% - 24px));max-height:calc(100% - 40px);box-shadow:0 20px 60px rgba(0,0,0,.35)}
+dialog::backdrop{background:rgba(5,15,22,.55)}
+.dlg{padding:18px 18px 16px;display:grid;gap:14px}
+.dlg h2{margin:0;font-size:1.2em}
+.dlg h3{margin:4px 0 0;font-size:.78em;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
+.dlg p{margin:0;color:var(--muted);font-size:.9em;max-width:62ch}
+.stack{display:grid;gap:8px}
+.row-wrap{display:flex;gap:8px;flex-wrap:wrap}
+.dlg select,.dlg textarea{width:100%;border:1px solid var(--line);background:var(--field);border-radius:10px;padding:10px 12px;color:var(--fg)}
+.dlg textarea{min-height:90px;font-size:.8em;word-break:break-all}
+.opt{display:flex;gap:10px;align-items:flex-start;font-size:.95em}
+.opt input{width:20px;height:20px;margin-top:1px;accent-color:var(--chrome)}
+.legend{display:grid;grid-template-columns:auto 1fr;gap:6px 10px;font-size:.9em;align-items:center}
+.legend i{width:16px;height:16px;border-radius:4px;display:inline-block}
+.legend i.due{background:transparent;border:2px dashed var(--fg)}
+.ver{font-size:.78em;color:var(--muted)}
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="top">
+    <div class="brand">P² Gebietskarte<small id="ver"></small></div>
+    <div class="tally" id="tally" aria-label="Zähler"></div>
+    <button class="iconbtn" id="btnMore" aria-label="Mehr: Sicherung, Team, Excel, Einstellungen">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+    </button>
+  </header>
+
+  <main id="map">
+    <div class="backup-bar" id="backupBar" hidden>
+      <span>Heute noch keine Sicherungsdatei gespeichert.</span>
+      <button id="barSave">Jetzt sichern</button>
+      <button class="ghost" id="barLater">Später</button>
+    </div>
+    <div class="msg" id="message" role="status" aria-live="polite"></div>
+  </main>
+
+  <footer class="tools">
+    <button class="tool" id="btnLocate" aria-pressed="false">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="4"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg>Standort
+    </button>
+    <button class="tool" id="btnLoad">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"><path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg>Häuser finden
+    </button>
+    <label class="auto" title="Beim Verschieben der Karte automatisch Häuser laden"><input type="checkbox" id="chkAuto">auto</label>
+    <select class="tool" id="selFilter" aria-label="Filter">
+      <option value="all">Alle Häuser</option>
+      <option value="open">Noch nicht besucht</option>
+      <option value="red">Nicht angetroffen</option>
+      <option value="due">Wiedervorlage fällig</option>
+      <option value="termin">Termine</option>
+      <option value="done">Erledigt</option>
+      <option value="mfh">Mehrfamilienhäuser offen</option>
+    </select>
+    <select class="tool" id="selBase" aria-label="Kartenansicht">
+      <option value="osm">Straßenkarte</option>
+      <option value="sat">Luftbild</option>
+      <option value="nrw">Luftbild NRW (amtlich)</option>
+    </select>
+    <button class="tool" id="btnDraw" aria-pressed="false">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"><path d="M4 20l4-1 11-11-3-3L5 16z"/></svg>Skizze
+    </button>
+    <button class="tool" id="btnErase" aria-pressed="false">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"><path d="M8 20h12M5 15l8-8 5 5-6 6H8z"/></svg>Radierer
+    </button>
+    <button class="tool" id="btnSun" aria-pressed="false" title="Sonnenmodus: größere Knöpfe, maximaler Kontrast">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M5 5l1.4 1.4M17.6 17.6L19 19M5 19l1.4-1.4M17.6 6.4L19 5"/></svg>Sonne
+    </button>
+  </footer>
+</div>
+
+<!-- Haus-Blatt -->
+<section class="sheet" id="sheet" hidden aria-labelledby="shTitle">
+  <div class="sh-head">
+    <div><h2 id="shTitle"></h2><p id="shSub"></p></div>
+    <button class="close" id="shClose" aria-label="Schließen">✕</button>
+  </div>
+  <div class="states" id="shStates">
+    <button class="st" data-s="green"><b>✓</b><span>Fertig</span></button>
+    <button class="st" data-s="red"><b>✕</b><span>Nicht angetroffen</span></button>
+    <button class="st" data-s="termin"><b>T</b><span>Termin</span></button>
+    <button class="st" data-s="kein"><b>–</b><span>Kein Interesse</span></button>
+  </div>
+  <p class="info" id="shInfo"></p>
+  <label class="field" id="shApptWrap" hidden>Termin am
+    <input type="datetime-local" id="shAppt">
+  </label>
+  <div class="mfh">
+    <label><input type="checkbox" id="shMfh">Mehrfamilienhaus</label>
+    <div class="stepper" id="shStepper" hidden>
+      <button id="shMinus" aria-label="Eine Partei weniger">−</button>
+      <output id="shCount">2</output>
+      <button id="shPlus" aria-label="Eine Partei mehr">+</button>
+    </div>
+    <span id="shProgress" class="info"></span>
+  </div>
+  <ol class="units" id="shUnits" hidden></ol>
+  <label class="field">Namen<textarea id="shNames" rows="2" placeholder="Ein Name pro Zeile"></textarea></label>
+  <label class="field">Notiz<textarea id="shNote" rows="2" placeholder="z. B. Hund, Hintereingang, Vertrag läuft bis 03/27"></textarea></label>
+  <div class="sh-foot">
+    <a class="btn" id="shNav" target="_blank" rel="noopener">Route</a>
+    <button class="btn danger" id="shReset">Zurücksetzen</button>
+  </div>
+</section>
+
+<!-- Mehr -->
+<dialog id="dlgMore">
+  <form method="dialog" class="dlg">
+    <h2>Mehr</h2>
+    <h3>Sichern &amp; Team</h3>
+    <div class="row-wrap">
+      <button class="btn primary" type="button" id="mSave">Sicherung speichern</button>
+      <button class="btn" type="button" id="mShare">An Kollegen senden</button>
+      <button class="btn" type="button" id="mOpen">Datei öffnen</button>
+    </div>
+    <p>Alle Daten liegen nur auf diesem Gerät. Fürs Team: „An Kollegen senden“, beim Kollegen wird zusammengeführt. Bei doppelten Häusern gewinnt der neuere Eintrag.</p>
+    <h3>Auswertung</h3>
+    <div class="row-wrap">
+      <button class="btn" type="button" id="mXlsAll">Excel: alle markierten Häuser</button>
+      <button class="btn" type="button" id="mXlsView">Excel: Ausschnitt inkl. offene</button>
+    </div>
+    <h3>Wiedervorlage</h3>
+    <label class="opt" style="align-items:center">„Nicht angetroffen“ wieder anlaufen nach
+      <select id="mRevisit" style="width:auto">
+        <option value="1">1 Tag</option><option value="2">2 Tagen</option><option value="3">3 Tagen</option>
+        <option value="5">5 Tagen</option><option value="7">7 Tagen</option><option value="14">14 Tagen</option>
+      </select>
+    </label>
+    <h3>Farben</h3>
+    <div class="legend">
+      <i style="background:var(--s-open)"></i><span>Noch nicht besucht</span>
+      <i style="background:var(--s-green)"></i><span>Fertig (Vertrag/abgeschlossen)</span>
+      <i style="background:var(--s-red)"></i><span>Nicht angetroffen</span>
+      <i style="background:var(--s-termin)"></i><span>Termin</span>
+      <i style="background:var(--s-kein)"></i><span>Kein Interesse</span>
+      <i style="background:var(--s-part)"></i><span>Mehrfamilienhaus teilweise erledigt</span>
+      <i class="due"></i><span>Wiedervorlage fällig (gestrichelter Rand)</span>
+    </div>
+    <h3>Automatische Tageskopien</h3>
+    <p>Die App legt jeden Tag eine Kopie aller Markierungen auf diesem Gerät an (die letzten 30 Tage). Gegen Handyverlust hilft nur die Sicherungsdatei.</p>
+    <div class="row-wrap">
+      <select id="mSnaps" style="flex:1;min-width:180px"></select>
+      <button class="btn" type="button" id="mSnapRestore">Diesen Stand wiederherstellen</button>
+    </div>
+    <p class="ver" id="mStats"></p>
+    <p class="ver">Kartendaten © OpenStreetMap-Mitwirkende · Luftbild © Esri bzw. © Geobasis NRW (dl-de/zero-2-0). Tipp: über „Zum Startbildschirm hinzufügen“ installieren, dann läuft die Karte auch mit schlechtem Netz.</p>
+    <div class="row-wrap"><button class="btn primary" value="close">Schließen</button></div>
+  </form>
+</dialog>
+
+<!-- Teilen -->
+<dialog id="dlgShare">
+  <form method="dialog" class="dlg">
+    <h2>An Kollegen senden</h2>
+    <p>Gesendet werden die Häuser des Gebiets, alle Markierungen, Skizzen und der Kartenausschnitt. Der Kollege sieht danach dieselbe Karte.</p>
+    <div class="stack">
+      <label class="opt"><input type="radio" name="shareArea" value="all" checked>Alle gespeicherten Häuser (komplettes Gebiet)</label>
+      <label class="opt"><input type="radio" name="shareArea" value="view">Nur der aktuelle Kartenausschnitt</label>
+      <label class="opt"><input type="checkbox" id="shareNames" checked>Namen und Notizen mitsenden</label>
+    </div>
+    <div class="row-wrap">
+      <button class="btn primary" type="button" id="sLink">Als Link senden</button>
+      <button class="btn" type="button" id="sFile">Als Datei senden</button>
+    </div>
+    <textarea id="sOut" readonly hidden></textarea>
+    <p id="sInfo"></p>
+    <div class="row-wrap"><button class="btn" value="close">Schließen</button></div>
+  </form>
+</dialog>
+
+<!-- Import -->
+<dialog id="dlgImport">
+  <form method="dialog" class="dlg">
+    <h2>Gebiet übernehmen</h2>
+    <p id="iInfo"></p>
+    <p>„Zusammenführen“ behält deine Markierungen und übernimmt neuere Einträge. „Alles ersetzen“ löscht deine Markierungen und Skizzen auf diesem Gerät.</p>
+    <div class="row-wrap">
+      <button class="btn primary" type="button" id="iMerge">Zusammenführen</button>
+      <button class="btn danger" type="button" id="iReplace">Alles ersetzen</button>
+      <button class="btn" value="cancel">Abbrechen</button>
+    </div>
+  </form>
+</dialog>
+<input type="file" id="fileIn" accept=".json,application/json" hidden>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js" crossorigin="anonymous"></script>
+<script>
+(() => {
+'use strict';
+const VERSION = '1.0';
+const APP = 'P² Gebietskarte';
+const $ = id => document.getElementById(id);
+const msgEl = $('message');
+let msgTimer = 0;
+function say(text, error = false, sticky = false) {
+  clearTimeout(msgTimer);
+  msgEl.textContent = text; msgEl.classList.toggle('error', error);
+  if (!sticky && text) msgTimer = setTimeout(() => { msgEl.textContent = ''; }, error ? 9000 : 5000);
+}
+$('ver').textContent = 'V' + VERSION;
+if (!window.L) { say('Die Kartenbibliothek konnte nicht geladen werden. Bitte Internetverbindung prüfen und neu laden.', true, true); return; }
+
+/* ===== Status ===== */
+const STATUS = {
+  green:  { label: 'Fertig',            short: '✓', fill: '#1f9d55', line: '#0b6b35' },
+  red:    { label: 'Nicht angetroffen', short: '✕', fill: '#e03e3e', line: '#a61f1f' },
+  termin: { label: 'Termin',            short: 'T', fill: '#2f6fde', line: '#1c4fae' },
+  kein:   { label: 'Kein Interesse',    short: '–', fill: '#7c4dcc', line: '#542f99' }
+};
+const PART = { label: 'Teilweise erledigt', fill: '#f08c00', line: '#a85f00' };
+const OPEN = { fill: '#7d8b95', line: '#4b5961' };
+const DONE = s => s === 'green' || s === 'kein';
+const DAY = 864e5;
+
+/* ===== Speicher ===== */
+const K = { rec: 'p2gk-records-v1', set: 'p2gk-settings-v1', sk: 'p2gk-sketches-v1', tiles: 'p2gk-tiles-v1' };
+const LS = {
+  get(k, fb) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : fb; } catch (e) { return fb; } },
+  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch (e) { return false; } }
+};
+let records = LS.get(K.rec, {});
+if (!records || typeof records !== 'object' || Array.isArray(records)) records = {};
+let sketches = LS.get(K.sk, []);
+if (!Array.isArray(sketches)) sketches = [];
+let loadedTiles = LS.get(K.tiles, {}) || {};
+const settings = Object.assign({ revisitDays: 3, auto: true, base: 'osm', filter: 'all', sun: false }, LS.get(K.set, {}));
+function saveSettings() { LS.set(K.set, settings); }
+let persistTimer = 0;
+function persist() {
+  settings.lastChange = Date.now();
+  clearTimeout(persistTimer);
+  persistTimer = setTimeout(() => {
+    if (!LS.set(K.rec, records) || !LS.set(K.sk, sketches)) say('Speichern fehlgeschlagen. Bitte Speicherplatz des Browsers prüfen und eine Sicherung anlegen.', true, true);
+    saveSettings(); checkBackupBar();
+  }, 250);
+}
+window.addEventListener('pagehide', () => { LS.set(K.rec, records); LS.set(K.sk, sketches); saveSettings(); });
+try { navigator.storage && navigator.storage.persist && navigator.storage.persist(); } catch (e) {}
+
+const idb = (() => {
+  let p = null;
+  function open() {
+    if (p) return p;
+    p = new Promise((res, rej) => {
+      const r = indexedDB.open('p2-gebietskarte', 1);
+      r.onupgradeneeded = () => { const d = r.result; d.createObjectStore('b', { keyPath: 'id' }); d.createObjectStore('snap', { keyPath: 'day' }); };
+      r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error);
+    });
+    return p;
+  }
+  async function tx(store, mode, fn) {
+    const d = await open();
+    return new Promise((res, rej) => {
+      const t = d.transaction(store, mode), s = t.objectStore(store);
+      let out; const r = fn(s); if (r) r.onsuccess = () => { out = r.result; };
+      t.oncomplete = () => res(out); t.onerror = () => rej(t.error); t.onabort = () => rej(t.error);
+    });
+  }
+  return {
+    all: s => tx(s, 'readonly', st => st.getAll()),
+    put: (s, x) => tx(s, 'readwrite', st => st.put(x)),
+    putMany: (s, arr) => tx(s, 'readwrite', st => { for (const x of arr) st.put(x); }),
+    del: (s, k) => tx(s, 'readwrite', st => st.delete(k))
+  };
+})();
+
+/* ===== Hilfen ===== */
+const nowIso = () => new Date().toISOString();
+const today = () => { const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); };
+const fmtDay = t => new Date(t).toLocaleDateString('de-DE', { weekday: 'short', day: '2-digit', month: '2-digit' });
+const fmtFull = t => new Date(t).toLocaleString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const r6 = x => Math.round(x * 1e6) / 1e6;
+const hnSort = (a, b) => (a || '').localeCompare(b || '', 'de', { numeric: true });
+
+/* ===== Datensatz-Logik ===== */
+function statusOf(r) {
+  if (!r) return null;
+  if (r.u && r.u.length) {
+    if (!r.u.some(x => x.s)) return null;
+    if (r.u.every(x => DONE(x.s))) return 'green';
+    return 'teil';
+  }
+  return r.s || null;
+}
+function redSince(r) {
+  if (!r) return null;
+  if (r.u && r.u.length) {
+    const ds = r.u.filter(u => u.s === 'red' && u.d).map(u => Date.parse(u.d));
+    return ds.length ? Math.min(...ds) : null;
+  }
+  return r.s === 'red' && r.d ? Date.parse(r.d) : null;
+}
+const revisitMs = () => (+settings.revisitDays || 3) * DAY;
+function dueAt(r) { const t = redSince(r); return t === null || isNaN(t) ? null : t + revisitMs(); }
+function isDue(r) { const t = dueAt(r); return t !== null && Date.now() >= t; }
+function hasAny(r, s) { return r && (r.u && r.u.length ? r.u.some(u => u.s === s) : r.s === s); }
+function hasData(r) { return !!(r && (r.s || (r.u && r.u.length) || r.n || r.note || r.appt)); }
+function passes(id) {
+  const f = settings.filter; if (f === 'all') return true;
+  const r = records[id], s = statusOf(r);
+  switch (f) {
+    case 'open': return !s;
+    case 'red': return hasAny(r, 'red');
+    case 'due': return isDue(r);
+    case 'termin': return hasAny(r, 'termin');
+    case 'done': return s === 'green' || s === 'kein';
+    case 'mfh': return !!(r && r.u && r.u.length && !r.u.every(u => DONE(u.s)));
+  }
+  return true;
+}
+
+/* ===== Karte ===== */
+const DE = L.latLngBounds([47.2, 5.8], [55.1, 15.1]);
+const renderer = L.canvas({ padding: 0.4, tolerance: 6 });
+const map = L.map('map', { maxZoom: 21, minZoom: 6, maxBounds: DE.pad(0.15), zoomControl: false, renderer, attributionControl: true });
+L.control.zoom({ position: 'topright' }).addTo(map);
+map.attributionControl.setPrefix(false);
+if (settings.view && DE.pad(0.15).contains(settings.view.c)) map.setView(settings.view.c, settings.view.z);
+else map.setView([51.2254, 6.7763], 15); // Düsseldorf
+
+const BASES = {
+  osm: L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxNativeZoom: 19, maxZoom: 21, attribution: '© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a>' }),
+  sat: L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { maxNativeZoom: 19, maxZoom: 21, attribution: 'Luftbild © Esri, Maxar, Earthstar' }),
+  nrw: L.tileLayer.wms('https://www.wms.nrw.de/geobasis/wms_nw_dop', { layers: 'nw_dop_rgb', format: 'image/jpeg', maxZoom: 21, attribution: 'Luftbild © Geobasis NRW, dl-de/zero-2-0' })
+};
+let base = null;
+function setBase(k) {
+  if (!BASES[k]) k = 'osm';
+  if (base) map.removeLayer(base);
+  base = BASES[k].addTo(map); base.bringToBack();
+  settings.base = k; saveSettings(); $('selBase').value = k;
+  if (k === 'nrw' && !L.latLngBounds([50.3, 5.85], [52.55, 9.47]).contains(map.getCenter())) say('Das amtliche Luftbild gibt es nur für NRW. Außerhalb bitte „Luftbild“ wählen.');
+}
+setBase(settings.base);
+$('selBase').addEventListener('change', e => setBase(e.target.value));
+
+map.on('moveend', () => {
+  const c = map.getCenter();
+  settings.view = { c: [r6(c.lat), r6(c.lng)], z: map.getZoom() }; saveSettings();
+  updateLabels();
+  if (settings.auto) scheduleAuto();
+});
+
+/* ===== Gebäude ===== */
+const features = new Map();   // id -> {id,g,c,a,hn,sub}
+const layers = new Map();     // id -> L.polygon
+const houseLayer = L.layerGroup().addTo(map);
+const labelLayer = L.layerGroup().addTo(map);
+let current = null;
+let mode = null; // 'draw' | 'erase' | null
+
+function validFeature(f) {
+  return f && typeof f.id === 'string' && /^[wr]\d+$/.test(f.id) && Array.isArray(f.g) && f.g.length &&
+    f.g.every(ring => Array.isArray(ring) && ring.length >= 3 && ring.every(p => Array.isArray(p) && isFinite(p[0]) && isFinite(p[1]))) &&
+    Array.isArray(f.c) && isFinite(f.c[0]) && isFinite(f.c[1]);
+}
+function styleFor(id) {
+  const r = records[id], s = statusOf(r);
+  const col = s ? (STATUS[s] || PART) : OPEN;
+  const due = isDue(r), vis = passes(id), sel = id === current;
+  return {
+    renderer,
+    color: sel ? '#ffd23f' : due ? '#111' : col.line,
+    weight: sel ? 4 : due ? 3 : 1.4,
+    dashArray: due && !sel ? '6 4' : null,
+    fillColor: col.fill,
+    fillOpacity: vis ? (s ? 0.62 : 0.22) : 0.03,
+    opacity: vis ? 1 : 0.12
+  };
+}
+function addLayer(f) {
+  const p = L.polygon(f.g, styleFor(f.id));
+  p.on('click', e => { if (mode) return; L.DomEvent.stop(e); openSheet(f.id); });
+  p.addTo(houseLayer); layers.set(f.id, p);
+}
+function restyle(id) { const p = layers.get(id); if (p) p.setStyle(styleFor(id)); }
+function restyleAll() { for (const id of layers.keys()) restyle(id); updateLabels(); updateTally(); }
+
+function updateLabels() {
+  labelLayer.clearLayers();
+  if (map.getZoom() < 18) return;
+  const b = map.getBounds().pad(0.1);
+  let n = 0;
+  for (const f of features.values()) {
+    if (!f.hn || !b.contains(f.c) || !passes(f.id)) continue;
+    const r = records[f.id], due = isDue(r), prog = r && r.u && r.u.length ? ' ' + r.u.filter(u => DONE(u.s)).length + '/' + r.u.length : '';
+    const html = `<span class="${due ? 'due' : ''}">${due ? '⏰ ' : ''}${esc(f.hn)}${prog}</span>`;
+    L.marker(f.c, { icon: L.divIcon({ className: 'hn', html, iconSize: [0, 0] }), interactive: false, keyboard: false }).addTo(labelLayer);
+    if (++n > 350) break;
+  }
+}
+
+/* --- Overpass --- */
+const ENDPOINTS = ['https://overpass-api.de/api/interpreter', 'https://overpass.private.coffee/api/interpreter', 'https://overpass.kumi.systems/api/interpreter'];
+let epIdx = 0;
+async function overpass(q) {
+  let last;
+  for (let k = 0; k < ENDPOINTS.length; k++) {
+    const i = (epIdx + k) % ENDPOINTS.length, c = new AbortController(), tm = setTimeout(() => c.abort(), 40000);
+    try {
+      const r = await fetch(ENDPOINTS[i], { method: 'POST', body: 'data=' + encodeURIComponent(q), headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, signal: c.signal });
+      if (!r.ok) throw new Error('Server antwortet ' + r.status);
+      const j = await r.json(); epIdx = i; return j.elements || [];
+    } catch (e) { last = e.name === 'AbortError' ? new Error('Zeitüberschreitung') : e; }
+    finally { clearTimeout(tm); }
+  }
+  throw last || new Error('keine Verbindung');
+}
+const TZ = 15;
+const lon2x = lon => Math.floor((lon + 180) / 360 * 2 ** TZ);
+const lat2y = lat => { const r = lat * Math.PI / 180; return Math.floor((1 - Math.log(Math.tan(r) + 1 / Math.cos(r)) / Math.PI) / 2 * 2 ** TZ); };
+const x2lon = x => x / 2 ** TZ * 360 - 180;
+const y2lat = y => { const n = Math.PI - 2 * Math.PI * y / 2 ** TZ; return 180 / Math.PI * Math.atan(Math.sinh(n)); };
+function tilesIn(b) {
+  const out = [];
+  for (let x = lon2x(b.getWest()); x <= lon2x(b.getEast()); x++)
+    for (let y = lat2y(b.getNorth()); y <= lat2y(b.getSouth()); y++)
+      out.push({ key: x + '/' + y, s: y2lat(y + 1), n: y2lat(y), w: x2lon(x), e: x2lon(x + 1) });
+  return out;
+}
+const tileQuery = t => {
+  const bb = [t.s, t.w, t.n, t.e].map(v => v.toFixed(6)).join(',');
+  return `[out:json][timeout:30];(way["building"](${bb});relation["building"]["type"="multipolygon"](${bb}););out geom;node["addr:housenumber"](${bb});out;`;
+};
+
+const MINOR = new Set(['garage', 'garages', 'shed', 'carport', 'hut', 'roof', 'kiosk', 'transformer_tower', 'service', 'container', 'toilets', 'greenhouse', 'cabin', 'barn', 'bunker', 'ruins', 'construction', 'parking', 'storage_tank', 'silo', 'tent', 'shelter', 'stable', 'cowshed', 'sty', 'bridge', 'tower']);
+const addrPoints = new Map(); // node id -> {la,lo,st,hn,pc,ci}
+function pip(pt, ring) {
+  let inside = false;
+  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+    const yi = ring[i][0], xi = ring[i][1], yj = ring[j][0], xj = ring[j][1];
+    if ((yi > pt[0]) !== (yj > pt[0]) && pt[1] < (xj - xi) * (pt[0] - yi) / (yj - yi) + xi) inside = !inside;
+  }
+  return inside;
+}
+function areaM2(ring) {
+  const k = 111320, cos = Math.cos(ring[0][0] * Math.PI / 180); let a = 0;
+  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) a += (ring[j][1] * cos * k) * (ring[i][0] * k) - (ring[i][1] * cos * k) * (ring[j][0] * k);
+  return Math.abs(a / 2);
+}
+function centroid(ring) {
+  let la = 0, lo = 0, n = 0;
+  const end = ring.length > 3 && ring[0][0] === ring[ring.length - 1][0] && ring[0][1] === ring[ring.length - 1][1] ? ring.length - 1 : ring.length;
+  for (let i = 0; i < end; i++) { la += ring[i][0]; lo += ring[i][1]; n++; }
+  return [r6(la / n), r6(lo / n)];
+}
+function setAddress(f, list) {
+  const pts = list.slice().sort((a, b) => hnSort(a.hn, b.hn));
+  const street = pts[0].st, hns = [...new Set(pts.map(p => p.hn))];
+  f.hn = hns.join(', ');
+  f.a = (street ? street + ' ' : '') + f.hn;
+  const pc = pts.find(p => p.pc), ci = pts.find(p => p.ci);
+  f.sub = [pc && pc.pc, ci && ci.ci].filter(Boolean).join(' ');
+}
+function addressFromPoints(f) {
+  let s = 90, n = -90, w = 180, e = -180;
+  for (const p of f.g[0]) { s = Math.min(s, p[0]); n = Math.max(n, p[0]); w = Math.min(w, p[1]); e = Math.max(e, p[1]); }
+  const hits = [];
+  for (const a of addrPoints.values()) if (a.la >= s && a.la <= n && a.lo >= w && a.lo <= e && pip([a.la, a.lo], f.g[0])) hits.push(a);
+  if (hits.length) { setAddress(f, hits); return true; }
+  return false;
+}
+function parseElements(els) {
+  for (const e of els) {
+    if (e.type !== 'node' || !e.tags || !e.tags['addr:housenumber']) continue;
+    const t = e.tags;
+    addrPoints.set(e.id, { la: e.lat, lo: e.lon, st: t['addr:street'] || t['addr:place'] || '', hn: t['addr:housenumber'], pc: t['addr:postcode'] || '', ci: t['addr:city'] || '' });
+  }
+  const out = [];
+  for (const e of els) {
+    if (e.type === 'node') continue;
+    const t = e.tags || {};
+    if (!t.building || t.building === 'no') continue;
+    let rings = [];
+    if (e.type === 'way' && e.geometry) rings = [e.geometry];
+    else if (e.type === 'relation') rings = (e.members || []).filter(m => m.role === 'outer' && m.geometry).map(m => m.geometry);
+    rings = rings.filter(r => r && r.length >= 3 && r.every(p => p && isFinite(p.lat) && isFinite(p.lon))).map(r => r.map(p => [r6(p.lat), r6(p.lon)]));
+    if (!rings.length) continue;
+    const f = { id: e.type[0] + e.id, g: rings, c: centroid(rings[0]) };
+    if (t['addr:housenumber']) setAddress(f, [{ st: t['addr:street'] || t['addr:place'] || '', hn: t['addr:housenumber'], pc: t['addr:postcode'] || '', ci: t['addr:city'] || '' }]);
+    else addressFromPoints(f);
+    if (!f.a && (MINOR.has(t.building) || areaM2(rings[0]) < 30)) continue;
+    out.push(f);
+  }
+  return out;
+}
+function ingest(els) {
+  const list = parseElements(els), fresh = [], changed = [];
+  for (const f of list) {
+    const old = features.get(f.id);
+    if (!old) { features.set(f.id, f); addLayer(f); fresh.push(f); }
+    else if (!old.a && f.a) { Object.assign(old, { a: f.a, hn: f.hn, sub: f.sub }); changed.push(old); }
+  }
+  // Häuser ohne Adresse aus früheren Kacheln nachträglich zuordnen
+  for (const f of features.values()) if (!f.a && addressFromPoints(f)) changed.push(f);
+  idb.putMany('b', fresh.concat(changed)).catch(() => {});
+  return fresh.length;
+}
+
+let loading = false, autoTimer = 0;
+function scheduleAuto() { clearTimeout(autoTimer); autoTimer = setTimeout(() => loadTiles(false), 700); }
+async function loadTiles(manual) {
+  if (loading) return;
+  const z = map.getZoom();
+  if (z < (manual ? 15 : 16)) { if (manual) say('Bitte näher heranzoomen (Straßenebene), dann „Häuser finden“.'); return; }
+  const need = tilesIn(map.getBounds()).filter(t => !(loadedTiles[t.key] && Date.now() - loadedTiles[t.key] < 60 * DAY));
+  if (!need.length) { if (manual) say('Alle Häuser in diesem Ausschnitt sind schon geladen.'); return; }
+  if (need.length > 12) { if (manual) say('Ausschnitt zu groß. Bitte etwas näher heranzoomen.', true); return; }
+  loading = true; $('btnLoad').classList.add('busy');
+  let added = 0;
+  try {
+    for (let i = 0; i < need.length; i++) {
+      say(`Häuser werden geladen … ${i + 1}/${need.length}`, false, true);
+      added += ingest(await overpass(tileQuery(need[i])));
+      loadedTiles[need[i].key] = Date.now(); LS.set(K.tiles, loadedTiles);
+    }
+    updateLabels(); updateTally();
+    say(added ? `${added} Häuser geladen. Haus antippen zum Markieren.` : 'Keine neuen Häuser in diesem Ausschnitt.');
+  } catch (e) {
+    say('Häuser konnten nicht geladen werden (' + e.message + '). Bitte gleich nochmal „Häuser finden“ tippen.', true);
+  } finally { loading = false; $('btnLoad').classList.remove('busy'); }
+}
+$('btnLoad').addEventListener('click', () => loadTiles(true));
+$('chkAuto').checked = !!settings.auto;
+$('chkAuto').addEventListener('change', e => { settings.auto = e.target.checked; saveSettings(); if (settings.auto) loadTiles(false); });
+
+/* ===== Zähler ===== */
+function updateTally() {
+  const c = { green: 0, red: 0, termin: 0, kein: 0 }; let due = 0;
+  for (const r of Object.values(records)) {
+    if (r.u && r.u.length) { for (const u of r.u) if (c[u.s] !== undefined) c[u.s]++; }
+    else if (c[r.s] !== undefined) c[r.s]++;
+    if (isDue(r)) due++;
+  }
+  const t = $('tally'); t.textContent = '';
+  for (const [k, n] of [['green', c.green], ['red', c.red], ['termin', c.termin], ['kein', c.kein]]) {
+    const s = document.createElement('span'); s.title = STATUS[k].label;
+    const i = document.createElement('i'); i.style.background = STATUS[k].fill;
+    s.append(i, String(n)); t.append(s);
+  }
+  if (due) { const s = document.createElement('span'); s.textContent = '⏰ ' + due; s.title = 'Wiedervorlage fällig'; t.append(s); }
+}
+
+/* ===== Haus-Blatt ===== */
+const sheet = $('sheet');
+function rec(id) { return records[id] || (records[id] = {}); }
+function touch(id) {
+  const r = records[id]; if (!r) return;
+  r.up = nowIso();
+  const f = features.get(id); if (f) { r.a = f.a || ''; r.c = f.c; r.sub = f.sub || ''; }
+  persist(); restyle(id); updateLabels(); updateTally();
+}
+function openSheet(id) {
+  const prev = current; current = id; if (prev) restyle(prev); restyle(id);
+  sheet.hidden = false; renderSheet();
+}
+function closeSheet() { const prev = current; current = null; sheet.hidden = true; if (prev) restyle(prev); }
+$('shClose').addEventListener('click', closeSheet);
+map.on('click', () => { if (!mode && current) closeSheet(); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && current) closeSheet(); });
+
+function infoFor(r, unit) {
+  const x = unit || r;
+  if (x.s === 'red' && x.d) {
+    const due = Date.parse(x.d) + revisitMs();
+    return { text: `${x.t || 1}. Versuch, nicht angetroffen am ${fmtDay(x.d)} · wieder hin ab ${fmtDay(due)}`, due: Date.now() >= due };
+  }
+  if (x.s && x.d) return { text: `${STATUS[x.s].label} seit ${fmtFull(x.d)}${x.t ? ` · ${x.t}× nicht angetroffen davor` : ''}`, due: false };
+  return { text: x.t ? `${x.t}× nicht angetroffen` : '', due: false };
+}
+function renderSheet() {
+  const id = current; if (!id) return;
+  const f = features.get(id) || {}, r = records[id] || {};
+  $('shTitle').textContent = f.a || r.a || 'Haus ohne Hausnummer';
+  $('shSub').textContent = f.sub || r.sub || (f.a || r.a ? '' : 'Adresse in OpenStreetMap nicht erfasst');
+  const mfh = !!(r.u && r.u.length);
+  $('shStates').hidden = mfh;
+  for (const b of $('shStates').querySelectorAll('.st')) b.setAttribute('aria-pressed', String(r.s === b.dataset.s));
+  const inf = mfh ? { text: '', due: false } : infoFor(r);
+  $('shInfo').textContent = inf.text; $('shInfo').classList.toggle('due', inf.due); $('shInfo').hidden = !inf.text;
+  $('shApptWrap').hidden = !(r.s === 'termin' || hasAny(r, 'termin') || r.appt);
+  $('shAppt').value = r.appt || '';
+  $('shMfh').checked = mfh; $('shStepper').hidden = !mfh; $('shUnits').hidden = !mfh;
+  if (mfh) {
+    $('shCount').textContent = r.u.length;
+    $('shProgress').textContent = r.u.filter(u => DONE(u.s)).length + ' von ' + r.u.length + ' erledigt';
+    renderUnits(r);
+  } else $('shProgress').textContent = '';
+  if (document.activeElement !== $('shNames')) $('shNames').value = r.n || '';
+  if (document.activeElement !== $('shNote')) $('shNote').value = r.note || '';
+  const c = f.c || r.c;
+  if (c) $('shNav').href = `https://www.google.com/maps/dir/?api=1&destination=${c[0]},${c[1]}&travelmode=walking`;
+  $('shNav').hidden = !c;
+}
+function setState(target, s) {
+  const was = target.s;
+  if (was === s) { delete target.s; delete target.d; return; } // nochmal tippen = zurück auf offen
+  target.s = s; target.d = nowIso();
+  if (s === 'red') target.t = (target.t || 0) + 1;
+}
+$('shStates').addEventListener('click', e => {
+  const b = e.target.closest('.st'); if (!b || !current) return;
+  const r = rec(current); setState(r, b.dataset.s);
+  touch(current); renderSheet();
+  if (r.s === 'termin' && !r.appt) $('shAppt').focus();
+});
+function renderUnits(r) {
+  const ol = $('shUnits'); ol.textContent = '';
+  r.u.forEach((u, i) => {
+    const li = document.createElement('li');
+    const row = document.createElement('div'); row.className = 'row';
+    const inp = document.createElement('input'); inp.type = 'text'; inp.id = 'unit-' + i;
+    inp.placeholder = 'Partei ' + (i + 1) + ' (Name / Klingel)'; inp.value = u.n || '';
+    inp.addEventListener('input', () => { u.n = inp.value; touch(current); });
+    row.append(inp); li.append(row);
+    const chips = document.createElement('div'); chips.className = 'chips';
+    for (const [k, st] of Object.entries(STATUS)) {
+      const b = document.createElement('button'); b.className = 'chip'; b.dataset.s = k; b.type = 'button';
+      b.textContent = st.short + ' ' + (k === 'red' ? 'Nicht da' : k === 'kein' ? 'Kein Int.' : st.label);
+      b.setAttribute('aria-pressed', String(u.s === k));
+      b.addEventListener('click', () => { setState(u, k); touch(current); renderSheet(); });
+      chips.append(b);
+    }
+    li.append(chips);
+    const inf = infoFor(r, u);
+    if (inf.text) { const sm = document.createElement('small'); sm.textContent = inf.text; if (inf.due) sm.className = 'due'; li.append(sm); }
+    ol.append(li);
+  });
+}
+$('shMfh').addEventListener('change', e => {
+  if (!current) return;
+  const r = rec(current);
+  if (e.target.checked) {
+    r.u = Array.from({ length: 2 }, () => ({}));
+    if (r.s) { r.u[0] = { s: r.s, d: r.d, t: r.t }; delete r.s; delete r.d; delete r.t; }
+  } else {
+    if (r.u && r.u.some(u => u.s || u.n) && !confirm('Mehrfamilienhaus aufheben? Die Angaben zu den einzelnen Parteien gehen verloren.')) { e.target.checked = true; return; }
+    delete r.u;
+  }
+  touch(current); renderSheet();
+});
+function resizeUnits(d) {
+  const r = rec(current); if (!r.u) return;
+  const n = Math.max(2, Math.min(60, r.u.length + d));
+  if (n < r.u.length) {
+    const cut = r.u.slice(n);
+    if (cut.some(u => u.s || u.n) && !confirm('Die letzte Partei hat schon Angaben. Trotzdem entfernen?')) return;
+    r.u.length = n;
+  } else while (r.u.length < n) r.u.push({});
+  touch(current); renderSheet();
+}
+$('shMinus').addEventListener('click', () => resizeUnits(-1));
+$('shPlus').addEventListener('click', () => resizeUnits(1));
+$('shNames').addEventListener('input', e => { if (!current) return; rec(current).n = e.target.value; touch(current); });
+$('shNote').addEventListener('input', e => { if (!current) return; rec(current).note = e.target.value; touch(current); });
+$('shAppt').addEventListener('change', e => { if (!current) return; rec(current).appt = e.target.value; touch(current); });
+$('shReset').addEventListener('click', () => {
+  if (!current || !confirm('Alle Angaben zu diesem Haus löschen (Status, Namen, Notiz)?')) return;
+  records[current] = {}; touch(current); renderSheet();
+});
+
+/* ===== Filter ===== */
+$('selFilter').value = settings.filter;
+$('selFilter').addEventListener('change', e => {
+  settings.filter = e.target.value; saveSettings(); restyleAll();
+  if (settings.filter !== 'all') {
+    const n = [...features.keys()].filter(passes).length;
+    say(`${n} Häuser passen zum Filter.`);
+  }
+});
+
+/* ===== Standort ===== */
+let watchId = null, follow = false, posMarker = null, posCircle = null;
+function locUi() { $('btnLocate').setAttribute('aria-pressed', String(watchId !== null)); }
+$('btnLocate').addEventListener('click', () => {
+  if (watchId !== null && posMarker && !follow) { follow = true; map.setView(posMarker.getLatLng(), Math.max(map.getZoom(), 18)); say('Karte folgt deinem Standort.'); return; }
+  if (watchId !== null) { navigator.geolocation.clearWatch(watchId); watchId = null; follow = false; if (posMarker) { map.removeLayer(posMarker); map.removeLayer(posCircle); posMarker = posCircle = null; } locUi(); return; }
+  if (!navigator.geolocation) { say('Dieses Gerät kann den Standort nicht bestimmen.', true); return; }
+  follow = true; say('Standort wird gesucht …', false, true);
+  watchId = navigator.geolocation.watchPosition(p => {
+    const ll = L.latLng(p.coords.latitude, p.coords.longitude);
+    if (!posMarker) {
+      posCircle = L.circle(ll, { radius: p.coords.accuracy, color: '#1a73e8', weight: 1, fillOpacity: 0.1, interactive: false }).addTo(map);
+      posMarker = L.marker(ll, { icon: L.divIcon({ className: '', html: '<div class="pos-dot"></div>', iconSize: [18, 18], iconAnchor: [9, 9] }), interactive: false }).addTo(map);
+      say('Standort gefunden.');
+    } else { posMarker.setLatLng(ll); posCircle.setLatLng(ll).setRadius(p.coords.accuracy); }
+    if (follow) map.setView(ll, Math.max(map.getZoom(), 18));
+  }, err => {
+    say(err.code === 1 ? 'Standortfreigabe verweigert. Bitte im Browser erlauben.' : 'Standort nicht verfügbar.', true);
+    if (watchId !== null) navigator.geolocation.clearWatch(watchId); watchId = null; locUi();
+  }, { enableHighAccuracy: true, maximumAge: 5000, timeout: 20000 });
+  locUi();
+});
+map.on('dragstart', () => { follow = false; });
+
+/* ===== Skizzen ===== */
+const sketchLayer = L.layerGroup().addTo(map);
+const SK = { color: '#d6336c', weight: 4, opacity: 0.95, interactive: false, renderer };
+function drawSketches() { sketchLayer.clearLayers(); for (const s of sketches) L.polyline(s.p, SK).addTo(sketchLayer); }
+function setMode(m) {
+  mode = mode === m ? null : m;
+  $('btnDraw').setAttribute('aria-pressed', String(mode === 'draw'));
+  $('btnErase').setAttribute('aria-pressed', String(mode === 'erase'));
+  if (mode === 'draw') { map.dragging.disable(); say('Mit dem Finger auf die Karte zeichnen. Nochmal „Skizze“ tippen zum Beenden.', false, true); }
+  else { map.dragging.enable(); }
+  if (mode === 'erase') say('Linie antippen, um sie zu löschen.', false, true);
+  if (!mode) say('');
+  if (mode && current) closeSheet();
+}
+$('btnDraw').addEventListener('click', () => setMode('draw'));
+$('btnErase').addEventListener('click', () => setMode('erase'));
+const mapEl = $('map');
+let drawing = null;
+mapEl.addEventListener('pointerdown', e => {
+  if (mode !== 'draw' || !e.isPrimary || e.target.closest('.leaflet-control,.msg,.backup-bar')) return;
+  e.preventDefault(); mapEl.setPointerCapture(e.pointerId);
+  drawing = { id: e.pointerId, pts: [map.mouseEventToLatLng(e)], line: null };
+  drawing.line = L.polyline(drawing.pts, SK).addTo(sketchLayer);
+});
+mapEl.addEventListener('pointermove', e => {
+  if (!drawing || e.pointerId !== drawing.id) return;
+  const ll = map.mouseEventToLatLng(e), last = drawing.pts[drawing.pts.length - 1];
+  if (map.latLngToContainerPoint(ll).distanceTo(map.latLngToContainerPoint(last)) < 3) return;
+  drawing.pts.push(ll); drawing.line.setLatLngs(drawing.pts);
+});
+function endDraw(e) {
+  if (!drawing || e.pointerId !== drawing.id) return;
+  if (drawing.pts.length > 1) { sketches.push({ id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6), p: drawing.pts.map(p => [r6(p.lat), r6(p.lng)]), up: nowIso() }); persist(); }
+  else sketchLayer.removeLayer(drawing.line);
+  drawing = null;
+}
+mapEl.addEventListener('pointerup', endDraw);
+mapEl.addEventListener('pointercancel', endDraw);
+mapEl.addEventListener('touchmove', e => { if (mode === 'draw' && e.touches.length === 1) e.preventDefault(); }, { passive: false });
+map.on('click', e => {
+  if (mode !== 'erase') return;
+  const pt = map.latLngToContainerPoint(e.latlng); let best = -1, bd = 22;
+  sketches.forEach((s, i) => {
+    const px = s.p.map(p => map.latLngToContainerPoint(p));
+    for (let k = 1; k < px.length; k++) { const d = L.LineUtil.pointToSegmentDistance(pt, px[k - 1], px[k]); if (d < bd) { bd = d; best = i; } }
+  });
+  if (best >= 0) { sketches.splice(best, 1); persist(); drawSketches(); say('Linie gelöscht.'); }
+});
+
+/* ===== Sonnenmodus ===== */
+function applySun() { document.documentElement.classList.toggle('sun', !!settings.sun); $('btnSun').setAttribute('aria-pressed', String(!!settings.sun)); }
+$('btnSun').addEventListener('click', () => { settings.sun = !settings.sun; saveSettings(); applySun(); });
+applySun();
+
+/* ===== Sicherung, Teilen, Import ===== */
+function stripPersonal(r) { const c = JSON.parse(JSON.stringify(r)); delete c.n; delete c.note; if (c.u) c.u.forEach(u => delete u.n); return c; }
+function buildBackup(scope = 'all', withNames = true) {
+  const b = map.getBounds(), recs = {}, buildings = {};
+  for (const [id, r] of Object.entries(records)) {
+    const c = (features.get(id) || {}).c || r.c;
+    if (scope === 'view' && !(c && b.contains(c))) continue;
+    recs[id] = withNames ? r : stripPersonal(r);
+  }
+  for (const f of features.values()) if (scope === 'all' || b.contains(f.c)) buildings[f.id] = f;
+  const c = map.getCenter();
+  return { app: APP, version: 1, createdAt: nowIso(), view: { c: [r6(c.lat), r6(c.lng)], z: map.getZoom() }, records: recs, buildings, sketches: scope === 'all' ? sketches : sketches.filter(s => s.p.some(p => b.contains(p))) };
+}
+function download(blob, name) {
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name;
+  document.body.append(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 3000);
+}
+const backupName = () => `Gebietskarte_${today()}_${new Date().toTimeString().slice(0, 5).replace(':', '')}.json`;
+function saveBackup() {
+  const data = buildBackup('all', true);
+  download(new Blob([JSON.stringify(data)], { type: 'application/json' }), backupName());
+  settings.lastBackup = Date.now(); saveSettings(); checkBackupBar();
+  say(`Sicherung gespeichert: ${Object.keys(data.records).length} Markierungen, ${Object.keys(data.buildings).length} Häuser.`);
+}
+function checkBackupBar() {
+  const changed = (settings.lastChange || 0) > (settings.lastBackup || 0);
+  const backedToday = settings.lastBackup && new Date(settings.lastBackup).toDateString() === new Date().toDateString();
+  $('backupBar').hidden = !(changed && !backedToday && settings.snooze !== today() && Object.values(records).some(hasData));
+}
+$('barSave').addEventListener('click', saveBackup);
+$('barLater').addEventListener('click', () => { settings.snooze = today(); saveSettings(); checkBackupBar(); });
+
+function b64u(u8) { let s = ''; for (let i = 0; i < u8.length; i += 0x8000) s += String.fromCharCode.apply(null, u8.subarray(i, i + 0x8000)); return btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''); }
+function unb64u(s) { s = s.replace(/-/g, '+').replace(/_/g, '/'); while (s.length % 4) s += '='; const b = atob(s), u = new Uint8Array(b.length); for (let i = 0; i < b.length; i++) u[i] = b.charCodeAt(i); return u; }
+async function pack(obj) {
+  const s = JSON.stringify(obj);
+  if ('CompressionStream' in window) {
+    const st = new Blob([s]).stream().pipeThrough(new CompressionStream('deflate-raw'));
+    return 'z' + b64u(new Uint8Array(await new Response(st).arrayBuffer()));
+  }
+  return 'j' + b64u(new TextEncoder().encode(s));
+}
+async function unpack(str) {
+  const bytes = unb64u(str.slice(1));
+  if (str[0] === 'z') { const st = new Blob([bytes]).stream().pipeThrough(new DecompressionStream('deflate-raw')); return JSON.parse(await new Response(st).text()); }
+  return JSON.parse(new TextDecoder().decode(bytes));
+}
+const shareOpts = () => ({ scope: (document.querySelector('input[name="shareArea"]:checked') || {}).value || 'all', names: $('shareNames').checked });
+$('mShare').addEventListener('click', () => { $('dlgMore').close(); $('sOut').hidden = true; $('sInfo').textContent = ''; $('dlgShare').showModal(); });
+$('sLink').addEventListener('click', async () => {
+  const o = shareOpts(), data = buildBackup(o.scope, o.names), LIMIT = 60000;
+  let enc = await pack(data);
+  if (enc.length > LIMIT) { const keep = {}; for (const id of Object.keys(data.records)) if (data.buildings[id]) keep[id] = data.buildings[id]; data.buildings = keep; enc = await pack(data); }
+  if (enc.length > LIMIT) { data.buildings = {}; enc = await pack(data); }
+  const url = location.origin + location.pathname + '#import=' + enc;
+  const info = `${Object.keys(data.records).length} Markierungen, ${Object.keys(data.buildings).length} Häuser` + (enc.length > LIMIT ? '. Achtung: Link ist sehr lang, besser als Datei senden.' : '.');
+  $('sOut').value = url; $('sOut').hidden = false;
+  if (navigator.share) { try { await navigator.share({ title: 'Gebiet ' + today(), text: 'Gebiet für die Gebietskarte: Link antippen und „Zusammenführen“ wählen.', url }); $('sInfo').textContent = 'Gesendet: ' + info; return; } catch (e) { if (e.name === 'AbortError') return; } }
+  try { await navigator.clipboard.writeText(url); $('sInfo').textContent = 'Link kopiert (' + info + ') – jetzt in WhatsApp oder E-Mail einfügen.'; }
+  catch (e) { $('sOut').select(); $('sInfo').textContent = 'Link markiert (' + info + ') – bitte kopieren und senden.'; }
+});
+$('sFile').addEventListener('click', async () => {
+  const o = shareOpts(), data = buildBackup(o.scope, o.names);
+  const file = new File([JSON.stringify(data)], 'Gebiet_' + today() + '.json', { type: 'application/json' });
+  if (navigator.canShare && navigator.canShare({ files: [file] })) { try { await navigator.share({ files: [file], title: 'Gebiet ' + today() }); $('sInfo').textContent = 'Datei gesendet.'; return; } catch (e) { if (e.name === 'AbortError') return; } }
+  download(file, file.name); $('sInfo').textContent = 'Datei gespeichert. Jetzt z. B. per WhatsApp oder E-Mail verschicken.';
+});
+
+let pendingImport = null;
+function validImport(d) { return d && d.app === APP && d.records && typeof d.records === 'object' && !Array.isArray(d.records); }
+function offerImport(d, source) {
+  if (!validImport(d)) throw new Error('keine Gebietskarte-Datei');
+  pendingImport = d;
+  const n = Object.values(d.records).filter(hasData).length, h = Object.keys(d.buildings || {}).length;
+  $('iInfo').textContent = `${source}: ${h} Häuser, ${n} Markierungen${d.sketches && d.sketches.length ? ', ' + d.sketches.length + ' Skizzen' : ''}${d.createdAt ? ', Stand ' + fmtFull(d.createdAt) : ''}.`;
+  $('dlgImport').showModal();
+}
+async function applyImport(replace) {
+  const d = pendingImport; if (!d) return; pendingImport = null;
+  if (replace) { records = {}; sketches = []; }
+  let taken = 0;
+  for (const [id, r] of Object.entries(d.records)) {
+    if (!/^[wr]\d+$/.test(id) || !r || typeof r !== 'object') continue;
+    const l = records[id];
+    if (!l || (r.up || '') > (l.up || '')) { records[id] = r; taken++; }
+  }
+  const fresh = [];
+  for (const f of Object.values(d.buildings || {})) if (validFeature(f) && !features.has(f.id)) { features.set(f.id, f); addLayer(f); fresh.push(f); }
+  if (fresh.length) idb.putMany('b', fresh).catch(() => {});
+  const have = new Set(sketches.map(s => s.id));
+  for (const s of d.sketches || []) if (s && s.id && Array.isArray(s.p) && !have.has(s.id)) sketches.push(s);
+  persist(); drawSketches(); restyleAll();
+  if (d.view && Array.isArray(d.view.c) && DE.pad(0.15).contains(d.view.c)) map.setView(d.view.c, d.view.z || 17);
+  say(`${taken} Markierungen übernommen, ${fresh.length} neue Häuser.`);
+}
+$('iMerge').addEventListener('click', () => { $('dlgImport').close(); applyImport(false); });
+$('iReplace').addEventListener('click', () => { if (!confirm('Wirklich alle Markierungen und Skizzen auf diesem Gerät durch die Datei ersetzen?')) return; $('dlgImport').close(); applyImport(true); });
+$('mSave').addEventListener('click', saveBackup);
+$('mOpen').addEventListener('click', () => $('fileIn').click());
+$('fileIn').addEventListener('change', async e => {
+  const f = e.target.files[0]; e.target.value = ''; if (!f) return;
+  try { $('dlgMore').close(); offerImport(JSON.parse(await f.text()), f.name); }
+  catch (err) { say('Die Datei konnte nicht gelesen werden: ' + err.message, true); }
+});
+async function checkHash() {
+  if (!location.hash.startsWith('#import=')) return;
+  const enc = location.hash.slice(8);
+  history.replaceState(null, '', location.pathname + location.search);
+  try { offerImport(await unpack(enc), 'Ein Kollege hat dir ein Gebiet geschickt'); }
+  catch (e) { say('Der Link ist beschädigt oder unvollständig. Bitte als Datei schicken lassen.', true); }
+}
+window.addEventListener('hashchange', checkHash);
+
+/* ===== Tageskopien ===== */
+async function dailySnapshot() {
+  if (settings.snapDay === today() || !Object.values(records).some(hasData)) return;
+  try {
+    await idb.put('snap', { day: today(), at: nowIso(), records: JSON.parse(JSON.stringify(records)), sketches: JSON.parse(JSON.stringify(sketches)) });
+    const all = (await idb.all('snap')).sort((a, b) => (a.day < b.day ? 1 : -1));
+    for (const s of all.slice(30)) await idb.del('snap', s.day);
+    settings.snapDay = today(); saveSettings();
+  } catch (e) {}
+}
+async function fillSnaps() {
+  const sel = $('mSnaps'); sel.textContent = '';
+  let all = [];
+  try { all = (await idb.all('snap')).sort((a, b) => (a.day < b.day ? 1 : -1)); } catch (e) {}
+  if (!all.length) { const o = document.createElement('option'); o.textContent = 'Noch keine Tageskopie'; o.value = ''; sel.append(o); }
+  for (const s of all) { const o = document.createElement('option'); o.value = s.day; o.textContent = `Stand ${fmtFull(s.at)} · ${Object.values(s.records).filter(hasData).length} Markierungen`; sel.append(o); }
+  $('mSnapRestore').disabled = !all.length;
+}
+$('mSnapRestore').addEventListener('click', async () => {
+  const day = $('mSnaps').value; if (!day) return;
+  const s = (await idb.all('snap')).find(x => x.day === day); if (!s) return;
+  if (!confirm('Alle aktuellen Markierungen und Skizzen durch diesen Stand ersetzen?')) return;
+  records = s.records; sketches = s.sketches || []; persist(); drawSketches(); restyleAll(); $('dlgMore').close();
+  say('Stand vom ' + fmtFull(s.at) + ' wiederhergestellt.');
+});
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') { dailySnapshot(); restyleAll(); checkBackupBar(); } });
+
+/* ===== Excel ===== */
+function loadScript(src) { return new Promise((res, rej) => { if (window.XLSX) return res(); const s = document.createElement('script'); s.src = src; s.crossOrigin = 'anonymous'; s.onload = res; s.onerror = () => rej(new Error('Excel-Modul nicht geladen')); document.head.append(s); }); }
+function exportRows(scope) {
+  const b = map.getBounds(), ids = new Set(Object.keys(records).filter(id => hasData(records[id])));
+  if (scope === 'view') for (const f of features.values()) if (b.contains(f.c)) ids.add(f.id);
+  const rows = [];
+  for (const id of ids) {
+    const f = features.get(id) || {}, r = records[id] || {}, c = f.c || r.c;
+    if (scope === 'view' && !(c && b.contains(c))) continue;
+    const addr = f.a || r.a || '(ohne Hausnummer)', sub = f.sub || r.sub || '';
+    const link = c ? `https://www.google.com/maps?q=${c[0]},${c[1]}` : '';
+    const lab = s => s ? (STATUS[s] || PART).label : 'Offen';
+    const base = { Adresse: addr, 'PLZ Ort': sub };
+    if (r.u && r.u.length) {
+      r.u.forEach((u, i) => rows.push(Object.assign({}, base, {
+        Partei: `${i + 1}/${r.u.length}`, Status: lab(u.s), Name: u.n || '', 'Namen (Haus)': i === 0 ? r.n || '' : '', Notiz: i === 0 ? r.note || '' : '',
+        Termin: u.s === 'termin' && r.appt ? fmtFull(r.appt) : '', 'Nicht angetroffen (×)': u.t || 0,
+        'Status seit': u.d ? fmtFull(u.d) : '', 'Wiedervorlage ab': u.s === 'red' && u.d ? fmtDay(Date.parse(u.d) + revisitMs()) : '', Karte: link
+      })));
+    } else rows.push(Object.assign({}, base, {
+      Partei: '', Status: lab(r.s), Name: '', 'Namen (Haus)': r.n || '', Notiz: r.note || '',
+      Termin: r.appt ? fmtFull(r.appt) : '', 'Nicht angetroffen (×)': r.t || 0,
+      'Status seit': r.d ? fmtFull(r.d) : '', 'Wiedervorlage ab': r.s === 'red' && r.d ? fmtDay(Date.parse(r.d) + revisitMs()) : '', Karte: link
+    }));
+  }
+  const street = a => a.replace(/\s+[\d].*$/, '');
+  rows.sort((x, y) => street(x.Adresse).localeCompare(street(y.Adresse), 'de') || hnSort(x.Adresse, y.Adresse) || hnSort(x.Partei, y.Partei));
+  return rows;
+}
+async function exportXlsx(scope) {
+  const rows = exportRows(scope);
+  if (!rows.length) { say(scope === 'view' ? 'Im Ausschnitt sind keine Häuser geladen.' : 'Noch keine Häuser markiert.', true); return; }
+  const name = `Gebiet_${today()}.xlsx`;
+  try {
+    await loadScript('https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js');
+    const ws = window.XLSX.utils.json_to_sheet(rows);
+    ws['!cols'] = Object.keys(rows[0]).map(k => ({ wch: Math.min(40, Math.max(k.length, ...rows.slice(0, 200).map(r => String(r[k]).length)) + 2) }));
+    ws['!autofilter'] = { ref: ws['!ref'] };
+    const wb = window.XLSX.utils.book_new(); window.XLSX.utils.book_append_sheet(wb, ws, 'Häuser');
+    window.XLSX.writeFile(wb, name);
+  } catch (e) {
+    const cols = Object.keys(rows[0]), q = v => '"' + String(v).replace(/"/g, '""') + '"';
+    const csv = '﻿' + [cols.map(q).join(';')].concat(rows.map(r => cols.map(c => q(r[c])).join(';'))).join('\r\n');
+    download(new Blob([csv], { type: 'text/csv;charset=utf-8' }), name.replace('.xlsx', '.csv'));
+  }
+  say(`${rows.length} Zeilen exportiert.`);
+}
+$('mXlsAll').addEventListener('click', () => exportXlsx('all'));
+$('mXlsView').addEventListener('click', () => exportXlsx('view'));
+
+/* ===== Mehr-Dialog ===== */
+$('btnMore').addEventListener('click', () => {
+  $('mRevisit').value = String(settings.revisitDays);
+  const marked = Object.values(records).filter(hasData).length;
+  $('mStats').textContent = `${features.size} Häuser gespeichert · ${marked} markiert · ${sketches.length} Skizzen · Version ${VERSION}`;
+  fillSnaps(); $('dlgMore').showModal();
+});
+$('mRevisit').addEventListener('change', e => { settings.revisitDays = +e.target.value; saveSettings(); restyleAll(); if (current) renderSheet(); });
+for (const d of document.querySelectorAll('dialog')) d.addEventListener('click', e => { if (e.target === d) d.close(); });
+
+/* ===== Start ===== */
+(async () => {
+  try {
+    const stored = await idb.all('b');
+    for (const f of stored) if (validFeature(f) && !features.has(f.id)) { features.set(f.id, f); addLayer(f); }
+  } catch (e) {}
+  drawSketches(); updateLabels(); updateTally(); checkBackupBar(); dailySnapshot();
+  await checkHash();
+  if (!features.size) say('Karte zu deinem Gebiet schieben, nah heranzoomen und „Häuser finden“ tippen.', false, true);
+  else if (settings.auto) loadTiles(false);
+})();
+setInterval(() => { restyleAll(); }, 10 * 60 * 1000); // Wiedervorlagen aktuell halten
+
+if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(() => {});
+})();
+</script>
+</body>
+</html>
