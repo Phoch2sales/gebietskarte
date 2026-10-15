@@ -330,7 +330,7 @@ dialog::backdrop{background:rgba(5,15,22,.55)}
 <script>
 (() => {
 'use strict';
-const VERSION = '1.3';
+const VERSION = '1.4';
 const APP = 'P² Gebietskarte';
 const $ = id => document.getElementById(id);
 const msgEl = $('message');
@@ -535,21 +535,42 @@ function updateLabels() {
 }
 
 /* --- Overpass --- */
-const ENDPOINTS = ['https://overpass-api.de/api/interpreter', 'https://z.overpass-api.de/api/interpreter', 'https://lz4.overpass-api.de/api/interpreter', 'https://overpass.private.coffee/api/interpreter'];
+const ENDPOINTS = ['https://z.overpass-api.de/api/interpreter', 'https://overpass-api.de/api/interpreter', 'https://lz4.overpass-api.de/api/interpreter'];
 let epIdx = 0;
+// Anfrage an den zuletzt schnellsten Server; antwortet er nicht binnen 8 s, parallel beim nächsten nachfragen.
+function overpassOnce(q) {
+  const order = ENDPOINTS.map((_, k) => (epIdx + k) % ENDPOINTS.length);
+  return new Promise((resolve, reject) => {
+    let done = false, started = 0, failed = 0, hedge = 0, last = null;
+    const ctrls = [];
+    const start = () => {
+      if (done || started >= order.length) return;
+      const i = order[started++], c = new AbortController(), tm = setTimeout(() => c.abort(), 45000);
+      ctrls.push(c);
+      fetch(ENDPOINTS[i], { method: 'POST', body: 'data=' + encodeURIComponent(q), headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, signal: c.signal })
+        .then(r => { if (!r.ok) throw new Error('Server antwortet ' + r.status); return r.json(); })
+        .then(j => {
+          if (done) return;
+          done = true; epIdx = i; clearTimeout(hedge);
+          for (const x of ctrls) if (x !== c) x.abort();
+          resolve(j.elements || []);
+        })
+        .catch(e => {
+          if (done) return;
+          last = e.name === 'AbortError' ? new Error('Zeitüberschreitung') : e;
+          failed++;
+          if (failed >= order.length) { done = true; clearTimeout(hedge); reject(last); }
+          else if (failed >= started) start();
+        })
+        .finally(() => clearTimeout(tm));
+      clearTimeout(hedge); hedge = setTimeout(start, 8000);
+    };
+    start();
+  });
+}
 async function overpass(q) {
-  let last;
-  for (let k = 0; k < ENDPOINTS.length * 2; k++) {
-    if (k === ENDPOINTS.length) await new Promise(r => setTimeout(r, 3000)); // alle besetzt: kurz warten, zweite Runde
-    const i = (epIdx + k) % ENDPOINTS.length, c = new AbortController(), tm = setTimeout(() => c.abort(), 30000);
-    try {
-      const r = await fetch(ENDPOINTS[i], { method: 'POST', body: 'data=' + encodeURIComponent(q), headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, signal: c.signal });
-      if (!r.ok) throw new Error('Server antwortet ' + r.status);
-      const j = await r.json(); epIdx = i; return j.elements || [];
-    } catch (e) { last = e.name === 'AbortError' ? new Error('Zeitüberschreitung') : e; }
-    finally { clearTimeout(tm); }
-  }
-  throw last || new Error('keine Verbindung');
+  try { return await overpassOnce(q); }
+  catch (e) { await new Promise(r => setTimeout(r, 3000)); return overpassOnce(q); } // zweiter Versuch
 }
 const TZ = 15;
 const lon2x = lon => Math.floor((lon + 180) / 360 * 2 ** TZ);
@@ -650,20 +671,32 @@ async function loadTiles(manual) {
   if (z < (manual ? 15 : 16)) { if (manual) say('Bitte näher heranzoomen (Straßenebene), dann „Häuser finden“.'); return; }
   const need = tilesIn(map.getBounds()).filter(t => !(loadedTiles[t.key] && Date.now() - loadedTiles[t.key] < 60 * DAY));
   if (!need.length) { if (manual) say('Alle Häuser in diesem Ausschnitt sind schon geladen.'); return; }
-  if (need.length > 12) { if (manual) say('Ausschnitt zu groß. Bitte etwas näher heranzoomen.', true); return; }
   loading = true; $('btnLoad').classList.add('busy');
-  let added = 0, failed = 0, lastErr = null;
-  try {
-    for (let i = 0; i < need.length; i++) {
-      say(`Häuser werden geladen … ${i + 1}/${need.length}`, false, true);
+  let added = 0, failed = 0, lastErr = null, finished = 0;
+  const c = map.getCenter();
+  const queue = need.slice().sort((a, b) => Math.hypot((a.s + a.n) / 2 - c.lat, (a.w + a.e) / 2 - c.lng) - Math.hypot((b.s + b.n) / 2 - c.lat, (b.w + b.e) / 2 - c.lng)); // Mitte zuerst
+  const capped = queue.length > 12; if (capped) queue.length = 12; // großer Bildschirm: erst die Mitte
+  const total = queue.length;
+  say(`Häuser werden geladen … 0/${total}`, false, true);
+  const worker = async () => {
+    while (queue.length) {
+      const t = queue.shift();
       try {
-        added += ingest(await overpass(tileQuery(need[i])));
-        loadedTiles[need[i].key] = Date.now(); LS.set(K.tiles, loadedTiles);
+        const els = await overpass(tileQuery(t));
+        added += ingest(els);
+        loadedTiles[t.key] = Date.now(); LS.set(K.tiles, loadedTiles);
+        updateLabels();
       } catch (e) { failed++; lastErr = e; }
+      finished++;
+      if (finished < total) say(`Häuser werden geladen … ${finished}/${total}`, false, true);
     }
+  };
+  try {
+    await Promise.all([worker(), worker()]); // zwei Kartenstücke gleichzeitig
     updateLabels(); updateTally();
-    if (failed === need.length) say('Häuser konnten nicht geladen werden (' + lastErr.message + '). Die Server sind gerade überlastet – bitte in einer Minute nochmal „Häuser finden“ tippen.', true);
+    if (failed === total) say('Häuser konnten nicht geladen werden (' + lastErr.message + '). Die Server sind gerade überlastet – bitte in einer Minute nochmal „Häuser finden“ tippen.', true);
     else if (failed) say(`${added} Häuser geladen, ein Teil des Ausschnitts fehlt noch. Gleich nochmal „Häuser finden“ tippen.`, true);
+    else if (capped) say(`${added} Häuser in der Bildmitte geladen. Für den Rand näher heranzoomen oder die Karte verschieben und nochmal „Häuser finden“.`);
     else say(added ? `${added} Häuser geladen. Haus antippen zum Markieren.` : 'Keine neuen Häuser in diesem Ausschnitt.');
   } finally { loading = false; $('btnLoad').classList.remove('busy'); }
 }
@@ -703,7 +736,13 @@ function openSheet(id) {
 }
 function closeSheet() { const prev = current; current = null; sheet.hidden = true; if (prev) restyle(prev); }
 $('shClose').addEventListener('click', closeSheet);
-map.on('click', () => { if (!mode && current) closeSheet(); });
+map.on('click', e => {
+  if (mode) return;
+  if (current) { closeSheet(); return; }
+  // Klick ins Leere: erklären, warum nichts passiert
+  if (map.getZoom() < 15) say('Zum Markieren näher heranzoomen, bis die einzelnen Häuser zu sehen sind.');
+  else if (!loadedTiles[lon2x(e.latlng.lng) + '/' + lat2y(e.latlng.lat)]) say(loading ? 'Die Häuser hier werden gerade geladen …' : 'Hier sind noch keine Häuser geladen. Erst „Häuser finden“ tippen, dann ein Haus anklicken.');
+});
 document.addEventListener('keydown', e => { if (e.key === 'Escape' && current) closeSheet(); });
 
 function infoFor(r, unit) {
