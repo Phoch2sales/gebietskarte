@@ -64,6 +64,8 @@ header.top{background:var(--chrome);color:var(--chrome-fg);display:flex;align-it
 .search-res small{color:var(--muted)}
 .search-res .hint{padding:8px 6px;color:var(--muted);font-size:.85em;border-top:1px solid var(--line)}
 @media (max-width:430px){.brand small{display:none}.tally{gap:7px}}
+@media (max-width:520px){.brand-full{display:none}header.top{gap:8px}.tally{flex-wrap:nowrap;gap:6px;font-size:.8em}.tally span{gap:3px}}
+.tally{flex-wrap:nowrap}
 .search-pin{width:22px;height:22px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);background:var(--mark);border:3px solid #13212b;box-shadow:0 2px 6px rgba(0,0,0,.35)}
 
 footer.tools{background:var(--chrome);color:var(--chrome-fg);padding:8px 12px calc(env(safe-area-inset-bottom,0px) + 8px);display:flex;gap:8px;overflow-x:auto;scrollbar-width:none}
@@ -177,13 +179,45 @@ dialog::backdrop{background:rgba(5,15,22,.55)}
 .team-row.off{opacity:.6}
 .pill{font-size:.75em;font-weight:700;border-radius:999px;padding:2px 8px;background:var(--field);border:1px solid var(--line);white-space:nowrap}
 .pill.off{color:var(--danger);border-color:var(--danger)}
+/* Team-Chat */
+.iconbtn{position:relative}
+.badge{position:absolute;top:-4px;right:-4px;min-width:20px;height:20px;padding:0 5px;border-radius:999px;background:var(--danger);color:#fff;font-size:12px;font-weight:800;line-height:20px;text-align:center;box-shadow:0 0 0 2px var(--chrome)}
+.chat{position:fixed;z-index:1100;inset:0;background:var(--panel);color:var(--fg);display:grid;grid-template-rows:auto 1fr auto;padding-top:env(safe-area-inset-top,0px)}
+@media (min-width:900px){.chat{inset:auto;top:calc(env(safe-area-inset-top,0px) + 70px);bottom:76px;right:12px;width:400px;border-radius:14px;box-shadow:0 10px 40px rgba(0,0,0,.3);padding-top:0;overflow:hidden}}
+.chat-head{display:flex;align-items:center;gap:10px;padding:12px 16px;border-bottom:1px solid var(--line)}
+.chat-head h2{margin:0;font-size:1.15em;flex:1}
+.chat-head small{display:block;font-weight:500;color:var(--muted);font-size:.72em}
+.chat-list{overflow-y:auto;padding:12px 16px;display:flex;flex-direction:column;gap:8px;min-height:0;overscroll-behavior:contain}
+.chat-day{align-self:center;font-size:.75em;font-weight:700;color:var(--muted);background:var(--field);border-radius:999px;padding:3px 10px;margin:6px 0 2px}
+.chat-empty{margin:auto;color:var(--muted);text-align:center;max-width:30ch}
+.msg-row{display:flex}
+.msg-row.mine{justify-content:flex-end}
+.bubble{max-width:82%;min-width:0;background:var(--field);border:1px solid var(--line);border-radius:14px 14px 14px 4px;padding:7px 11px;display:grid;gap:3px}
+.msg-row.mine .bubble{background:var(--chrome);color:var(--chrome-fg);border-color:var(--chrome);border-radius:14px 14px 4px 14px}
+.bubble b{font-size:.8em;color:var(--s-termin)}
+.bubble p{margin:0;white-space:pre-wrap;overflow-wrap:anywhere}
+.bubble time{font-size:.7em;opacity:.7;justify-self:end;font-variant-numeric:tabular-nums}
+.house-chip{display:inline-flex;align-items:center;gap:6px;justify-self:start;border:1px solid currentColor;background:transparent;color:inherit;border-radius:8px;padding:4px 8px;font-size:.85em;font-weight:700;text-align:left}
+.house-chip svg{width:14px;height:14px;flex:0 0 auto}
+.chat-form{border-top:1px solid var(--line);padding:10px 12px calc(env(safe-area-inset-bottom,0px) + 10px);display:grid;gap:8px}
+.chat-row{display:flex;gap:8px;align-items:flex-end}
+.chat-row textarea{flex:1;min-width:0;resize:none;border:1px solid var(--line);background:var(--field);color:var(--fg);border-radius:12px;padding:10px 12px;font-size:16px;line-height:1.35;max-height:140px}
+.chat-attach{display:flex;align-items:center;gap:8px;font-size:.88em;font-weight:600;background:var(--field);border:1px dashed var(--line);border-radius:10px;padding:6px 6px 6px 10px}
+.chat-attach span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.chat-attach button{border:0;background:none;color:var(--muted);width:32px;height:32px;font-size:1em}
+.chat-note{margin:0;font-size:.82em;color:var(--danger)}
+.chat-note:empty{display:none}
 </style>
 </head>
 <body>
 <div class="app">
   <header class="top">
-    <div class="brand">P² Gebietskarte<small id="ver"></small><span class="sync off" id="syncDot" role="img" aria-label="Nicht angemeldet" title="Nicht angemeldet"></span></div>
+    <div class="brand">P²<span class="brand-full"> Gebietskarte</span><small id="ver"></small><span class="sync off" id="syncDot" role="img" aria-label="Nicht angemeldet" title="Nicht angemeldet"></span></div>
     <div class="tally" id="tally" aria-label="Zähler"></div>
+    <button class="iconbtn" id="btnChat" aria-label="Team-Chat" hidden>
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"><path d="M4 5h16v11H9l-5 4z"/></svg>
+      <span class="badge" id="chatBadge" hidden></span>
+    </button>
     <button class="iconbtn" id="btnSearch" aria-label="Ort oder PLZ suchen" aria-expanded="false">
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5L21 21"/></svg>
     </button>
@@ -271,6 +305,7 @@ dialog::backdrop{background:rgba(5,15,22,.55)}
   <label class="field">Notiz<textarea id="shNote" rows="2" placeholder="z. B. Hund, Hintereingang, Vertrag läuft bis 03/27"></textarea></label>
   <div class="sh-foot">
     <a class="btn" id="shNav" target="_blank" rel="noopener">Route</a>
+    <button class="btn" id="shShare" type="button" hidden>Im Chat teilen</button>
     <button class="btn danger" id="shReset">Zurücksetzen</button>
   </div>
 </section>
@@ -370,6 +405,23 @@ dialog::backdrop{background:rgba(5,15,22,.55)}
 </dialog>
 <input type="file" id="fileIn" accept=".json,application/json" hidden>
 
+<!-- Team-Chat -->
+<section class="chat" id="chat" hidden aria-labelledby="chatTitle">
+  <div class="chat-head">
+    <h2 id="chatTitle">Team-Chat<small id="chatSub">Alle im Team lesen mit</small></h2>
+    <button class="close" id="chatClose" type="button" aria-label="Chat schließen">✕</button>
+  </div>
+  <div class="chat-list" id="chatList"></div>
+  <form class="chat-form" id="chatForm">
+    <div class="chat-attach" id="chatAttach" hidden><span id="chatAttachLabel"></span><button type="button" id="chatAttachX" aria-label="Haus wieder entfernen">✕</button></div>
+    <p class="chat-note" id="chatNote" role="status"></p>
+    <div class="chat-row">
+      <textarea id="chatIn" rows="1" maxlength="2000" placeholder="Nachricht ans Team" aria-label="Nachricht ans Team"></textarea>
+      <button class="btn primary" id="chatSend" type="submit">Senden</button>
+    </div>
+  </form>
+</section>
+
 <!-- Anmeldung -->
 <section class="auth" id="auth" hidden>
   <form class="auth-card" id="authForm" novalidate>
@@ -389,7 +441,7 @@ dialog::backdrop{background:rgba(5,15,22,.55)}
 <script>
 (() => {
 'use strict';
-const VERSION = '2.0';
+const VERSION = '2.1';
 const APP = 'P² Gebietskarte';
 const $ = id => document.getElementById(id);
 const msgEl = $('message');
@@ -538,6 +590,7 @@ function setBase(k) {
 setBase(settings.base);
 $('selBase').addEventListener('change', e => setBase(e.target.value));
 
+try { new ResizeObserver(() => map.invalidateSize()).observe($('map')); } catch (e) {} // Kopfzeile ändert ihre Höhe -> Karte neu vermessen
 map.on('moveend', () => {
   const c = map.getCenter();
   settings.view = { c: [r6(c.lat), r6(c.lng)], z: map.getZoom() }; saveSettings();
@@ -792,6 +845,7 @@ function touch(id) {
 }
 function openSheet(id) {
   const prev = current; current = id; if (prev) restyle(prev); restyle(id);
+  if (typeof chatOpen !== 'undefined' && chatOpen) closeChat();
   sheet.hidden = false; renderSheet();
 }
 function closeSheet() { const prev = current; current = null; sheet.hidden = true; if (prev) restyle(prev); }
@@ -803,7 +857,7 @@ map.on('click', e => {
   if (map.getZoom() < 15) say('Zum Markieren näher heranzoomen, bis die einzelnen Häuser zu sehen sind.');
   else if (!loadedTiles[lon2x(e.latlng.lng) + '/' + lat2y(e.latlng.lat)]) say(loading ? 'Die Häuser hier werden gerade geladen …' : 'Hier sind noch keine Häuser geladen. Erst „Häuser finden“ tippen, dann ein Haus anklicken.');
 });
-document.addEventListener('keydown', e => { if (e.key === 'Escape' && current) closeSheet(); });
+document.addEventListener('keydown', e => { if (e.key !== 'Escape') return; if (chatOpen) closeChat(); else if (current) closeSheet(); });
 
 function infoFor(r, unit) {
   const x = unit || r;
@@ -1361,11 +1415,14 @@ function subscribe() {
       if (me && row.id === me.id) { if (!row.active) { blocked(); return; } me = row; LS.set('p2gk-me', me); applyRole(); }
       if ($('dlgMore').open) renderTeam();
     })
+    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, p => { if (p.new && p.new.id) addChatMsg(p.new); })
+    .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'messages' }, p => { const id = p.old && p.old.id; if (id) { chatMsgs = chatMsgs.filter(m => m.id !== id); renderChat(); updateChatBadge(); } })
     .subscribe();
 }
 function wipeLocal() {
   clearTimeout(persistTimer);
   records = {}; sketches = []; pendingRec.clear(); pendingSk.clear(); team = {};
+  chatMsgs = []; chatLoaded = false; chatAttach = null; if (chatOpen) closeChat(); renderChat(); updateChatBadge();
   for (const k of [K.rec, K.sk, 'p2gk-pending-rec', 'p2gk-pending-sk', 'p2gk-me']) { try { localStorage.removeItem(k); } catch (e) {} }
   idb.clear('snap').catch(() => {});
   if (current) closeSheet();
@@ -1399,14 +1456,18 @@ async function startSession(session) {
     me = mine; LS.set('p2gk-me', me); applyRole();
     say('Daten werden abgeglichen …', false, true);
     await pullAll();
-    subscribe(); flush();
+    subscribe(); flush(); loadChat();
     say(`Angemeldet als ${me.name || me.email}. Alle Markierungen sind aktuell.`);
   } catch (e) {
     say('Keine Verbindung zum Server. Du kannst weiterarbeiten, die Änderungen werden später übertragen.', true);
   }
   updateSyncDot();
 }
-function applyRole() { for (const x of document.querySelectorAll('.admin-only')) x.hidden = !isAdmin(); }
+function applyRole() {
+  for (const x of document.querySelectorAll('.admin-only')) x.hidden = !isAdmin();
+  $('btnChat').hidden = !me; $('shShare').hidden = !me;
+  if (!me && chatOpen) closeChat();
+}
 function renderAccount() {
   $('mMe').textContent = me ? `Angemeldet als ${me.name || me.email}${me.name ? ' (' + me.email + ')' : ''}${isAdmin() ? ' · Admin' : ''}` : 'Nicht angemeldet';
   $('mUsersLink').href = SB_USERS;
@@ -1429,7 +1490,10 @@ function renderTeam() {
     const info = document.createElement('div');
     const b = document.createElement('b'); b.textContent = x.name || x.email;
     const sm = document.createElement('small'); sm.textContent = `${x.email} · ${counts[x.id] || 0} Häuser bearbeitet${x.role === 'admin' ? ' · Admin' : ''}`;
-    info.append(b, sm); row.append(info);
+    info.append(b, sm);
+    const rn = document.createElement('button'); rn.type = 'button'; rn.className = 'linkbtn'; rn.style.justifySelf = 'start'; rn.style.paddingLeft = '0';
+    rn.textContent = 'Namen ändern'; rn.addEventListener('click', () => renameMember(x));
+    info.append(rn); row.append(info);
     if (me && x.id === me.id) { const s = document.createElement('span'); s.className = 'pill'; s.textContent = 'Du'; row.append(s); }
     else {
       if (!x.active) { const s = document.createElement('span'); s.className = 'pill off'; s.textContent = 'Gesperrt'; row.append(s); }
@@ -1440,6 +1504,14 @@ function renderTeam() {
     }
     box.append(row);
   }
+}
+async function renameMember(x) {
+  const name = (prompt(`Name für ${x.email} (so erscheint er im Chat und in der Liste):`, x.name || '') || '').trim();
+  if (!name || name === x.name) return;
+  const { data, error } = await sb.from('profiles').update({ name: name.slice(0, 60) }).eq('id', x.id).select();
+  if (error || !data || !data.length) { say('Umbenennen hat nicht geklappt' + (error ? ': ' + error.message : '.'), true); return; }
+  team[x.id] = data[0]; if (me && x.id === me.id) { me = data[0]; LS.set('p2gk-me', me); renderAccount(); }
+  renderTeam(); renderChat();
 }
 async function setActive(x, active) {
   if (!active && !confirm(`${x.name || x.email} sperren?\n\nDer Zugang funktioniert danach nicht mehr. Die App löscht die Kundendaten auf seinem Gerät, sobald es online ist.`)) return;
@@ -1535,6 +1607,133 @@ if (sb) {
   showAuth('login', 'Der Anmeldeserver ist gerade nicht erreichbar. Bitte Internet prüfen und die App neu laden.');
 }
 updateSyncDot();
+
+/* ===== Team-Chat ===== */
+let chatMsgs = [], chatOpen = false, chatLoaded = false, chatAttach = null;
+const isTouch = matchMedia('(pointer: coarse)').matches;
+const PIN = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linejoin="round"><path d="M12 21s-7-6.2-7-11.5A7 7 0 0 1 19 9.5C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></svg>';
+const chatSeenKey = () => 'p2gk-chat-seen-' + (me ? me.id : '');
+function updateChatBadge() {
+  const seen = LS.get(chatSeenKey(), 0);
+  const n = me ? chatMsgs.filter(m => m.user_id !== me.id && Date.parse(m.created_at) > seen).length : 0;
+  $('chatBadge').textContent = n > 99 ? '99+' : String(n);
+  $('chatBadge').hidden = !n || chatOpen;
+  $('btnChat').setAttribute('aria-label', n ? `Team-Chat, ${n} neue Nachrichten` : 'Team-Chat');
+}
+function markChatSeen() {
+  if (!me || !chatMsgs.length) return;
+  LS.set(chatSeenKey(), Math.max(LS.get(chatSeenKey(), 0), Date.parse(chatMsgs[chatMsgs.length - 1].created_at)));
+  updateChatBadge();
+}
+function chatNote(t) { $('chatNote').textContent = t; if (t) setTimeout(() => { if ($('chatNote').textContent === t) $('chatNote').textContent = ''; }, 6000); }
+async function loadChat() {
+  if (!sb || !me) return;
+  const { data, error } = await sb.from('messages').select('*').order('created_at', { ascending: false }).limit(300);
+  if (error) { if (chatOpen) chatNote('Der Chat ist gerade nicht erreichbar. Bitte Netz prüfen.'); return; }
+  const fresh = data.reverse();
+  for (const m of chatMsgs) if (!fresh.some(x => x.id === m.id)) fresh.push(m);
+  chatMsgs = fresh.sort((a, b) => Date.parse(a.created_at) - Date.parse(b.created_at));
+  chatLoaded = true; renderChat(true);
+  if (chatOpen) markChatSeen(); else updateChatBadge();
+}
+function addChatMsg(m) {
+  if (!m || chatMsgs.some(x => x.id === m.id)) return;
+  chatMsgs.push(m); chatMsgs.sort((a, b) => Date.parse(a.created_at) - Date.parse(b.created_at));
+  if (chatMsgs.length > 600) chatMsgs.shift();
+  renderChat(me && m.user_id === me.id);
+  if (chatOpen) markChatSeen(); else updateChatBadge();
+}
+const memberName = id => { const p = team[id]; return p ? (p.name || p.email) : 'Ehemaliges Mitglied'; };
+const chatTime = t => new Date(t).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+const chatDay = t => {
+  const d = new Date(t), n = new Date(), y = new Date(Date.now() - DAY);
+  if (d.toDateString() === n.toDateString()) return 'Heute';
+  if (d.toDateString() === y.toDateString()) return 'Gestern';
+  return d.toLocaleDateString('de-DE', { weekday: 'long', day: '2-digit', month: 'long' });
+};
+function renderChat(toBottom = false) {
+  const list = $('chatList');
+  const atBottom = list.scrollHeight - list.scrollTop - list.clientHeight < 80;
+  list.textContent = '';
+  if (!chatMsgs.length) {
+    const p = document.createElement('p'); p.className = 'chat-empty';
+    p.textContent = chatLoaded ? 'Noch keine Nachrichten. Schreib die erste, zum Beispiel wer heute in welcher Straße unterwegs ist.' : 'Nachrichten werden geladen …';
+    list.append(p); return;
+  }
+  let lastDay = '';
+  for (const m of chatMsgs) {
+    const day = chatDay(m.created_at);
+    if (day !== lastDay) { const d = document.createElement('div'); d.className = 'chat-day'; d.textContent = day; list.append(d); lastDay = day; }
+    const mine = me && m.user_id === me.id;
+    const row = document.createElement('div'); row.className = 'msg-row' + (mine ? ' mine' : '');
+    const bub = document.createElement('div'); bub.className = 'bubble';
+    if (!mine) { const b = document.createElement('b'); b.textContent = memberName(m.user_id); bub.append(b); }
+    if (m.house_id) {
+      const chip = document.createElement('button'); chip.type = 'button'; chip.className = 'house-chip';
+      chip.innerHTML = PIN; chip.append(document.createTextNode(m.house_label || 'Haus'));
+      chip.addEventListener('click', () => goToHouse(m));
+      bub.append(chip);
+    }
+    if (m.body && !(m.house_id && m.body === 'Haus geteilt')) { const p = document.createElement('p'); p.textContent = m.body; bub.append(p); }
+    const tm = document.createElement('time'); tm.dateTime = m.created_at; tm.textContent = chatTime(m.created_at); bub.append(tm);
+    row.append(bub); list.append(row);
+  }
+  if (toBottom || atBottom) list.scrollTop = list.scrollHeight;
+}
+function goToHouse(m) {
+  if (!m.house_c || !Array.isArray(m.house_c)) return;
+  if (!matchMedia('(min-width: 900px)').matches) closeChat();
+  map.setView(m.house_c, Math.max(map.getZoom(), 18));
+  if (features.has(m.house_id)) setTimeout(() => openSheet(m.house_id), 350);
+  else say(`${m.house_label || 'Haus'} – Häuser hier noch nicht geladen. „Häuser finden“ tippen, dann das Haus antippen.`);
+}
+function renderAttach() {
+  $('chatAttach').hidden = !chatAttach;
+  $('chatAttachLabel').textContent = chatAttach ? 'Haus: ' + chatAttach.house_label : '';
+}
+function openChat() {
+  if (!me) return;
+  chatOpen = true; $('chat').hidden = false;
+  if (current) closeSheet();
+  renderAttach(); renderChat(true); markChatSeen();
+  if (!chatLoaded) loadChat();
+  if (!isTouch) setTimeout(() => $('chatIn').focus(), 50);
+}
+function closeChat() { chatOpen = false; $('chat').hidden = true; updateChatBadge(); }
+$('btnChat').addEventListener('click', () => chatOpen ? closeChat() : openChat());
+$('chatClose').addEventListener('click', closeChat);
+$('chatAttachX').addEventListener('click', () => { chatAttach = null; renderAttach(); });
+$('shShare').addEventListener('click', () => {
+  if (!current) return;
+  const f = features.get(current) || {}, r = records[current] || {};
+  const label = (f.a || r.a || 'Haus ohne Hausnummer') + ((f.sub || r.sub) ? ', ' + (f.sub || r.sub) : '');
+  chatAttach = { house_id: current, house_label: label.slice(0, 200), house_c: f.c || r.c || null };
+  openChat();
+  if (isTouch) $('chatIn').focus();
+});
+const growChatIn = () => { const t = $('chatIn'); t.style.height = 'auto'; t.style.height = Math.min(t.scrollHeight, 140) + 'px'; };
+$('chatIn').addEventListener('input', growChatIn);
+$('chatIn').addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey && !isTouch) { e.preventDefault(); $('chatForm').requestSubmit(); } });
+$('chatForm').addEventListener('submit', async e => {
+  e.preventDefault();
+  const body = $('chatIn').value.trim();
+  if (!body && !chatAttach) return;
+  if (!sb || !me) return;
+  if (!navigator.onLine) { chatNote('Kein Netz. Die Nachricht kann erst gesendet werden, wenn du wieder online bist.'); return; }
+  const row = Object.assign({ body: body || 'Haus geteilt' }, chatAttach || {});
+  $('chatSend').disabled = true;
+  const { data, error } = await sb.from('messages').insert(row).select();
+  $('chatSend').disabled = false;
+  if (error) {
+    chatNote('Senden hat nicht geklappt: ' + error.message);
+    if (error.code === '42501' || /row-level security/i.test(error.message || '')) checkMe();
+    return;
+  }
+  $('chatIn').value = ''; growChatIn(); chatAttach = null; renderAttach(); chatNote('');
+  if (data && data[0]) addChatMsg(data[0]);
+  if (!isTouch) $('chatIn').focus();
+});
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && me && navigator.onLine && chatLoaded) loadChat(); });
 
 /* ===== Mehr-Dialog ===== */
 $('btnMore').addEventListener('click', () => {
