@@ -149,12 +149,40 @@ dialog::backdrop{background:rgba(5,15,22,.55)}
 .legend i{width:16px;height:16px;border-radius:4px;display:inline-block}
 .legend i.due{background:transparent;border:2px dashed var(--fg)}
 .ver{font-size:.78em;color:var(--muted)}
+/* Anmeldung */
+.auth{position:fixed;inset:0;z-index:3000;background:var(--chrome);display:grid;place-items:center;padding:calc(env(safe-area-inset-top,0px) + 16px) 16px calc(env(safe-area-inset-bottom,0px) + 16px);overflow:auto}
+.auth-card{width:min(400px,100%);background:var(--panel);color:var(--fg);border-radius:16px;padding:24px 20px;display:grid;gap:14px;box-shadow:0 20px 60px rgba(0,0,0,.35)}
+.auth-brand{font-weight:750;font-size:.85em;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.auth-card h1{margin:0;font-size:1.45em;line-height:1.2;text-wrap:balance}
+.auth-text{margin:0;color:var(--muted);font-size:.92em}
+.auth-msg{margin:0;font-size:.9em;font-weight:600;color:var(--danger)}
+.auth-msg.ok{color:var(--s-green)}
+.auth-msg:empty{display:none}
+.auth-card .btn{width:100%}
+.linkbtn{background:none;border:0;color:var(--muted);text-decoration:underline;padding:4px;font-size:.9em;justify-self:center}
+/* Abgleich-Anzeige */
+.sync{display:inline-block;width:10px;height:10px;border-radius:50%;margin-left:8px;vertical-align:middle;background:var(--chrome-muted)}
+.sync.ok{background:#3ccf78}
+.sync.wait{background:var(--mark);animation:pulse 1.2s ease-in-out infinite}
+.sync.off{background:transparent;border:2px solid var(--chrome-muted)}
+@keyframes pulse{50%{opacity:.35}}
+@media (prefers-reduced-motion:reduce){.sync.wait{animation:none}}
+/* Team */
+.team{display:grid;gap:8px}
+.dlg > *,.stack > *{min-width:0}
+.team-row{display:flex;flex-wrap:wrap;align-items:center;gap:8px 10px;border:1px solid var(--line);border-radius:10px;padding:8px 10px}
+.team-row > div{flex:1 1 160px;min-width:0}
+.team-row b{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.team-row small{display:block;color:var(--muted);overflow-wrap:anywhere}
+.team-row.off{opacity:.6}
+.pill{font-size:.75em;font-weight:700;border-radius:999px;padding:2px 8px;background:var(--field);border:1px solid var(--line);white-space:nowrap}
+.pill.off{color:var(--danger);border-color:var(--danger)}
 </style>
 </head>
 <body>
 <div class="app">
   <header class="top">
-    <div class="brand">P² Gebietskarte<small id="ver"></small></div>
+    <div class="brand">P² Gebietskarte<small id="ver"></small><span class="sync off" id="syncDot" role="img" aria-label="Nicht angemeldet" title="Nicht angemeldet"></span></div>
     <div class="tally" id="tally" aria-label="Zähler"></div>
     <button class="iconbtn" id="btnSearch" aria-label="Ort oder PLZ suchen" aria-expanded="false">
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5L21 21"/></svg>
@@ -225,6 +253,7 @@ dialog::backdrop{background:rgba(5,15,22,.55)}
     <button class="st" data-s="kein"><b>–</b><span>Kein Interesse</span></button>
   </div>
   <p class="info" id="shInfo"></p>
+  <p class="info" id="shBy"></p>
   <label class="field" id="shApptWrap" hidden>Termin am
     <input type="datetime-local" id="shAppt">
   </label>
@@ -250,17 +279,30 @@ dialog::backdrop{background:rgba(5,15,22,.55)}
 <dialog id="dlgMore">
   <form method="dialog" class="dlg">
     <h2>Mehr</h2>
-    <h3>Sichern &amp; Team</h3>
+    <h3>Konto</h3>
+    <p id="mMe"></p>
+    <p id="mSync"></p>
+    <div class="row-wrap"><button class="btn" type="button" id="mLogout">Abmelden</button></div>
+    <div class="stack admin-only" hidden>
+      <h3>Team</h3>
+      <p>Gesperrte Zugänge sehen nichts mehr. Ihre App löscht die Kundendaten auf dem Handy, sobald es online ist.</p>
+      <div class="team" id="mTeam"></div>
+      <p><b>Neuen Zugang anlegen:</b> In Supabase unter Authentication → Users → „Add user“ → „Create new user“ E-Mail und Start-Passwort eintragen, „Auto Confirm User“ anhaken. Der Zugang erscheint dann hier.</p>
+      <div class="row-wrap"><a class="btn" id="mUsersLink" target="_blank" rel="noopener">Zugänge in Supabase öffnen</a></div>
+    </div>
+    <div class="stack admin-only" hidden>
+    <h3>Sichern</h3>
     <div class="row-wrap">
-      <button class="btn primary" type="button" id="mSave">Sicherung speichern</button>
-      <button class="btn" type="button" id="mShare">An Kollegen senden</button>
+      <button class="btn" type="button" id="mSave">Sicherung speichern</button>
+      <button class="btn" type="button" id="mShare">Gebiet als Datei/Link senden</button>
       <button class="btn" type="button" id="mOpen">Datei öffnen</button>
     </div>
-    <p>Alle Daten liegen nur auf diesem Gerät. Fürs Team: „An Kollegen senden“, beim Kollegen wird zusammengeführt. Bei doppelten Häusern gewinnt der neuere Eintrag.</p>
+    <p>Alle Markierungen werden automatisch zentral gespeichert und mit dem Team abgeglichen. Die Sicherungsdatei ist nur eine zusätzliche Kopie.</p>
     <h3>Auswertung</h3>
     <div class="row-wrap">
       <button class="btn" type="button" id="mXlsAll">Excel: alle markierten Häuser</button>
       <button class="btn" type="button" id="mXlsView">Excel: Ausschnitt inkl. offene</button>
+    </div>
     </div>
     <h3>Wiedervorlage</h3>
     <label class="opt" style="align-items:center">„Nicht angetroffen“ wieder anlaufen nach
@@ -279,11 +321,13 @@ dialog::backdrop{background:rgba(5,15,22,.55)}
       <i style="background:var(--s-part)"></i><span>Mehrfamilienhaus teilweise erledigt</span>
       <i class="due"></i><span>Wiedervorlage fällig (gestrichelter Rand)</span>
     </div>
+    <div class="stack admin-only" hidden>
     <h3>Automatische Tageskopien</h3>
-    <p>Die App legt jeden Tag eine Kopie aller Markierungen auf diesem Gerät an (die letzten 30 Tage). Gegen Handyverlust hilft nur die Sicherungsdatei.</p>
+    <p>Die App legt jeden Tag eine Kopie aller Markierungen auf diesem Gerät an (die letzten 30 Tage). Wiederherstellen überträgt den Stand an das ganze Team.</p>
     <div class="row-wrap">
       <select id="mSnaps" style="flex:1;min-width:180px"></select>
       <button class="btn" type="button" id="mSnapRestore">Diesen Stand wiederherstellen</button>
+    </div>
     </div>
     <p class="ver" id="mStats"></p>
     <p class="ver">Ortssuche: Nominatim / OpenStreetMap. Kartendaten © OpenStreetMap-Mitwirkende · Luftbild © Esri bzw. © Geobasis NRW (dl-de/zero-2-0). Tipp: über „Zum Startbildschirm hinzufügen“ installieren, dann läuft die Karte auch mit schlechtem Netz.</p>
@@ -326,11 +370,26 @@ dialog::backdrop{background:rgba(5,15,22,.55)}
 </dialog>
 <input type="file" id="fileIn" accept=".json,application/json" hidden>
 
+<!-- Anmeldung -->
+<section class="auth" id="auth" hidden>
+  <form class="auth-card" id="authForm" novalidate>
+    <div class="auth-brand">P² Gebietskarte</div>
+    <h1 id="authTitle">Anmelden</h1>
+    <p class="auth-text" id="authText"></p>
+    <label class="field" id="authEmailWrap">E-Mail<input id="authEmail" type="email" autocomplete="username" inputmode="email"></label>
+    <label class="field" id="authPassWrap">Passwort<input id="authPass" type="password" autocomplete="current-password"></label>
+    <p class="auth-msg" id="authMsg" role="alert"></p>
+    <button class="btn primary" id="authSubmit" type="submit">Anmelden</button>
+    <button class="linkbtn" id="authAlt" type="button">Passwort vergessen?</button>
+  </form>
+</section>
+
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js" crossorigin="anonymous"></script>
 <script>
 (() => {
 'use strict';
-const VERSION = '1.4';
+const VERSION = '2.0';
 const APP = 'P² Gebietskarte';
 const $ = id => document.getElementById(id);
 const msgEl = $('message');
@@ -403,7 +462,8 @@ const idb = (() => {
     all: s => tx(s, 'readonly', st => st.getAll()),
     put: (s, x) => tx(s, 'readwrite', st => st.put(x)),
     putMany: (s, arr) => tx(s, 'readwrite', st => { for (const x of arr) st.put(x); }),
-    del: (s, k) => tx(s, 'readwrite', st => st.delete(k))
+    del: (s, k) => tx(s, 'readwrite', st => st.delete(k)),
+    clear: s => tx(s, 'readwrite', st => st.clear())
   };
 })();
 
@@ -726,9 +786,9 @@ const sheet = $('sheet');
 function rec(id) { return records[id] || (records[id] = {}); }
 function touch(id) {
   const r = records[id]; if (!r) return;
-  r.up = nowIso();
+  r.up = nowIso(); if (me) r.by = me.id;
   const f = features.get(id); if (f) { r.a = f.a || ''; r.c = f.c; r.sub = f.sub || ''; }
-  persist(); restyle(id); updateLabels(); updateTally();
+  persist(); restyle(id); updateLabels(); updateTally(); queueRec(id);
 }
 function openSheet(id) {
   const prev = current; current = id; if (prev) restyle(prev); restyle(id);
@@ -764,6 +824,9 @@ function renderSheet() {
   for (const b of $('shStates').querySelectorAll('.st')) b.setAttribute('aria-pressed', String(r.s === b.dataset.s));
   const inf = mfh ? { text: '', due: false } : infoFor(r);
   $('shInfo').textContent = inf.text; $('shInfo').classList.toggle('due', inf.due); $('shInfo').hidden = !inf.text;
+  const who = r.by && (me && r.by === me.id ? 'dir' : team[r.by] ? (team[r.by].name || team[r.by].email) : '');
+  $('shBy').textContent = r.up && hasData(r) ? `Zuletzt geändert${who ? ' von ' + who : ''} am ${fmtFull(r.up)}${pendingRec.has(id) ? ' · noch nicht übertragen' : ''}` : '';
+  $('shBy').hidden = !$('shBy').textContent;
   $('shApptWrap').hidden = !(r.s === 'termin' || hasAny(r, 'termin') || r.appt);
   $('shAppt').value = r.appt || '';
   $('shMfh').checked = mfh; $('shStepper').hidden = !mfh; $('shUnits').hidden = !mfh;
@@ -911,7 +974,7 @@ mapEl.addEventListener('pointermove', e => {
 });
 function endDraw(e) {
   if (!drawing || e.pointerId !== drawing.id) return;
-  if (drawing.pts.length > 1) { sketches.push({ id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6), p: drawing.pts.map(p => [r6(p.lat), r6(p.lng)]), up: nowIso() }); persist(); }
+  if (drawing.pts.length > 1) { const sk = { id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6), p: drawing.pts.map(p => [r6(p.lat), r6(p.lng)]), up: nowIso() }; sketches.push(sk); persist(); queueSketch(sk.id); }
   else sketchLayer.removeLayer(drawing.line);
   drawing = null;
 }
@@ -925,7 +988,7 @@ map.on('click', e => {
     const px = s.p.map(p => map.latLngToContainerPoint(p));
     for (let k = 1; k < px.length; k++) { const d = L.LineUtil.pointToSegmentDistance(pt, px[k - 1], px[k]); if (d < bd) { bd = d; best = i; } }
   });
-  if (best >= 0) { sketches.splice(best, 1); persist(); drawSketches(); say('Linie gelöscht.'); }
+  if (best >= 0) { const gone = sketches.splice(best, 1)[0]; persist(); drawSketches(); queueSketch(gone.id); say('Linie gelöscht.'); }
 });
 
 /* ===== Sonnenmodus ===== */
@@ -960,7 +1023,8 @@ function saveBackup() {
 function checkBackupBar() {
   const changed = (settings.lastChange || 0) > (settings.lastBackup || 0);
   const backedToday = settings.lastBackup && new Date(settings.lastBackup).toDateString() === new Date().toDateString();
-  $('backupBar').hidden = !(changed && !backedToday && settings.snooze !== today() && Object.values(records).some(hasData));
+  $('backupBar').hidden = true; // Markierungen liegen zentral – kein täglicher Sicherungs-Hinweis mehr
+  void changed; void backedToday;
 }
 $('barSave').addEventListener('click', saveBackup);
 $('barLater').addEventListener('click', () => { settings.snooze = today(); saveSettings(); checkBackupBar(); });
@@ -1017,13 +1081,14 @@ async function applyImport(replace) {
   for (const [id, r] of Object.entries(d.records)) {
     if (!/^[wr]\d+$/.test(id) || !r || typeof r !== 'object') continue;
     const l = records[id];
-    if (!l || (r.up || '') > (l.up || '')) { records[id] = r; taken++; }
+    if (!l || (r.up || '') > (l.up || '')) { records[id] = r; taken++; pendingRec.add(id); }
   }
   const fresh = [];
   for (const f of Object.values(d.buildings || {})) if (validFeature(f) && !features.has(f.id)) { features.set(f.id, f); addLayer(f); fresh.push(f); }
   if (fresh.length) idb.putMany('b', fresh).catch(() => {});
   const have = new Set(sketches.map(s => s.id));
-  for (const s of d.sketches || []) if (s && s.id && Array.isArray(s.p) && !have.has(s.id)) sketches.push(s);
+  for (const s of d.sketches || []) if (s && s.id && Array.isArray(s.p) && !have.has(s.id)) { sketches.push(s); pendingSk.add(s.id); }
+  savePending(); scheduleFlush();
   persist(); drawSketches(); restyleAll();
   if (d.view && Array.isArray(d.view.c) && DE.pad(0.15).contains(d.view.c)) map.setView(d.view.c, d.view.z || 17);
   say(`${taken} Markierungen übernommen, ${fresh.length} neue Häuser.`);
@@ -1068,7 +1133,8 @@ $('mSnapRestore').addEventListener('click', async () => {
   const day = $('mSnaps').value; if (!day) return;
   const s = (await idb.all('snap')).find(x => x.day === day); if (!s) return;
   if (!confirm('Alle aktuellen Markierungen und Skizzen durch diesen Stand ersetzen?')) return;
-  records = s.records; sketches = s.sketches || []; persist(); drawSketches(); restyleAll(); $('dlgMore').close();
+  records = s.records; sketches = s.sketches || []; for (const id of Object.keys(records)) pendingRec.add(id); for (const x of sketches) pendingSk.add(x.id); savePending(); scheduleFlush();
+  persist(); drawSketches(); restyleAll(); $('dlgMore').close();
   say('Stand vom ' + fmtFull(s.at) + ' wiederhergestellt.');
 });
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') { dailySnapshot(); restyleAll(); checkBackupBar(); } });
@@ -1193,12 +1259,290 @@ searchBox.addEventListener('submit', async e => {
   } finally { searching = false; }
 });
 
+/* ===== Konto und zentraler Abgleich (Supabase) ===== */
+const SB_URL = 'https://exffdaiwysgcjinjkkfb.supabase.co';
+const SB_KEY = 'sb_publishable_y8uRMV-ZZwJEbwsv0UbsVA_VwybfSsv'; // öffentlicher Schlüssel, Schutz über die Zugriffsregeln der Datenbank
+const SB_USERS = 'https://supabase.com/dashboard/project/exffdaiwysgcjinjkkfb/auth/users';
+const sb = window.supabase ? window.supabase.createClient(SB_URL, SB_KEY, { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true } }) : null;
+let me = null, team = {}, syncing = false, rtChannel = null, recovery = false, lastPull = 0;
+let pendingRec = new Set(LS.get('p2gk-pending-rec', []));
+let pendingSk = new Set(LS.get('p2gk-pending-sk', []));
+const isAdmin = () => !!(me && me.role === 'admin' && me.active);
+function savePending() { LS.set('p2gk-pending-rec', [...pendingRec]); LS.set('p2gk-pending-sk', [...pendingSk]); updateSyncDot(); }
+function queueRec(id) { pendingRec.add(id); savePending(); scheduleFlush(); }
+function queueSketch(id) { pendingSk.add(id); savePending(); scheduleFlush(); }
+let flushTimer = 0;
+function scheduleFlush(ms = 800) { clearTimeout(flushTimer); flushTimer = setTimeout(flush, ms); }
+const plain = r => { const c = Object.assign({}, r || {}); delete c.by; return c; };
+function updateSyncDot() {
+  const d = $('syncDot'), n = pendingRec.size + pendingSk.size;
+  let cls = 'ok', t = 'Alles übertragen';
+  if (!me) { cls = 'off'; t = 'Nicht angemeldet'; }
+  else if (!navigator.onLine) { cls = 'off'; t = n ? `Offline – ${n} Änderungen warten auf Netz` : 'Offline'; }
+  else if (n || syncing) { cls = 'wait'; t = n ? `${n} Änderungen werden übertragen …` : 'Abgleich läuft …'; }
+  d.className = 'sync ' + cls; d.title = t; d.setAttribute('aria-label', t);
+  if ($('mSync')) $('mSync').textContent = t;
+}
+async function flush() {
+  if (!sb || !me || !me.active || syncing || !navigator.onLine) return;
+  if (!pendingRec.size && !pendingSk.size) return;
+  syncing = true; updateSyncDot();
+  try {
+    const ids = [...pendingRec];
+    for (let i = 0; i < ids.length; i += 200) {
+      const rows = ids.slice(i, i + 200).map(id => ({ id, data: plain(records[id]) }));
+      const { error } = await sb.from('records').upsert(rows);
+      if (error) throw error;
+      for (const row of rows) if (((records[row.id] || {}).up || '') === (row.data.up || '')) pendingRec.delete(row.id); // in der Zwischenzeit geändert? Dann nochmal senden
+    }
+    const sks = [...pendingSk];
+    if (sks.length) {
+      const rows = sks.map(id => { const x = sketches.find(k => k.id === id); return x ? { id, points: x.p, deleted: false } : { id, points: [], deleted: true }; });
+      const { error } = await sb.from('sketches').upsert(rows);
+      if (error) throw error;
+      for (const id of sks) pendingSk.delete(id);
+    }
+    savePending();
+  } catch (e) {
+    if (e && (e.code === '42501' || /row-level security/i.test(e.message || ''))) checkMe();
+    scheduleFlush(30000);
+  } finally {
+    syncing = false; updateSyncDot();
+    if (pendingRec.size || pendingSk.size) scheduleFlush(2000);
+  }
+}
+async function pullAll() {
+  const all = {};
+  for (let from = 0; ; from += 1000) {
+    const { data, error } = await sb.from('records').select('id,data,updated_by').range(from, from + 999);
+    if (error) throw error;
+    for (const row of data) all[row.id] = Object.assign({}, row.data, { by: row.updated_by });
+    if (data.length < 1000) break;
+  }
+  const sk = [];
+  for (let from = 0; ; from += 1000) {
+    const { data, error } = await sb.from('sketches').select('id,points,updated_by').eq('deleted', false).range(from, from + 999);
+    if (error) throw error;
+    for (const row of data) sk.push({ id: row.id, p: row.points, by: row.updated_by });
+    if (data.length < 1000) break;
+  }
+  // Erste Anmeldung auf diesem Gerät: bisherige Markierungen hochladen (Umzug von Version 1)
+  const first = !LS.get('p2gk-synced-' + me.id, false);
+  for (const [id, r] of Object.entries(records)) {
+    if (pendingRec.has(id)) { all[id] = r; continue; }
+    if (first && hasData(r) && (!all[id] || (r.up || '') > (all[id].up || ''))) { all[id] = r; pendingRec.add(id); }
+  }
+  const local = new Map(sketches.map(x => [x.id, x]));
+  for (const id of pendingSk) { const i = sk.findIndex(x => x.id === id); if (i >= 0) sk.splice(i, 1); if (local.has(id)) sk.push(local.get(id)); }
+  if (first) for (const x of sketches) if (!sk.find(y => y.id === x.id)) { sk.push(x); pendingSk.add(x.id); }
+  records = all; sketches = sk; lastPull = Date.now();
+  LS.set('p2gk-synced-' + me.id, true);
+  persist(); drawSketches(); restyleAll(); savePending(); if (current) renderSheet();
+}
+function subscribe() {
+  if (rtChannel) sb.removeChannel(rtChannel);
+  rtChannel = sb.channel('gebiet')
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'records' }, p => {
+      if (p.eventType === 'DELETE') { const id = p.old && p.old.id; if (id && !pendingRec.has(id)) { delete records[id]; persist(); restyle(id); updateLabels(); updateTally(); } return; }
+      const row = p.new; if (!row || !row.id || pendingRec.has(row.id)) return;
+      records[row.id] = Object.assign({}, row.data, { by: row.updated_by });
+      persist(); restyle(row.id); updateLabels(); updateTally(); if (current === row.id) renderSheet();
+    })
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'sketches' }, p => {
+      const row = p.new; if (!row || !row.id || pendingSk.has(row.id)) return;
+      const i = sketches.findIndex(x => x.id === row.id);
+      if (row.deleted) { if (i >= 0) sketches.splice(i, 1); }
+      else { const x = { id: row.id, p: row.points, by: row.updated_by }; if (i >= 0) sketches[i] = x; else sketches.push(x); }
+      persist(); drawSketches();
+    })
+    .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'profiles' }, p => {
+      const row = p.new; if (!row || !row.id) return;
+      team[row.id] = row;
+      if (me && row.id === me.id) { if (!row.active) { blocked(); return; } me = row; LS.set('p2gk-me', me); applyRole(); }
+      if ($('dlgMore').open) renderTeam();
+    })
+    .subscribe();
+}
+function wipeLocal() {
+  clearTimeout(persistTimer);
+  records = {}; sketches = []; pendingRec.clear(); pendingSk.clear(); team = {};
+  for (const k of [K.rec, K.sk, 'p2gk-pending-rec', 'p2gk-pending-sk', 'p2gk-me']) { try { localStorage.removeItem(k); } catch (e) {} }
+  idb.clear('snap').catch(() => {});
+  if (current) closeSheet();
+  drawSketches(); restyleAll();
+}
+async function blocked() {
+  wipeLocal(); me = null; applyRole(); updateSyncDot();
+  try { await sb.auth.signOut({ scope: 'local' }); } catch (e) {}
+  showAuth('blocked');
+}
+async function checkMe() {
+  if (!sb || !me) return;
+  const { data, error } = await sb.from('profiles').select('*').eq('id', me.id);
+  if (error) return;
+  if (!data.length || !data[0].active) { blocked(); return; }
+  me = data[0]; LS.set('p2gk-me', me); applyRole();
+}
+async function startSession(session) {
+  const uid = session.user.id;
+  if (LS.get('p2gk-user', null) && LS.get('p2gk-user', null) !== uid) wipeLocal(); // anderer Zugang auf diesem Gerät
+  LS.set('p2gk-user', uid);
+  const cached = LS.get('p2gk-me', null);
+  me = cached && cached.id === uid ? cached : { id: uid, email: session.user.email, name: '', role: 'member', active: true };
+  hideAuth(); applyRole(); updateSyncDot();
+  try {
+    const { data, error } = await sb.from('profiles').select('*');
+    if (error) throw error;
+    team = {}; for (const x of data) team[x.id] = x;
+    const mine = team[uid];
+    if (!mine || !mine.active) { blocked(); return; }
+    me = mine; LS.set('p2gk-me', me); applyRole();
+    say('Daten werden abgeglichen …', false, true);
+    await pullAll();
+    subscribe(); flush();
+    say(`Angemeldet als ${me.name || me.email}. Alle Markierungen sind aktuell.`);
+  } catch (e) {
+    say('Keine Verbindung zum Server. Du kannst weiterarbeiten, die Änderungen werden später übertragen.', true);
+  }
+  updateSyncDot();
+}
+function applyRole() { for (const x of document.querySelectorAll('.admin-only')) x.hidden = !isAdmin(); }
+function renderAccount() {
+  $('mMe').textContent = me ? `Angemeldet als ${me.name || me.email}${me.name ? ' (' + me.email + ')' : ''}${isAdmin() ? ' · Admin' : ''}` : 'Nicht angemeldet';
+  $('mUsersLink').href = SB_USERS;
+  updateSyncDot(); if (isAdmin()) renderTeam();
+}
+async function refreshTeam() {
+  const { data, error } = await sb.from('profiles').select('*');
+  if (error) return;
+  team = {}; for (const x of data) team[x.id] = x;
+  renderTeam();
+}
+function renderTeam() {
+  const box = $('mTeam'); box.textContent = '';
+  const counts = {};
+  for (const r of Object.values(records)) if (r.by && hasData(r)) counts[r.by] = (counts[r.by] || 0) + 1;
+  const list = Object.values(team).sort((a, b) => (b.active - a.active) || (a.name || a.email || '').localeCompare(b.name || b.email || '', 'de'));
+  if (!list.length) { const p = document.createElement('p'); p.textContent = 'Noch keine Zugänge.'; box.append(p); return; }
+  for (const x of list) {
+    const row = document.createElement('div'); row.className = 'team-row' + (x.active ? '' : ' off');
+    const info = document.createElement('div');
+    const b = document.createElement('b'); b.textContent = x.name || x.email;
+    const sm = document.createElement('small'); sm.textContent = `${x.email} · ${counts[x.id] || 0} Häuser bearbeitet${x.role === 'admin' ? ' · Admin' : ''}`;
+    info.append(b, sm); row.append(info);
+    if (me && x.id === me.id) { const s = document.createElement('span'); s.className = 'pill'; s.textContent = 'Du'; row.append(s); }
+    else {
+      if (!x.active) { const s = document.createElement('span'); s.className = 'pill off'; s.textContent = 'Gesperrt'; row.append(s); }
+      const btn = document.createElement('button'); btn.type = 'button'; btn.className = 'btn' + (x.active ? ' danger' : '');
+      btn.textContent = x.active ? 'Sperren' : 'Entsperren';
+      btn.addEventListener('click', () => setActive(x, !x.active));
+      row.append(btn);
+    }
+    box.append(row);
+  }
+}
+async function setActive(x, active) {
+  if (!active && !confirm(`${x.name || x.email} sperren?\n\nDer Zugang funktioniert danach nicht mehr. Die App löscht die Kundendaten auf seinem Gerät, sobald es online ist.`)) return;
+  const { data, error } = await sb.from('profiles').update({ active }).eq('id', x.id).select();
+  if (error || !data || !data.length) { say('Ändern hat nicht geklappt' + (error ? ': ' + error.message : '. Fehlende Berechtigung.'), true); return; }
+  team[x.id] = data[0]; renderTeam();
+  say(active ? `${x.name || x.email} ist wieder freigeschaltet.` : `${x.name || x.email} ist gesperrt.`);
+}
+$('mLogout').addEventListener('click', async () => {
+  const n = pendingRec.size + pendingSk.size;
+  if (n && !confirm(`${n} Änderungen sind noch nicht übertragen und gehen beim Abmelden verloren. Trotzdem abmelden?`)) return;
+  if (!n && !confirm('Abmelden? Die Kundendaten werden von diesem Gerät entfernt und beim nächsten Anmelden neu geladen.')) return;
+  $('dlgMore').close();
+  if (rtChannel) { sb.removeChannel(rtChannel); rtChannel = null; }
+  wipeLocal(); me = null; applyRole(); updateSyncDot();
+  try { await sb.auth.signOut(); } catch (e) {}
+  showAuth('login');
+});
+
+/* --- Anmeldemaske --- */
+let authMode = 'login';
+const AUTH = {
+  login:   { title: 'Anmelden', text: 'Mit dem Zugang, den du von P² Sales bekommen hast.', email: true, pass: true, submit: 'Anmelden', alt: 'Passwort vergessen?' },
+  forgot:  { title: 'Passwort vergessen', text: 'Gib deine E-Mail-Adresse ein. Du bekommst einen Link, mit dem du ein neues Passwort festlegst.', email: true, pass: false, submit: 'Link schicken', alt: 'Zurück zur Anmeldung' },
+  newpass: { title: 'Neues Passwort', text: 'Lege ein neues Passwort fest, mindestens 8 Zeichen.', email: false, pass: true, submit: 'Passwort speichern', alt: '' },
+  blocked: { title: 'Zugang gesperrt', text: 'Dein Zugang zur Gebietskarte ist nicht mehr aktiv. Die Kundendaten wurden von diesem Gerät entfernt. Bei Fragen wende dich an P² Sales.', email: false, pass: false, submit: 'Mit anderem Zugang anmelden', alt: '' }
+};
+function showAuth(mode, msg = '', ok = false) {
+  authMode = mode; const m = AUTH[mode];
+  $('auth').hidden = false;
+  $('authTitle').textContent = m.title; $('authText').textContent = m.text;
+  $('authEmailWrap').hidden = !m.email; $('authPassWrap').hidden = !m.pass;
+  $('authPass').autocomplete = mode === 'newpass' ? 'new-password' : 'current-password';
+  $('authPass').value = '';
+  $('authSubmit').textContent = m.submit; $('authSubmit').disabled = false;
+  $('authAlt').textContent = m.alt; $('authAlt').hidden = !m.alt;
+  $('authMsg').textContent = msg; $('authMsg').classList.toggle('ok', ok);
+  setTimeout(() => { const f = m.email ? $('authEmail') : m.pass ? $('authPass') : null; if (f && !f.value) f.focus(); }, 50);
+}
+function hideAuth() { $('auth').hidden = true; }
+$('authAlt').addEventListener('click', () => showAuth(authMode === 'login' ? 'forgot' : 'login'));
+$('authForm').addEventListener('submit', async e => {
+  e.preventDefault();
+  if (!sb) { $('authMsg').textContent = 'Keine Verbindung zum Anmeldeserver. Bitte Internet prüfen und neu laden.'; return; }
+  const email = $('authEmail').value.trim(), pass = $('authPass').value;
+  const msg = (t, ok = false) => { $('authMsg').textContent = t; $('authMsg').classList.toggle('ok', ok); };
+  if (authMode === 'blocked') { showAuth('login'); return; }
+  if (AUTH[authMode].email && !/^\S+@\S+\.\S+$/.test(email)) { msg('Bitte eine gültige E-Mail-Adresse eingeben.'); return; }
+  if (AUTH[authMode].pass && pass.length < (authMode === 'newpass' ? 8 : 1)) { msg(authMode === 'newpass' ? 'Das Passwort braucht mindestens 8 Zeichen.' : 'Bitte das Passwort eingeben.'); return; }
+  $('authSubmit').disabled = true;
+  try {
+    if (authMode === 'login') {
+      msg('Anmeldung läuft …', true);
+      const { data, error } = await sb.auth.signInWithPassword({ email, password: pass });
+      if (error) throw error;
+      startSession(data.session);
+    } else if (authMode === 'forgot') {
+      const { error } = await sb.auth.resetPasswordForEmail(email, { redirectTo: location.origin + location.pathname });
+      if (error) throw error;
+      msg('Wenn es zu dieser Adresse einen Zugang gibt, kommt gleich eine E-Mail mit dem Link. Bitte auch im Spam-Ordner nachsehen.', true);
+    } else if (authMode === 'newpass') {
+      const { error } = await sb.auth.updateUser({ password: pass });
+      if (error) throw error;
+      recovery = false;
+      const { data } = await sb.auth.getSession();
+      if (data.session) { startSession(data.session); say('Neues Passwort gespeichert.'); } else showAuth('login', 'Neues Passwort gespeichert. Bitte jetzt anmelden.', true);
+    }
+  } catch (err) {
+    const t = (err && err.message) || '';
+    msg(/invalid login/i.test(t) ? 'E-Mail oder Passwort stimmt nicht.'
+      : /fetch|network/i.test(t) ? 'Keine Verbindung. Bitte Internet prüfen und nochmal versuchen.'
+      : /rate|security purposes/i.test(t) ? 'Zu viele Versuche. Bitte ein paar Minuten warten.'
+      : /same|different from the old/i.test(t) ? 'Bitte ein anderes Passwort als bisher wählen.'
+      : /weak|short|characters/i.test(t) ? 'Das Passwort ist zu schwach. Bitte länger oder mit Zahlen.'
+      : 'Das hat nicht geklappt: ' + t);
+  } finally { $('authSubmit').disabled = false; }
+});
+window.addEventListener('online', () => { updateSyncDot(); if (me) { flush(); if (Date.now() - lastPull > 120000) pullAll().catch(() => {}); checkMe(); } });
+window.addEventListener('offline', updateSyncDot);
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && me && navigator.onLine) { checkMe(); flush(); if (Date.now() - lastPull > 120000) pullAll().catch(() => {}); } });
+setInterval(() => { if (me && (pendingRec.size || pendingSk.size)) flush(); }, 30000);
+if (sb) {
+  sb.auth.onAuthStateChange(event => {
+    if (event === 'PASSWORD_RECOVERY') { recovery = true; setTimeout(() => showAuth('newpass'), 0); }
+  });
+  (async () => {
+    let session = null;
+    try { session = (await sb.auth.getSession()).data.session; } catch (e) {}
+    if (recovery) return;
+    if (session) startSession(session); else showAuth('login');
+  })();
+} else {
+  showAuth('login', 'Der Anmeldeserver ist gerade nicht erreichbar. Bitte Internet prüfen und die App neu laden.');
+}
+updateSyncDot();
+
 /* ===== Mehr-Dialog ===== */
 $('btnMore').addEventListener('click', () => {
   $('mRevisit').value = String(settings.revisitDays);
   const marked = Object.values(records).filter(hasData).length;
   $('mStats').textContent = `${features.size} Häuser gespeichert · ${marked} markiert · ${sketches.length} Skizzen · Version ${VERSION}`;
-  fillSnaps(); $('dlgMore').showModal();
+  fillSnaps(); renderAccount(); $('dlgMore').showModal();
+  if (isAdmin()) refreshTeam();
 });
 $('mRevisit').addEventListener('change', e => { settings.revisitDays = +e.target.value; saveSettings(); restyleAll(); if (current) renderSheet(); });
 for (const d of document.querySelectorAll('dialog')) d.addEventListener('click', e => { if (e.target === d) d.close(); });

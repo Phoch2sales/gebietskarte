@@ -1,12 +1,13 @@
 // P² Gebietskarte – Offline-Speicher
-const APP = 'p2gk-app-v1';
+const APP = 'p2gk-app-v2';
 const TILES = 'p2gk-tiles-v1';
 const MAX_TILES = 4000;
 const SHELL = ['./', './index.html', './manifest.webmanifest', './icon.svg'];
 const LIBS = [
   'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js',
   'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css',
-  'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js'
+  'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js',
+  'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js'
 ];
 const TILE_HOSTS = ['tile.openstreetmap.org', 'server.arcgisonline.com', 'www.wms.nrw.de'];
 
