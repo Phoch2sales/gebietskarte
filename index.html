@@ -317,7 +317,7 @@ dialog::backdrop{background:rgba(5,15,22,.55)}
     <h3>Konto</h3>
     <p id="mMe"></p>
     <p id="mSync"></p>
-    <div class="row-wrap"><button class="btn" type="button" id="mLogout">Abmelden</button></div>
+    <div class="row-wrap"><button class="btn" type="button" id="mPass">Passwort ändern</button><button class="btn" type="button" id="mLogout">Abmelden</button></div>
     <div class="stack admin-only" hidden>
       <h3>Team</h3>
       <p>Gesperrte Zugänge sehen nichts mehr. Ihre App löscht die Kundendaten auf dem Handy, sobald es online ist.</p>
@@ -429,7 +429,8 @@ dialog::backdrop{background:rgba(5,15,22,.55)}
     <h1 id="authTitle">Anmelden</h1>
     <p class="auth-text" id="authText"></p>
     <label class="field" id="authEmailWrap">E-Mail<input id="authEmail" type="email" autocomplete="username" inputmode="email"></label>
-    <label class="field" id="authPassWrap">Passwort<input id="authPass" type="password" autocomplete="current-password"></label>
+    <label class="field" id="authPassWrap"><span id="authPassLabel">Passwort</span><input id="authPass" type="password" autocomplete="current-password"></label>
+    <label class="field" id="authPass2Wrap" hidden>Neues Passwort wiederholen<input id="authPass2" type="password" autocomplete="new-password"></label>
     <p class="auth-msg" id="authMsg" role="alert"></p>
     <button class="btn primary" id="authSubmit" type="submit">Anmelden</button>
     <button class="linkbtn" id="authAlt" type="button">Passwort vergessen?</button>
@@ -441,7 +442,7 @@ dialog::backdrop{background:rgba(5,15,22,.55)}
 <script>
 (() => {
 'use strict';
-const VERSION = '2.1';
+const VERSION = '2.2';
 const APP = 'P² Gebietskarte';
 const $ = id => document.getElementById(id);
 const msgEl = $('message');
@@ -1536,7 +1537,8 @@ let authMode = 'login';
 const AUTH = {
   login:   { title: 'Anmelden', text: 'Mit dem Zugang, den du von P² Sales bekommen hast.', email: true, pass: true, submit: 'Anmelden', alt: 'Passwort vergessen?' },
   forgot:  { title: 'Passwort vergessen', text: 'Gib deine E-Mail-Adresse ein. Du bekommst einen Link, mit dem du ein neues Passwort festlegst.', email: true, pass: false, submit: 'Link schicken', alt: 'Zurück zur Anmeldung' },
-  newpass: { title: 'Neues Passwort', text: 'Lege ein neues Passwort fest, mindestens 8 Zeichen.', email: false, pass: true, submit: 'Passwort speichern', alt: '' },
+  newpass: { title: 'Neues Passwort', text: 'Lege ein neues Passwort fest, mindestens 8 Zeichen.', email: false, pass: true, pass2: true, submit: 'Passwort speichern', alt: '' },
+  change:  { title: 'Passwort ändern', text: 'Lege ein neues Passwort fest, mindestens 8 Zeichen. Du bleibst danach angemeldet.', email: false, pass: true, pass2: true, submit: 'Passwort speichern', alt: 'Abbrechen' },
   blocked: { title: 'Zugang gesperrt', text: 'Dein Zugang zur Gebietskarte ist nicht mehr aktiv. Die Kundendaten wurden von diesem Gerät entfernt. Bei Fragen wende dich an P² Sales.', email: false, pass: false, submit: 'Mit anderem Zugang anmelden', alt: '' }
 };
 function showAuth(mode, msg = '', ok = false) {
@@ -1544,15 +1546,18 @@ function showAuth(mode, msg = '', ok = false) {
   $('auth').hidden = false;
   $('authTitle').textContent = m.title; $('authText').textContent = m.text;
   $('authEmailWrap').hidden = !m.email; $('authPassWrap').hidden = !m.pass;
-  $('authPass').autocomplete = mode === 'newpass' ? 'new-password' : 'current-password';
-  $('authPass').value = '';
+  $('authPass').autocomplete = m.pass2 ? 'new-password' : 'current-password';
+  $('authPassLabel').textContent = m.pass2 ? 'Neues Passwort' : 'Passwort';
+  $('authPass2Wrap').hidden = !m.pass2;
+  $('authPass').value = ''; $('authPass2').value = '';
   $('authSubmit').textContent = m.submit; $('authSubmit').disabled = false;
   $('authAlt').textContent = m.alt; $('authAlt').hidden = !m.alt;
   $('authMsg').textContent = msg; $('authMsg').classList.toggle('ok', ok);
   setTimeout(() => { const f = m.email ? $('authEmail') : m.pass ? $('authPass') : null; if (f && !f.value) f.focus(); }, 50);
 }
 function hideAuth() { $('auth').hidden = true; }
-$('authAlt').addEventListener('click', () => showAuth(authMode === 'login' ? 'forgot' : 'login'));
+$('authAlt').addEventListener('click', () => { if (authMode === 'change') hideAuth(); else showAuth(authMode === 'login' ? 'forgot' : 'login'); });
+$('mPass').addEventListener('click', () => { if (!me) return; $('dlgMore').close(); showAuth('change'); });
 $('authForm').addEventListener('submit', async e => {
   e.preventDefault();
   if (!sb) { $('authMsg').textContent = 'Keine Verbindung zum Anmeldeserver. Bitte Internet prüfen und neu laden.'; return; }
@@ -1560,7 +1565,8 @@ $('authForm').addEventListener('submit', async e => {
   const msg = (t, ok = false) => { $('authMsg').textContent = t; $('authMsg').classList.toggle('ok', ok); };
   if (authMode === 'blocked') { showAuth('login'); return; }
   if (AUTH[authMode].email && !/^\S+@\S+\.\S+$/.test(email)) { msg('Bitte eine gültige E-Mail-Adresse eingeben.'); return; }
-  if (AUTH[authMode].pass && pass.length < (authMode === 'newpass' ? 8 : 1)) { msg(authMode === 'newpass' ? 'Das Passwort braucht mindestens 8 Zeichen.' : 'Bitte das Passwort eingeben.'); return; }
+  if (AUTH[authMode].pass && pass.length < (AUTH[authMode].pass2 ? 8 : 1)) { msg(AUTH[authMode].pass2 ? 'Das Passwort braucht mindestens 8 Zeichen.' : 'Bitte das Passwort eingeben.'); return; }
+  if (AUTH[authMode].pass2 && pass !== $('authPass2').value) { msg('Die beiden Passwörter stimmen nicht überein.'); return; }
   $('authSubmit').disabled = true;
   try {
     if (authMode === 'login') {
@@ -1578,6 +1584,10 @@ $('authForm').addEventListener('submit', async e => {
       recovery = false;
       const { data } = await sb.auth.getSession();
       if (data.session) { startSession(data.session); say('Neues Passwort gespeichert.'); } else showAuth('login', 'Neues Passwort gespeichert. Bitte jetzt anmelden.', true);
+    } else if (authMode === 'change') {
+      const { error } = await sb.auth.updateUser({ password: pass });
+      if (error) throw error;
+      hideAuth(); say('Passwort geändert. Ab jetzt meldest du dich mit dem neuen Passwort an.');
     }
   } catch (err) {
     const t = (err && err.message) || '';
@@ -1585,6 +1595,7 @@ $('authForm').addEventListener('submit', async e => {
       : /fetch|network/i.test(t) ? 'Keine Verbindung. Bitte Internet prüfen und nochmal versuchen.'
       : /rate|security purposes/i.test(t) ? 'Zu viele Versuche. Bitte ein paar Minuten warten.'
       : /same|different from the old/i.test(t) ? 'Bitte ein anderes Passwort als bisher wählen.'
+      : /reauth|nonce|session/i.test(t) ? 'Aus Sicherheitsgründen bitte einmal ab- und wieder anmelden, dann erneut versuchen.'
       : /weak|short|characters/i.test(t) ? 'Das Passwort ist zu schwach. Bitte länger oder mit Zahlen.'
       : 'Das hat nicht geklappt: ' + t);
   } finally { $('authSubmit').disabled = false; }
