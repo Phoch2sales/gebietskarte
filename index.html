@@ -335,6 +335,11 @@ dialog::backdrop{background:rgba(5,15,22,.55)}
 .a-tbl tr:last-child td{border-bottom:0}
 .a-back{align-self:flex-start}
 .a-form .a-q label{display:flex;font-weight:500;font-size:1em}
+.t-chat{display:flex;flex-direction:column;gap:8px;max-height:52vh;min-height:180px;overflow-y:auto;border:1px solid var(--line);border-radius:14px;padding:12px;background:var(--field);overscroll-behavior:contain}
+.t-input{display:grid;gap:8px}
+.t-input textarea{width:100%;min-width:0;resize:none;border:1px solid var(--line);background:var(--panel);color:var(--fg);border-radius:12px;padding:10px 12px;font-size:16px;line-height:1.35}
+.t-input .a-row{justify-content:flex-end}
+.acad-body details summary{list-style-position:inside}
 </style>
 </head>
 <body>
@@ -580,7 +585,7 @@ dialog::backdrop{background:rgba(5,15,22,.55)}
     <button class="close" id="acadClose" type="button" aria-label="Academy schließen">✕</button>
   </div>
   <nav class="acad-tabs" id="acadTabs" aria-label="Academy-Bereiche">
-    <button type="button" data-v="start">Start</button><button type="button" data-v="lessons">Lektionen</button><button type="button" data-v="exam">Prüfung</button><button type="button" data-v="files">Unterlagen</button><button type="button" data-v="team" hidden>Team</button>
+    <button type="button" data-v="start">Start</button><button type="button" data-v="lessons">Lektionen</button><button type="button" data-v="exam">Prüfung</button><button type="button" data-v="train">Training</button><button type="button" data-v="files">Unterlagen</button><button type="button" data-v="team" hidden>Team</button>
   </nav>
   <p class="chat-note" id="acadNote" hidden style="padding:8px 16px 0"></p>
   <div class="acad-body" id="acadBody"></div>
@@ -629,7 +634,7 @@ dialog::backdrop{background:rgba(5,15,22,.55)}
 <script>
 (() => {
 'use strict';
-const VERSION = '2.5';
+const VERSION = '2.6';
 const APP = 'P² Gebietskarte';
 const $ = id => document.getElementById(id);
 const msgEl = $('message');
@@ -1668,7 +1673,7 @@ function wipeLocal() {
   records = {}; sketches = []; pendingRec.clear(); pendingSk.clear(); team = {};
   chatMsgs = []; chatLoaded = false; chatAttach = null; if (chatOpen) closeChat(); renderChat(); updateChatBadge();
   stats = {}; statsDay = ''; statPending = false; clearTimeout(statTimer); try { localStorage.removeItem('p2gk-stat-pending'); } catch (e) {} if (dashOpen) closeDash(); renderDash(); updateMeetBar();
-  acad = { progress: [], attempts: [], videos: {}, files: [], fileCat: 'Alle', fileQ: '', quizResult: null }; acadLoaded = false; acadLesson = null; acadView = 'start'; if (acadOpen) closeAcad();
+  acad = { progress: [], attempts: [], videos: {}, files: [], roleplays: [], train: null, fileCat: 'Alle', fileQ: '', quizResult: null }; acadLoaded = false; acadLesson = null; acadView = 'start'; if (acadOpen) closeAcad();
   for (const k of [K.rec, K.sk, 'p2gk-pending-rec', 'p2gk-pending-sk', 'p2gk-me']) { try { localStorage.removeItem(k); } catch (e) {} }
   idb.clear('snap').catch(() => {});
   if (current) closeSheet();
@@ -2250,7 +2255,7 @@ const A_S1 = A_LESSONS.filter(l => l.st === 's1').map(l => l.id);
 const A_CATS = ['Workbook', 'Einwände', 'Aufträge', 'Organisation', 'Allgemein'];
 
 let acadOpen = false, acadView = 'start', acadLesson = null, acadLoaded = false, acadBusy = false;
-let acad = { progress: [], attempts: [], videos: {}, files: [], fileCat: 'Alle', fileQ: '', quizResult: null };
+let acad = { progress: [], attempts: [], videos: {}, files: [], roleplays: [], train: null, fileCat: 'Alle', fileQ: '', quizResult: null };
 
 // kleiner DOM-Helfer: h('div', {class:'x', onclick: fn}, 'Text', kind, ...)
 function h(tag, attrs, ...kids) {
@@ -2269,8 +2274,9 @@ const aDone = (uid = me && me.id) => new Set(acad.progress.filter(p => p.user_id
 const aPassed = (uid = me && me.id) => acad.attempts.some(a => a.user_id === uid && a.passed);
 const aBest = uid => acad.attempts.filter(a => a.user_id === uid).reduce((m, a) => (!m || a.score > m.score ? a : m), null);
 function aDoor(uid = me && me.id) {
-  const d = aDone(uid), s1 = A_S1.every(id => d.has(id)), p = aPassed(uid);
-  if (s1 && p) return { cls: 'ok', txt: '✓ Türfreigabe erteilt' };
+  const d = aDone(uid), s1 = A_S1.every(id => d.has(id)), p = aPassed(uid), tr = tPassedTypes(uid) >= T_NEED;
+  if (s1 && p && tr) return { cls: 'ok', txt: '✓ Türfreigabe erteilt' };
+  if (s1 && p) return { cls: 'warn', txt: 'Training offen' };
   if (s1) return { cls: 'warn', txt: 'Prüfung offen' };
   return { cls: '', txt: 'In Einarbeitung' };
 }
@@ -2279,13 +2285,15 @@ const aBar = (n, of) => h('div', { class: 'a-bar' + (of && n >= of ? ' full' : '
 async function loadAcad() {
   if (!sb || !me) return;
   acadBusy = true;
-  const [p, a, v, f] = await Promise.all([
+  const [p, a, v, f, rp] = await Promise.all([
     sb.from('academy_progress').select('user_id,lesson_id,done_at'),
     sb.from('academy_attempts').select('id,user_id,score,total,passed,created_at').order('created_at', { ascending: false }).limit(1000),
     sb.from('academy_videos').select('lesson_id,url'),
-    sb.from('academy_files').select('*').order('position').order('created_at')
+    sb.from('academy_files').select('*').order('position').order('created_at'),
+    sb.from('academy_roleplays').select('id,user_id,persona,status,score,result,created_at').order('created_at', { ascending: false }).limit(500)
   ]);
   acadBusy = false;
+  acad.roleplays = rp.error ? [] : rp.data;
   const err = [p, a, v, f].find(x => x.error);
   if (err) { acadNote(/does not exist|schema cache/i.test(err.error.message || '') ? 'Die Academy ist auf dem Server noch nicht eingerichtet.' : 'Academy-Daten konnten nicht geladen werden. Bitte später erneut versuchen.'); return; }
   acad.progress = p.data; acad.attempts = a.data;
@@ -2302,7 +2310,7 @@ function openAcad(view) {
   if (view) acadView = view;
   renderAcad(); loadAcad();
 }
-function closeAcad() { acadOpen = false; $('acad').hidden = true; }
+function closeAcad() { acadOpen = false; $('acad').hidden = true; if (typeof tStopRec === 'function') tStopRec(); try { if (window.speechSynthesis) speechSynthesis.cancel(); } catch (e) {} }
 function goAcad(view, lesson) {
   acadView = view; if (lesson !== undefined) acadLesson = lesson;
   if (view !== 'exam') acad.quizResult = null;
@@ -2318,7 +2326,7 @@ function renderAcad() {
   const body = $('acadBody'); body.textContent = '';
   if (!acadLoaded && acadBusy) body.append(h('p', { class: 'a-muted' }, 'Lade Academy …'));
   const v = acadView === 'team' && !isAdmin() ? 'start' : acadView;
-  body.append(...({ start: aStart, lessons: aLessons, exam: aExam, files: aFiles, team: aTeam })[v]());
+  body.append(...({ start: aStart, lessons: aLessons, exam: aExam, train: aTrain, files: aFiles, team: aTeam })[v]().filter(x => x !== null && x !== undefined && x !== false));
 }
 
 function aStart() {
@@ -2329,12 +2337,16 @@ function aStart() {
     h('p', {}, 'Hier lernst Du alles für die Tür: Mindset, Pitch, Einwandbehandlung, Abrechnung und Closing. Lerne jede Lektion, bis Du sie 1 zu 1 umsetzen kannst.'),
     h('div', { class: 'a-row' }, next
       ? h('button', { class: 'btn', type: 'button', onclick: () => goAcad('lessons', next.id) }, 'Weiter: ' + next.t)
-      : h('button', { class: 'btn', type: 'button', onclick: () => goAcad('exam') }, aPassed() ? 'Türfreigabe ansehen' : 'Zur Prüfung')));
+      : !aPassed() ? h('button', { class: 'btn', type: 'button', onclick: () => goAcad('exam') }, 'Zur Prüfung')
+      : tPassedTypes(me.id) < T_NEED ? h('button', { class: 'btn', type: 'button', onclick: () => goAcad('train') }, 'Zum Training mit KI-Kunden')
+      : h('button', { class: 'btn', type: 'button', onclick: () => goAcad('exam') }, 'Türfreigabe ansehen'),
+      next ? h('button', { class: 'btn', type: 'button', style: 'background:transparent;color:var(--chrome-fg);border-color:var(--chrome-muted)', onclick: () => goAcad('train') }, 'Training mit KI-Kunden') : null));
   const status = h('div', { class: 'a-card' },
     h('div', { class: 'a-row between' }, h('h3', {}, 'Dein Status'), h('span', { class: 'a-pill ' + door.cls }, door.txt)),
     h('div', { class: 'a-row between' }, h('span', {}, 'Stufe 1: Vor der ersten Tür'), h('b', {}, `${s1n}/${A_S1.length}`)), aBar(s1n, A_S1.length),
     h('div', { class: 'a-row between' }, h('span', {}, 'Gesamte Academy'), h('b', {}, `${d.size}/${A_LESSONS.length}`)), aBar(d.size, A_LESSONS.length),
-    h('p', { class: 'a-muted' }, `Türfreigabe: Stufe 1 komplett und Prüfung mit mindestens ${Math.ceil(A_QUIZ.length * 0.75)} von ${A_QUIZ.length} Punkten.`));
+    h('div', { class: 'a-row between' }, h('span', {}, 'Training mit KI-Kunden'), h('b', {}, `${Math.min(tPassedTypes(me.id), T_NEED)}/${T_NEED}`)), aBar(tPassedTypes(me.id), T_NEED),
+    h('p', { class: 'a-muted' }, `Türfreigabe: Stufe 1 komplett, Prüfung mit mindestens ${Math.ceil(A_QUIZ.length * 0.75)} von ${A_QUIZ.length} Punkten und in ${T_NEED} verschiedenen Kundentypen im Training eine ${T_PASS} oder besser.`));
   const stages = h('div', { class: 'a-grid' }, A_STAGES.map((s, i) => {
     const ls = A_LESSONS.filter(l => l.st === s.id), n = ls.filter(l => d.has(l.id)).length;
     return h('div', { class: 'a-card' },
@@ -2446,10 +2458,13 @@ function aExam() {
   const d = aDone(), open = A_S1.filter(id => !d.has(id)).length, need = Math.ceil(A_QUIZ.length * 0.75);
   const res = acad.quizResult;
   if (!res && aPassed() && !open) {
-    const best = aBest(me.id);
+    const best = aBest(me.id), trOk = tPassedTypes(me.id) >= T_NEED;
+    if (!trOk) return [h('div', { class: 'a-card a-hero' }, h('h4', { style: 'color:var(--chrome-muted)' }, 'P² Sales Academy'), h('h2', {}, '✓ Prüfung bestanden'),
+      h('p', {}, `Für die Türfreigabe fehlt noch das Training: in ${T_NEED} verschiedenen Kundentypen eine ${T_PASS} oder besser (aktuell ${tPassedTypes(me.id)}).`),
+      h('div', { class: 'a-row' }, h('button', { class: 'btn', type: 'button', onclick: () => goAcad('train') }, 'Zum Training'), h('button', { class: 'btn', type: 'button', style: 'background:transparent;color:var(--chrome-fg);border-color:var(--chrome-muted)', onclick: () => { acad.quizResult = { retry: true }; renderAcad(); } }, 'Prüfung wiederholen')))];
     return [h('div', { class: 'a-card a-hero a-cert' },
       h('h4', { style: 'color:var(--chrome-muted)' }, 'P² Sales Academy'), h('h2', {}, '🎓 Türfreigabe'),
-      h('p', {}, `${me.name || me.email}: Stufe 1 „Vor der ersten Tür“ abgeschlossen und die Prüfung mit ${best ? best.score : need} von ${best ? best.total : A_QUIZ.length} Punkten bestanden.`),
+      h('p', {}, `${me.name || me.email}: Stufe 1 „Vor der ersten Tür“ abgeschlossen, die Prüfung mit ${best ? best.score : need} von ${best ? best.total : A_QUIZ.length} Punkten bestanden und ${tPassedTypes(me.id)} Kundentypen im Training gemeistert.`),
       h('p', {}, 'Gewinner kennen keine Ausreden.'),
       h('button', { class: 'btn', type: 'button', onclick: () => { acad.quizResult = { retry: true }; renderAcad(); } }, 'Prüfung wiederholen'))];
   }
@@ -2466,7 +2481,7 @@ function aExam() {
   });
   const msg = h('p', { id: 'aQuizRes', role: 'status', style: 'font-weight:700' });
   if (res && res.correct) {
-    msg.textContent = res.passed ? (open ? `Bestanden: ${res.score}/${res.total}. Schließ noch Stufe 1 ab, dann gibt es die Türfreigabe.` : `Bestanden: ${res.score}/${res.total}. Glückwunsch, Türfreigabe erteilt!`)
+    msg.textContent = res.passed ? (open ? `Bestanden: ${res.score}/${res.total}. Schließ noch Stufe 1 ab, dann gibt es die Türfreigabe.` : tPassedTypes(me.id) < T_NEED ? `Bestanden: ${res.score}/${res.total}. Jetzt noch das Training mit KI-Kunden, dann gibt es die Türfreigabe.` : `Bestanden: ${res.score}/${res.total}. Glückwunsch, Türfreigabe erteilt!`)
       : `${res.score}/${res.total}: noch nicht bestanden. Schau Dir die markierten Fragen an und versuch es erneut.`;
     msg.style.color = res.passed ? 'var(--s-green)' : 'var(--danger)';
   }
@@ -2485,7 +2500,7 @@ function aExam() {
     acad.quizResult = Object.assign({ given }, data);
     acad.attempts.unshift({ id: Date.now(), user_id: me.id, score: data.score, total: data.total, passed: data.passed, created_at: new Date().toISOString() });
     renderAcad();
-    if (data.passed && !A_S1.some(id => !aDone().has(id))) showCheer('Türfreigabe! 🎓🔥', `${data.score} von ${data.total} – ab an die Tür`, 'goal');
+    if (data.passed && !A_S1.some(id => !aDone().has(id)) && tPassedTypes(me.id) >= T_NEED) showCheer('Türfreigabe! 🎓🔥', `${data.score} von ${data.total} – ab an die Tür`, 'goal');
     const r = $('aQuizRes'); if (r) r.scrollIntoView({ block: 'center', behavior: 'smooth' });
   });
   out.push(form);
@@ -2564,14 +2579,14 @@ function aUploadForm() {
 function aTeam() {
   const members = Object.values(team).filter(x => x.active).sort((a, b) => (a.name || a.email || '').localeCompare(b.name || b.email || '', 'de'));
   const last = uid => {
-    const t = [...acad.progress.filter(p => p.user_id === uid).map(p => p.done_at), ...acad.attempts.filter(a => a.user_id === uid).map(a => a.created_at)].sort().pop();
+    const t = [...acad.progress.filter(p => p.user_id === uid).map(p => p.done_at), ...acad.attempts.filter(a => a.user_id === uid).map(a => a.created_at), ...acad.roleplays.filter(r => r.user_id === uid).map(r => r.created_at)].sort().pop();
     return t ? new Date(t).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' }) : '–';
   };
   const freed = members.filter(x => aDoor(x.id).cls === 'ok').length;
   return [h('div', { style: 'display:grid;gap:4px' }, h('h4', {}, 'Für Teamleiter'), h('h3', { style: 'font-size:1.35em' }, 'Team-Fortschritt'),
       h('p', { class: 'a-muted' }, `${freed} von ${members.length} mit Türfreigabe. Gesperrte Zugänge werden nicht angezeigt.`)),
     h('div', { class: 'a-tbl' }, h('table', {},
-      h('thead', {}, h('tr', {}, ['Name', 'Stufe 1', 'Gesamt', 'Prüfung', 'Status', 'Zuletzt'].map(t => h('th', {}, t)))),
+      h('thead', {}, h('tr', {}, ['Name', 'Stufe 1', 'Gesamt', 'Prüfung', 'Training', 'Status', 'Zuletzt'].map(t => h('th', {}, t)))),
       h('tbody', {}, members.map(x => {
         const d = aDone(x.id), best = aBest(x.id), door = aDoor(x.id);
         return h('tr', {},
@@ -2579,14 +2594,200 @@ function aTeam() {
           h('td', {}, `${A_S1.filter(id => d.has(id)).length}/${A_S1.length}`),
           h('td', {}, h('div', { style: 'display:grid;gap:4px;min-width:90px' }, `${d.size}/${A_LESSONS.length}`, aBar(d.size, A_LESSONS.length))),
           h('td', {}, best ? `${best.score}/${best.total}` : '–'),
+          h('td', {}, `${tPassedTypes(x.id)}/${T_NEED}` + (tAvg(x.id) ? ` · Ø ${tAvg(x.id).toFixed(1).replace('.', ',')}` : '')),
           h('td', {}, h('span', { class: 'a-pill ' + door.cls }, door.txt)),
           h('td', {}, last(x.id)));
-      }))))];
+      })))),
+    h('h4', {}, 'Letzte Trainings im Team'),
+    (() => { const rs = acad.roleplays.filter(r => r.status === 'graded').slice(0, 30); return rs.length ? h('ul', { class: 'a-list' }, rs.map(r => { const p = T_PERSONAS.find(x => x.id === r.persona) || {}; return h('li', {},
+      h('button', { type: 'button', onclick: () => tOpen(r.id, true) }, h('span', { class: 'a-num' + (r.score >= T_PASS ? ' done' : '') }, String(r.score)),
+        h('span', {}, `${memberName(r.user_id)} · ${p.icon || ''} ${p.label || r.persona}`), h('span', { class: 'a-dur' }, new Date(r.created_at).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' })))); })) : h('p', { class: 'a-muted' }, 'Noch keine Trainings.'); })()];
 }
 
 $('btnAcad').addEventListener('click', () => acadOpen ? closeAcad() : openAcad());
 $('acadClose').addEventListener('click', closeAcad);
 for (const b of document.querySelectorAll('#acadTabs button')) b.addEventListener('click', () => goAcad(b.dataset.v, b.dataset.v === 'lessons' ? null : undefined));
+/* ===== Academy-Training: Gespräche mit KI-Kunden ===== */
+const T_PERSONAS = [
+  { id: 'skeptisch', icon: '🤨', label: 'Skeptisch', who: 'Herr Becker, 61', desc: 'Misstrauisch, will Ausweis, Fakten und den Haken wissen.' },
+  { id: 'nein', icon: '✋', label: 'Absoluter Nein-Kunde', who: 'Frau Krämer, 45', desc: 'Kein Interesse, keine Zeit. Hier zählt Profi-Verhalten und ein sauberer Abschied.' },
+  { id: 'vielleicht', icon: '🤔', label: 'Vielleicht-Kunde', who: 'Herr Yilmaz, 38', desc: 'Offen, aber unentschlossen: „Muss erst mit meiner Frau sprechen.“' },
+  { id: 'ja', icon: '🙂', label: 'Ja-Kunde', who: 'Frau Schmitz, 52', desc: 'Ärgert sich über den Preis, will es aber genau verstehen.' },
+  { id: 'ablehnend', icon: '😠', label: 'Ablehnend', who: 'Herr Wagner, 57', desc: 'Genervt und unfreundlich. Bleibst Du ruhig und höflich?' }
+];
+const T_PASS = 6, T_NEED = 3; // Türfreigabe: mind. 3 verschiedene Kundentypen mit Note 6+
+const T_MARK = { 'TÜR ZU': '🚪 Kunde schließt die Tür', 'ABRECHNUNG': '📄 Kunde holt die Abrechnung', 'ABSCHLUSS': '✍️ Kunde will wechseln' };
+const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+let tVoice = LS.get('p2gk-train-voice', false), tRec = null;
+
+const tBest = (uid, persona) => acad.roleplays.filter(r => r.user_id === uid && r.persona === persona && r.score).reduce((m, r) => Math.max(m, r.score), 0);
+const tPassedTypes = uid => T_PERSONAS.filter(p => tBest(uid, p.id) >= T_PASS).length;
+const tAvg = uid => { const s = acad.roleplays.filter(r => r.user_id === uid && r.score).map(r => r.score); return s.length ? (s.reduce((a, b) => a + b, 0) / s.length) : 0; };
+function tSplit(text) {
+  const m = String(text).match(/\[(TÜR ZU|ABRECHNUNG|ABSCHLUSS)\]/);
+  return { text: String(text).replace(/\[(TÜR ZU|ABRECHNUNG|ABSCHLUSS)\]/g, '').trim(), mark: m ? m[1] : null };
+}
+async function coach(body) {
+  const { data, error } = await sb.functions.invoke('academy-coach', { body });
+  if (error) {
+    let msg = error.message || 'Fehler';
+    try { const j = await error.context.json(); if (j && j.error) msg = j.error; } catch (e) {}
+    if (/Failed to send|Failed to fetch|NetworkError/i.test(msg)) msg = 'Keine Verbindung zum Trainings-Server. Bitte Internet prüfen.';
+    throw new Error(msg);
+  }
+  if (data && data.error) throw new Error(data.error);
+  return data;
+}
+function speak(text) {
+  if (!tVoice || !window.speechSynthesis) return;
+  try {
+    speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(tSplit(text).text.replace(/\*[^*]*\*/g, ' '));
+    u.lang = 'de-DE'; u.rate = 1.02;
+    const v = speechSynthesis.getVoices().find(x => /^de/i.test(x.lang)); if (v) u.voice = v;
+    speechSynthesis.speak(u);
+  } catch (e) {}
+}
+
+function aTrain() {
+  const t = acad.train;
+  if (t && t.view === 'chat') return tChat();
+  if (t && t.view === 'result') return tResult();
+  const uid = me.id, n = tPassedTypes(uid);
+  const out = [h('div', { style: 'display:grid;gap:4px' }, h('h4', {}, 'Training'), h('h3', { style: 'font-size:1.35em' }, 'Gespräche mit KI-Kunden'),
+    h('p', { class: 'a-muted' }, `Führe echte Gespräche an der Haustür: Die KI spielt den Kunden und bewertet Dich danach von 1 bis 10. Für die Türfreigabe brauchst Du in mindestens ${T_NEED} verschiedenen Kundentypen eine ${T_PASS} oder besser.`)),
+    h('div', { class: 'a-row between' }, h('span', {}, 'Bestandene Kundentypen'), h('b', {}, `${n}/${T_NEED}`)), aBar(n, T_NEED)];
+  out.push(h('div', { class: 'a-grid' }, T_PERSONAS.map(p => {
+    const best = tBest(uid, p.id);
+    return h('div', { class: 'a-card' },
+      h('div', { class: 'a-row between' }, h('span', { style: 'font-size:1.8em;line-height:1' }, p.icon), best ? h('span', { class: 'a-pill' + (best >= T_PASS ? ' ok' : '') }, `Beste Note ${best}`) : h('span', { class: 'a-dur' }, 'noch offen')),
+      h('h3', {}, p.label), h('p', { class: 'a-muted' }, p.who + ' · ' + p.desc),
+      h('button', { class: 'btn primary', type: 'button', 'data-persona': p.id, onclick: e => tStart(p.id, e.currentTarget) }, 'Gespräch starten'));
+  })));
+  const mine = acad.roleplays.filter(r => r.user_id === uid && r.status === 'graded').slice(0, 10);
+  if (mine.length) {
+    out.push(h('h4', {}, 'Deine letzten Gespräche'));
+    out.push(h('ul', { class: 'a-list' }, mine.map(r => { const p = T_PERSONAS.find(x => x.id === r.persona) || {}; return h('li', {},
+      h('button', { type: 'button', onclick: () => tOpen(r.id) }, h('span', { class: 'a-num' + (r.score >= T_PASS ? ' done' : '') }, String(r.score)),
+        h('span', {}, `${p.icon || ''} ${p.label || r.persona}`), h('span', { class: 'a-dur' }, new Date(r.created_at).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' })))); })));
+  }
+  out.push(h('p', { class: 'a-muted' }, 'Tipp: Sprich so, wie Du es an der Tür sagen würdest. Mit dem Mikrofon-Knopf kannst Du sprechen statt tippen, mit dem Lautsprecher liest Dir die App die Antworten des Kunden vor.'));
+  return out;
+}
+async function tStart(persona, btn) {
+  if (!navigator.onLine) { say('Für das Training brauchst Du Internet.', true); return; }
+  if (btn) { btn.disabled = true; btn.textContent = 'Kunde öffnet …'; }
+  try {
+    const d = await coach({ action: 'start', persona });
+    acad.train = { view: 'chat', id: d.id, persona, name: d.name, lines: [{ r: 'k', t: d.reply }], ended: false, busy: false, err: '' };
+    renderAcad(); speak(d.reply);
+  } catch (e) { say(e.message, true); if (btn) { btn.disabled = false; btn.textContent = 'Gespräch starten'; } }
+}
+function tChat() {
+  const t = acad.train, p = T_PERSONAS.find(x => x.id === t.persona);
+  const list = h('div', { class: 't-chat', id: 'tChat', 'aria-live': 'polite' });
+  for (const l of t.lines) {
+    const s = l.r === 'k' ? tSplit(l.t) : { text: l.t, mark: null };
+    list.append(h('div', { class: 'msg-row' + (l.r === 'v' ? ' mine' : '') }, h('div', { class: 'bubble' }, h('b', {}, l.r === 'v' ? 'Du' : t.name), h('p', {}, s.text))));
+    if (s.mark) list.append(h('div', { class: 'chat-day' }, T_MARK[s.mark]));
+  }
+  if (t.busy) list.append(h('div', { class: 'msg-row' }, h('div', { class: 'bubble' }, h('b', {}, t.name), h('p', { class: 'a-muted' }, '… überlegt'))));
+  const ta = h('textarea', { id: 'tIn', rows: '2', maxlength: '700', placeholder: t.ended ? 'Gespräch beendet' : 'Was sagst Du?', disabled: t.ended || t.busy, 'aria-label': 'Deine Antwort' });
+  ta.value = t.draft || '';
+  ta.addEventListener('input', () => { t.draft = ta.value; });
+  ta.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey && !isTouch) { e.preventDefault(); tSend(); } });
+  const send = h('button', { class: 'btn primary', type: 'button', id: 'tSend', disabled: t.ended || t.busy, onclick: tSend }, 'Senden');
+  const mic = SR ? h('button', { class: 'btn', type: 'button', id: 'tMic', 'aria-label': 'Sprechen', 'aria-pressed': String(!!tRec), disabled: t.ended || t.busy, onclick: tMic }, tRec ? '⏺ Stopp' : '🎤') : null;
+  const vo = window.speechSynthesis ? h('button', { class: 'btn', type: 'button', 'aria-label': 'Kunde vorlesen', 'aria-pressed': String(tVoice), onclick: () => { tVoice = !tVoice; LS.set('p2gk-train-voice', tVoice); if (!tVoice) speechSynthesis.cancel(); renderAcad(); } }, tVoice ? '🔊' : '🔈') : null;
+  const out = [
+    h('div', { class: 'a-row between' }, h('div', { style: 'display:grid;gap:2px;min-width:0' }, h('h4', {}, 'Training · ' + p.label), h('h3', {}, p.icon + ' ' + t.name)),
+      h('button', { class: 'btn', type: 'button', onclick: () => { if (t.lines.length > 2 && !t.ended && !confirm('Gespräch abbrechen? Es wird nicht bewertet.')) return; acad.train = null; tStopRec(); renderAcad(); } }, 'Abbrechen')),
+    list,
+    t.err ? h('p', { class: 'chat-note' }, t.err) : null,
+    h('div', { class: 't-input' }, ta, h('div', { class: 'a-row' }, mic, vo, send)),
+    h('button', { class: 'btn' + (t.ended ? ' primary' : ''), type: 'button', id: 'tGrade', disabled: t.busy || t.lines.filter(l => l.r === 'v').length < 2, onclick: tGrade }, t.ended ? 'Gespräch bewerten lassen' : 'Gespräch beenden & bewerten')
+  ];
+  setTimeout(() => { const c = $('tChat'); if (c) c.scrollTop = c.scrollHeight; const i = $('tIn'); if (i && !isTouch && !i.disabled) i.focus(); }, 0);
+  return out;
+}
+async function tSend() {
+  const t = acad.train; if (!t || t.busy || t.ended) return;
+  const text = (t.draft || '').trim(); if (!text) return;
+  tStopRec();
+  if (tVoice && window.speechSynthesis) { try { speechSynthesis.cancel(); speechSynthesis.speak(new SpeechSynthesisUtterance('')); } catch (e) {} } // iPad: Ton freischalten
+  t.lines.push({ r: 'v', t: text }); t.draft = ''; t.busy = true; t.err = ''; renderAcad();
+  try {
+    const d = await coach({ action: 'say', id: t.id, text });
+    if (acad.train !== t) return;
+    t.lines.push({ r: 'k', t: d.reply }); t.ended = !!d.ended; t.busy = false; renderAcad(); speak(d.reply);
+  } catch (e) {
+    if (acad.train !== t) return;
+    t.lines.pop(); t.draft = text; t.busy = false; t.err = e.message; renderAcad();
+  }
+}
+function tStopRec() { if (tRec) { try { tRec.stop(); } catch (e) {} tRec = null; } }
+function tMic() {
+  if (tRec) { tStopRec(); renderAcad(); return; }
+  const t = acad.train; if (!t) return;
+  try {
+    const r = new SR(); r.lang = 'de-DE'; r.interimResults = true; r.continuous = true;
+    const base = (t.draft ? t.draft.trim() + ' ' : '');
+    r.onresult = ev => { let s = ''; for (let i = 0; i < ev.results.length; i++) s += ev.results[i][0].transcript; t.draft = base + s; const i2 = $('tIn'); if (i2) i2.value = t.draft; };
+    r.onerror = ev => { t.err = ev.error === 'not-allowed' ? 'Mikrofon nicht erlaubt. Bitte in den Einstellungen freigeben oder die Diktierfunktion der Tastatur nutzen.' : ''; tRec = null; renderAcad(); };
+    r.onend = () => { if (tRec === r) { tRec = null; renderAcad(); } };
+    tRec = r; r.start(); renderAcad();
+  } catch (e) { tRec = null; say('Spracheingabe ist hier nicht verfügbar. Nutze das Mikrofon auf der Tastatur.', true); }
+}
+async function tGrade() {
+  const t = acad.train; if (!t || t.busy) return;
+  tStopRec(); t.busy = true; t.err = ''; renderAcad();
+  const b = $('tGrade'); if (b) b.textContent = 'Wird bewertet … (ca. 10–20 Sekunden)';
+  try {
+    const d = await coach({ action: 'grade', id: t.id });
+    const row = { id: t.id, user_id: me.id, persona: t.persona, status: 'graded', score: d.score, result: d.result, created_at: new Date().toISOString(), transcript: t.lines };
+    acad.roleplays = [row, ...acad.roleplays.filter(r => r.id !== t.id)];
+    acad.train = { view: 'result', rp: row, own: true };
+    renderAcad();
+    if (d.score >= 9) showCheer(`Note ${d.score}! Du Maschine!!! 🔥`, 'Training ' + (T_PERSONAS.find(x => x.id === row.persona) || {}).label, 'goal');
+    else if (d.score >= T_PASS) showCheer(`Note ${d.score} – bestanden! 💪`, 'Weiter so', 'goal');
+  } catch (e) { t.busy = false; t.err = e.message; renderAcad(); }
+}
+async function tOpen(id, admin) {
+  let r = acad.roleplays.find(x => x.id === id);
+  if (!r) return;
+  if (!r.transcript) {
+    const { data, error } = await sb.from('academy_roleplays').select('transcript').eq('id', id);
+    if (error || !data || !data.length) { say('Gespräch konnte nicht geladen werden.', true); return; }
+    r.transcript = data[0].transcript;
+  }
+  acad.train = { view: 'result', rp: r, own: !admin, back: admin ? 'team' : 'train' };
+  if (admin) acadView = 'train';
+  renderAcad(); $('acadBody').scrollTop = 0;
+}
+function tResult() {
+  const { rp, back } = acad.train, res = rp.result || {}, p = T_PERSONAS.find(x => x.id === rp.persona) || {};
+  const who = rp.user_id === me.id ? '' : (memberName(rp.user_id) + ' · ');
+  const sub = (label, v) => h('div', { style: 'display:grid;gap:4px' }, h('div', { class: 'a-row between' }, h('span', {}, label), h('b', {}, `${v}/10`)), aBar(v, 10));
+  const goBack = () => { acad.train = null; if (back === 'team') acadView = 'team'; renderAcad(); };
+  const out = [h('button', { class: 'btn a-back', type: 'button', onclick: goBack }, back === 'team' ? '← Zurück zum Team' : '← Zurück zum Training'),
+    h('div', { class: 'a-card a-hero' }, h('h4', { style: 'color:var(--chrome-muted)' }, who + 'Training · ' + (p.label || rp.persona)),
+      h('div', { class: 'a-row', style: 'align-items:baseline' }, h('b', { style: 'font-size:3em;line-height:1' }, String(rp.score)), h('span', {}, 'von 10'), h('span', { class: 'a-pill ' + (rp.score >= T_PASS ? 'ok' : 'warn') }, rp.score >= T_PASS ? 'bestanden' : 'noch nicht bestanden')),
+      res.fazit ? h('p', {}, res.fazit) : null,
+      h('p', {}, `Ergebnis: ${res.ziel || '–'} · Druck: ${res.druck || '–'}`)),
+    h('div', { class: 'a-card' }, h('h3', {}, 'Einzelnoten'), sub('Freundlich & höflich', res.freundlichkeit || 0), sub('Seriös & verständlich erklärt', res.seriositaet || 0), sub('Einwandbehandlung', res.einwandbehandlung || 0), sub('Auf den Kunden eingegangen', res.eingehen || 0))];
+  if ((res.verstoesse || []).length) out.push(h('div', { class: 'a-card', style: 'border-color:var(--danger)' }, h('h3', { style: 'color:var(--danger)' }, '⚠️ Das geht so nicht'), h('ul', { class: 'a-take' }, res.verstoesse.map(x => h('li', {}, x)))));
+  if ((res.staerken || []).length) out.push(h('div', { class: 'a-card' }, h('h3', {}, '👍 Das war stark'), h('ul', { class: 'a-take' }, res.staerken.map(x => h('li', {}, x)))));
+  if ((res.verbesserungen || []).length) out.push(h('div', { class: 'a-card' }, h('h3', {}, '🎯 So wird es besser'), res.verbesserungen.map(v => h('div', { class: 'a-script' }, h('b', {}, v.problem), h('p', {}, v.besser)))));
+  if (rp.transcript && rp.transcript.length) {
+    const d = h('details', { class: 'a-card' }, h('summary', { style: 'font-weight:700;cursor:pointer' }, 'Gesprächsverlauf ansehen'));
+    const box = h('div', { class: 't-chat', style: 'max-height:none' });
+    for (const l of rp.transcript) { const s = l.r === 'k' ? tSplit(l.t) : { text: l.t, mark: null }; box.append(h('div', { class: 'msg-row' + (l.r === 'v' ? ' mine' : '') }, h('div', { class: 'bubble' }, h('b', {}, l.r === 'v' ? (who ? memberName(rp.user_id) : 'Du') : 'Kunde'), h('p', {}, s.text)))); if (s.mark) box.append(h('div', { class: 'chat-day' }, T_MARK[s.mark])); }
+    d.append(box); out.push(d);
+  }
+  if (acad.train.own) out.push(h('button', { class: 'btn primary', type: 'button', onclick: () => { acad.train = null; tStart(rp.persona); } }, 'Gleichen Kundentyp nochmal'));
+  return out;
+}
+
 function acadRealtime(table, p) {
   if (!acadLoaded) return;
   if (table === 'academy_progress') {
