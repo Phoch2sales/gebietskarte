@@ -266,6 +266,75 @@ dialog::backdrop{background:rgba(5,15,22,.55)}
 .dash-tally i{width:12px;height:12px;border-radius:3px;display:inline-block}
 .dash-chip{font-weight:800;font-size:.95em;font-variant-numeric:tabular-nums}
 @media (max-width:520px){header.top .tally{display:none}}
+/* Academy */
+.acad{grid-template-rows:auto auto auto 1fr}
+@media (min-width:900px){.acad{left:max(12px,calc(50% - 520px));right:max(12px,calc(50% - 520px));width:auto}}
+.acad-tabs{display:flex;gap:6px;padding:8px 12px;border-bottom:1px solid var(--line);overflow-x:auto;scrollbar-width:none}
+.acad-tabs::-webkit-scrollbar{display:none}
+.acad-tabs button{flex:0 0 auto;border:1px solid var(--line);background:var(--field);color:var(--fg);border-radius:999px;min-height:38px;padding:0 14px;font-weight:700;font-size:.9em}
+.acad-tabs button[aria-current="page"]{background:var(--chrome);color:var(--chrome-fg);border-color:var(--chrome)}
+.acad-body{overflow-y:auto;padding:16px 16px calc(env(safe-area-inset-bottom,0px) + 24px);display:flex;flex-direction:column;gap:14px;min-height:0;overscroll-behavior:contain}
+.acad-body > *{flex-shrink:0;min-width:0}
+.acad-body h3{margin:0;font-size:1.1em}
+.acad-body h4{margin:4px 0 0;font-size:.76em;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
+.acad-body p{margin:0}
+.a-card{border:1px solid var(--line);border-radius:14px;padding:14px;display:grid;gap:10px;background:var(--field);min-width:0}
+.a-hero{background:var(--chrome);color:var(--chrome-fg);border-color:var(--chrome)}
+.a-hero h2{margin:0;font-size:1.5em;line-height:1.15}
+.a-hero p{color:var(--chrome-muted)}
+.a-hero .btn{background:var(--chrome-fg);color:var(--chrome);border-color:var(--chrome-fg)}
+.a-grid{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(220px,1fr))}
+.a-row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.a-row.between{justify-content:space-between}
+.a-bar{height:8px;border-radius:999px;background:var(--line);overflow:hidden}
+.a-bar i{display:block;height:100%;background:var(--s-termin);border-radius:inherit}
+.a-bar.full i{background:var(--s-green)}
+.a-pill{display:inline-flex;align-items:center;gap:6px;font-weight:800;font-size:.85em;border-radius:999px;padding:4px 10px;border:1px solid var(--line);background:var(--panel)}
+.a-pill.ok{color:#fff;background:var(--s-green);border-color:var(--s-green)}
+.a-pill.warn{color:#1d1600;background:var(--mark);border-color:var(--mark)}
+.a-muted{color:var(--muted);font-size:.92em}
+.a-list{list-style:none;margin:0;padding:0;display:grid;gap:6px}
+.a-list button{width:100%;display:grid;grid-template-columns:30px 1fr auto;gap:10px;align-items:center;text-align:left;border:1px solid var(--line);background:var(--panel);color:var(--fg);border-radius:12px;padding:10px 12px;min-height:var(--btn-h)}
+.a-num{width:28px;height:28px;border-radius:50%;display:grid;place-items:center;border:2px solid var(--line);font-weight:800;font-size:.8em;color:var(--muted)}
+.a-num.done{background:var(--s-green);border-color:var(--s-green);color:#fff}
+.a-dur{font-size:.8em;color:var(--muted);font-variant-numeric:tabular-nums}
+.a-video{position:relative;width:100%;aspect-ratio:16/9;border-radius:14px;overflow:hidden;background:#000}
+.a-video iframe{position:absolute;inset:0;width:100%;height:100%;border:0}
+.a-novideo{width:100%;aspect-ratio:16/9;border-radius:14px;background:linear-gradient(160deg,var(--chrome-2),var(--chrome));color:var(--chrome-fg);display:grid;place-items:center;text-align:center;padding:16px;gap:6px}
+.a-novideo span{color:var(--chrome-muted);font-size:.9em}
+.a-take{margin:0;padding-left:20px;display:grid;gap:6px}
+.a-script{display:grid;gap:4px}
+.a-script b{font-size:.78em;text-transform:uppercase;letter-spacing:.06em;color:var(--s-termin)}
+.a-script p{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px 14px;line-height:1.55}
+.a-calc input,.a-form input,.a-form select,.a-form textarea{width:100%;min-width:0;border:1px solid var(--line);background:var(--panel);color:var(--fg);border-radius:10px;padding:9px 11px;font-size:16px}
+.a-calc input{max-width:200px}
+.a-out{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.a-out div{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px 12px}
+.a-out b{display:block;font-size:1.3em;font-variant-numeric:tabular-nums}
+.a-q{border:0;margin:0;padding:0;display:grid;gap:6px}
+.a-q legend{font-weight:800;margin-bottom:6px}
+.a-q label{display:flex;gap:10px;align-items:flex-start;border:1px solid var(--line);background:var(--panel);border-radius:12px;padding:10px 12px;cursor:pointer}
+.a-q input{margin-top:3px;width:18px;height:18px;flex:0 0 auto}
+.a-q label.right{border-color:var(--s-green);box-shadow:inset 0 0 0 1px var(--s-green)}
+.a-q label.wrong{border-color:var(--danger);box-shadow:inset 0 0 0 1px var(--danger)}
+.a-cert{text-align:center;justify-items:center;padding:28px 18px}
+.a-cert h2{font-size:2em}
+.a-chips{display:flex;gap:6px;flex-wrap:wrap}
+.a-chips button{border:1px solid var(--line);background:var(--panel);color:var(--fg);border-radius:999px;padding:6px 12px;font-weight:700;font-size:.85em}
+.a-chips button[aria-pressed="true"]{background:var(--chrome);color:var(--chrome-fg);border-color:var(--chrome)}
+.a-file{display:grid;grid-template-columns:44px 1fr auto;gap:12px;align-items:center;border:1px solid var(--line);background:var(--panel);border-radius:12px;padding:10px 12px}
+.a-file .ext{width:44px;height:44px;border-radius:10px;background:var(--field);border:1px solid var(--line);display:grid;place-items:center;font-size:.72em;font-weight:800}
+.a-file > div{min-width:0}
+.a-file b{display:block;overflow-wrap:anywhere}
+.a-form{display:grid;gap:8px}
+.a-form label{font-weight:700;font-size:.9em;display:grid;gap:4px}
+.a-tbl{overflow-x:auto;border:1px solid var(--line);border-radius:12px;background:var(--panel)}
+.a-tbl table{border-collapse:collapse;width:100%;min-width:520px;font-variant-numeric:tabular-nums;font-size:.92em}
+.a-tbl th,.a-tbl td{text-align:left;padding:10px 12px;border-bottom:1px solid var(--line)}
+.a-tbl th{font-size:.75em;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+.a-tbl tr:last-child td{border-bottom:0}
+.a-back{align-self:flex-start}
+.a-form .a-q label{display:flex;font-weight:500;font-size:1em}
 </style>
 </head>
 <body>
@@ -273,6 +342,9 @@ dialog::backdrop{background:rgba(5,15,22,.55)}
   <header class="top">
     <div class="brand">P²<span class="brand-full"> Gebietskarte</span><small id="ver"></small><span class="sync off" id="syncDot" role="img" aria-label="Nicht angemeldet" title="Nicht angemeldet"></span></div>
     <div class="tally" id="tally" aria-label="Zähler"></div>
+    <button class="iconbtn" id="btnAcad" aria-label="Academy" hidden>
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linejoin="round" stroke-linecap="round"><path d="M2 9.5L12 4.5l10 5-10 5z"/><path d="M6 11.5v4.5c0 1.4 2.7 3 6 3s6-1.6 6-3v-4.5"/><path d="M22 9.5v6"/></svg>
+    </button>
     <button class="iconbtn" id="btnDash" aria-label="Tagesziel" hidden>
       <svg id="dashIcon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4.5"/><circle cx="12" cy="12" r="1" fill="currentColor"/></svg>
       <span class="dash-chip" id="dashChip" hidden></span>
@@ -501,6 +573,19 @@ dialog::backdrop{background:rgba(5,15,22,.55)}
 
 <div class="cheer" id="cheer" hidden role="status" aria-live="polite"><b id="cheerText"></b><small id="cheerSub"></small></div>
 
+<!-- Academy -->
+<section class="chat acad" id="acad" hidden aria-labelledby="acadTitle">
+  <div class="chat-head">
+    <h2 id="acadTitle">P² Sales Academy<small>Einarbeitung &amp; Training</small></h2>
+    <button class="close" id="acadClose" type="button" aria-label="Academy schließen">✕</button>
+  </div>
+  <nav class="acad-tabs" id="acadTabs" aria-label="Academy-Bereiche">
+    <button type="button" data-v="start">Start</button><button type="button" data-v="lessons">Lektionen</button><button type="button" data-v="exam">Prüfung</button><button type="button" data-v="files">Unterlagen</button><button type="button" data-v="team" hidden>Team</button>
+  </nav>
+  <p class="chat-note" id="acadNote" hidden style="padding:8px 16px 0"></p>
+  <div class="acad-body" id="acadBody"></div>
+</section>
+
 <!-- Tagesziel -->
 <section class="chat dash" id="dash" hidden aria-labelledby="dashTitle">
   <div class="chat-head">
@@ -544,7 +629,7 @@ dialog::backdrop{background:rgba(5,15,22,.55)}
 <script>
 (() => {
 'use strict';
-const VERSION = '2.4';
+const VERSION = '2.5';
 const APP = 'P² Gebietskarte';
 const $ = id => document.getElementById(id);
 const msgEl = $('message');
@@ -1001,7 +1086,7 @@ function touch(id) {
 }
 function openSheet(id) {
   const prev = current; current = id; if (prev) restyle(prev); restyle(id);
-  if (chatOpen) closeChat(); if (dashOpen) closeDash();
+  if (chatOpen) closeChat(); if (dashOpen) closeDash(); if (acadOpen) closeAcad();
   sheet.hidden = false; renderSheet();
 }
 function closeSheet() { const prev = current; current = null; sheet.hidden = true; if (prev) restyle(prev); }
@@ -1013,7 +1098,7 @@ map.on('click', e => {
   if (map.getZoom() < 15) say('Zum Markieren näher heranzoomen, bis die einzelnen Häuser zu sehen sind.');
   else if (!loadedTiles[lon2x(e.latlng.lng) + '/' + lat2y(e.latlng.lat)]) say(loading ? 'Die Häuser hier werden gerade geladen …' : 'Hier sind noch keine Häuser geladen. Erst „Häuser finden“ tippen, dann ein Haus anklicken.');
 });
-document.addEventListener('keydown', e => { if (e.key !== 'Escape') return; if (dashOpen) closeDash(); else if (chatOpen) closeChat(); else if (current) closeSheet(); });
+document.addEventListener('keydown', e => { if (e.key !== 'Escape') return; if (acadOpen) closeAcad(); else if (dashOpen) closeDash(); else if (chatOpen) closeChat(); else if (current) closeSheet(); });
 
 function infoFor(r, unit) {
   const x = unit || r;
@@ -1572,6 +1657,8 @@ function subscribe() {
       if ($('dlgMore').open) renderTeam();
     })
     .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, p => { if (p.new && p.new.id) addChatMsg(p.new); })
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'academy_progress' }, p => acadRealtime('academy_progress', p))
+    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'academy_attempts' }, p => acadRealtime('academy_attempts', p))
     .on('postgres_changes', { event: '*', schema: 'public', table: 'daily_stats' }, p => { if (p.new && p.new.user_id) applyStatRow(p.new); })
     .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'messages' }, p => { const id = p.old && p.old.id; if (id) { chatMsgs = chatMsgs.filter(m => m.id !== id); renderChat(); updateChatBadge(); } })
     .subscribe();
@@ -1581,6 +1668,7 @@ function wipeLocal() {
   records = {}; sketches = []; pendingRec.clear(); pendingSk.clear(); team = {};
   chatMsgs = []; chatLoaded = false; chatAttach = null; if (chatOpen) closeChat(); renderChat(); updateChatBadge();
   stats = {}; statsDay = ''; statPending = false; clearTimeout(statTimer); try { localStorage.removeItem('p2gk-stat-pending'); } catch (e) {} if (dashOpen) closeDash(); renderDash(); updateMeetBar();
+  acad = { progress: [], attempts: [], videos: {}, files: [], fileCat: 'Alle', fileQ: '', quizResult: null }; acadLoaded = false; acadLesson = null; acadView = 'start'; if (acadOpen) closeAcad();
   for (const k of [K.rec, K.sk, 'p2gk-pending-rec', 'p2gk-pending-sk', 'p2gk-me']) { try { localStorage.removeItem(k); } catch (e) {} }
   idb.clear('snap').catch(() => {});
   if (current) closeSheet();
@@ -1623,7 +1711,8 @@ async function startSession(session) {
 }
 function applyRole() {
   for (const x of document.querySelectorAll('.admin-only')) x.hidden = !isAdmin();
-  $('btnChat').hidden = !me; $('shShare').hidden = !me; $('btnDash').hidden = !me;
+  $('btnChat').hidden = !me; $('shShare').hidden = !me; $('btnDash').hidden = !me; $('btnAcad').hidden = !me;
+  if (!me && acadOpen) closeAcad();
   if (!me && dashOpen) closeDash();
   if (!me && chatOpen) closeChat();
 }
@@ -1865,7 +1954,7 @@ function renderAttach() {
 function openChat() {
   if (!me) return;
   chatOpen = true; $('chat').hidden = false;
-  if (current) closeSheet(); if (dashOpen) closeDash();
+  if (current) closeSheet(); if (dashOpen) closeDash(); if (acadOpen) closeAcad();
   renderAttach(); renderChat(true); markChatSeen();
   if (!chatLoaded) loadChat();
   if (!isTouch) setTimeout(() => $('chatIn').focus(), 50);
@@ -2084,7 +2173,7 @@ function renderDash() {
 function openDash() {
   if (!me) return;
   dashOpen = true; $('dash').hidden = false;
-  if (current) closeSheet(); if (chatOpen) closeChat();
+  if (current) closeSheet(); if (chatOpen) closeChat(); if (acadOpen) closeAcad();
   if (statsDay !== today()) { stats = {}; statsDay = today(); loadPendingStat(); }
   updateTally(); renderDash(); loadStats();
 }
@@ -2098,6 +2187,416 @@ $('gGoalMinus').addEventListener('click', () => changeStat('goal', -1));
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && me && navigator.onLine) { loadStats(); if (LS.get('p2gk-stat-pending', null)) saveStat(); } });
 window.addEventListener('online', () => { if (me && LS.get('p2gk-stat-pending', null)) saveStat(); });
 setInterval(() => { if (me && statsDay && statsDay !== today()) { stats = {}; statsDay = today(); statPending = false; renderDash(); loadStats(); } }, 60000);
+
+/* ===== P² Sales Academy ===== */
+/* Inhalte nach dem Workbook P²Sales 1A. Stufe 1 = Pflicht vor der ersten Tür. */
+const A_STAGES = [
+  { id: 's1', name: 'Vor der ersten Tür', sub: 'Pflicht für die Türfreigabe', desc: 'Werte, Gesprächsablauf, Pitch auswendig, die Top-Einwände und die Abrechnung verstehen.' },
+  { id: 's2', name: 'Abschluss & Closing', sub: 'Innerhalb der ersten 2 Wochen', desc: 'Vorabschluss, Small Talk, Datenaufnahme und die Ja-Schleife bis zur Unterschrift.' },
+  { id: 's3', name: 'Mindset & Meisterschaft', sub: 'Erster Monat & wiederkehrend', desc: 'Angst vor Ablehnung verlieren, Gewinner-Mindset, Rapport aufbauen und spiegeln.' }
+];
+const A_LESSONS = [
+  { id: 'l1', st: 's1', t: 'Unsere Werte', d: '6:00',
+    take: ['Produktivität statt Zeit: Ein Top D2D Vertriebler verdient sein Geld mit Produktivität statt mit Lebenszeit', 'Gewinner & Boss Mindset: Du entscheidest, ob Du als Gewinner nach Hause gehst', 'Ehrlichkeit, Loyalität & Qualität: vorausschauend und sauber arbeiten und fruchtbaren Boden hinterlassen', 'Hart & Smart arbeiten: höchste Qualität, niedrigste Stornoquote', 'Always show up! Gewinner kennen keine Ausreden'] },
+  { id: 'l2', st: 's1', t: 'Ablauf eines Verkaufsgesprächs', d: '8:00',
+    take: ['Von „Guten Tag“ bis „Auf Wiedersehen“ maximal 15 Minuten', '1. Pitch · 2. Einwandbehandlung · 3. Abrechnung wird geholt', '4. Vorteile aufzeigen / Vergleichen · 5. Vorabschluss · 6. Datenaufnahme', '7. Closing / Unterschriften · 8. Small Talk zum Ende bringen · 9. Auf geht’s zum nächsten Kunden'] },
+  { id: 'l3', st: 's1', t: 'Der Pitch', d: '12:00',
+    take: ['Drei Dinge muss jeder Pitch haben: Sympathie, Vertrauen, Kompetenz', '80 % kommt es darauf an, WIE Du etwas sagst, nur 20 % auf das WAS. Tonalität, Mimik, Gestik', 'Ca. 30 % Nein-Kunden, 40–50 % Vielleicht-Kunden, 20 % Ja-Kunden', 'Trichterprinzip: Je mehr Klingeln, desto mehr Entscheider, Abrechnungen und Abschlüsse', 'AAAA: Angenehm, Anders Als Andere'],
+    scripts: [
+      { l: 'Standard-Pitch', x: 'Ja, guten Tag Herr Müller, einmal [Dein Name] von P hoch 2 Sales, wir sind als Vertriebspartner der ENNI hier unterwegs. (Pause) Herr Müller, wir sind gerade bei allen Nachbarn hier in der Postleitzahl, weil wir aktuell anbieten, auf erneuerbare Energien umzustellen. (Pause) Beim Strom selbst bleibt alles gleich, nur Ihr Vertrag läuft dann über die ENNI, und dadurch können wir die meisten Haushalte hier ab März, spätestens April deutlich günstiger abrechnen. Wie viel genau, zeige ich Ihnen gleich an Ihrer Abrechnung. Also mal ’ne gute Nachricht. (Lächeln, Daumen hoch) Einmal im Jahr werden ja bei Ihnen die Zähler abgelesen (nicken). Daraufhin bekommen Sie die Jahresabrechnung per Post oder Mail (nicken). Die müssen Sie mir einmal raussuchen, dann zeige ich Ihnen, was das für Sie bedeutet. Ich warte kurz.' },
+      { l: 'Mehrfamilienhaus-Pitch (direkt & dominant)', x: 'Tachchen Herr Müller, Mensch, gut, dass ich Sie mal antreffe! [Dein Name] von P hoch 2 Sales, wir sind für die ENNI heute hier im ganzen Haus unterwegs. Kurz und knapp: Wir stellen hier gerade auf Ökostrom von der ENNI um, und meistens wird’s dadurch günstiger. Ist ein ganz normaler Anbieterwechsel, um die Kündigung beim alten Versorger kümmern wir uns, da haben Sie keine Arbeit mit. Was ich dafür einmal brauche, ist die letzte Abrechnung vom Strom (Gas). Die suchen Sie mal kurz raus, ich wart’ hier. (Ton: kurz, selbstverständlich, keine Rückfrage. Kein Behördenton.)' }
+    ] },
+  { id: 'l4', st: 's1', t: 'Die Top-Einwände', d: '16:00',
+    take: ['Primäres Ziel von Pitch & Einwandbehandlung: Der Kunde bringt Dir die Abrechnung', 'Nicht rechtfertigen, sondern die Boss-Position einnehmen', '„Kein Interesse“ am besten überhören und weiter pitchen'],
+    scripts: [
+      { l: '„Ich habe keine Zeit!“', x: 'Herr Müller, deswegen bin ich ja auch schnell. Ich bin heute sowieso bei allen Nachbarn hier in der Straße, und extra nochmal wiederkommen möchte ich auch nicht, Sie ja auch nicht. Kommen Sie, wir machen jetzt Folgendes: Ich gehe kurz zum Nachbarn, da ist es dasselbe. Sie suchen in der Zeit die letzte Abrechnung raus, und in 5 Minuten bin ich wieder da. Dann haben Sie die Abrechnung in der Hand und ich zeige Ihnen, was das für Sie bedeutet. Da werden Sie sich wirklich freuen.' },
+      { l: '„Ich habe kein Interesse!“', x: 'Natürlich haben Sie kein Interesse, Herr Müller. Hätten Sie Interesse gehabt, hätten Sie selbst schon gewechselt. Dann müsste ich gar nicht hier sein und hätte keinen Job, also erstmal danke dafür, dass Sie den erhalten haben. Aber was Sie jetzt mal ganz kurz raussuchen müssten, wäre die letzte Stromabrechnung.' },
+      { l: '„Ich will nicht wechseln!“ · Variante 1', x: 'Verstehe ich, Herr Müller, Wechsel klingt erstmal nach Aufwand. Ist es aber nicht: Sie bekommen weiter denselben Strom aus derselben Leitung, nur Ihr Vertrag läuft über die ENNI, und die Kündigung beim alten Anbieter machen wir für Sie. Sie müssen also gar nichts tun, außer weniger zu bezahlen. Schauen Sie mal kurz nach der letzten Abrechnung, da werden Sie sich freuen.' },
+      { l: '„Ich will nicht wechseln!“ · Variante 2', x: 'Ja natürlich wollen Sie nicht wechseln, deswegen bin ich ja überhaupt erst hier. Deswegen machen wir jetzt Folgendes: Schauen Sie mal kurz nach der letzten Abrechnung, dann zeige ich Ihnen, was es für Sie bedeutet, und dann stellen wir eines von zwei Dingen fest: Entweder Sie haben bereits einen fantastischen Tarif, oder Sie haben gleich einen besseren.' },
+      { l: '„Ich mache keine Verträge an der Tür!“', x: 'Das verstehe ich, Herr Müller, ist wahrscheinlich so ’ne Vertrauenssache. Sie kennen mich nicht, ich kenne Sie nicht. Am Ende des Tages geht es hier nur um Ihren Strom und darum, dass wir Sie günstiger abrechnen. Nein sagen können Sie immer noch: Sie bekommen noch einen Anruf vom Qualitätszentrum, dann kommt Post, und Sie haben nochmal 2 Wochen Zeit, sich alles zu überlegen. Sie können sich sofort ein Foto von meinem Ausweis machen. Und wir haben im Außendienst Tarife, die Sie so online nicht finden (nur sagen, wenn es für den Tarif stimmt). Gucken Sie mal gerade nach der letzten Abrechnung, Nein sagen können Sie immer noch.' }
+    ] },
+  { id: 'l5', st: 's1', t: 'Abrechnung lesen & Verbrauch berechnen', d: '10:00', calc: true,
+    take: ['Auf der Jahresabrechnung: Jahresverbrauch in kWh, Abschlag, Arbeitspreis, Zählernummer, Vorversorger', 'Findet der Kunde die Abrechnung nicht, rechnest Du den Jahresverbrauch aus dem Abschlag', 'Strom: monatlicher Abschlag × 3,2 × 12 = kWh pro Jahr', 'Gas: monatlicher Abschlag × 12 ÷ 0,07 = kWh pro Jahr'] },
+  { id: 'l6', st: 's2', t: 'Der Vorabschluss', d: '9:00',
+    take: ['Das ist der Moment, um beim Kunden durchzudringen', 'Erst loben, dann gemeinsam über die Abrechnung schauen', 'Verbrauch → Abschlag → aktueller Preis → neuer Preis → Preisgarantie', 'Zum Schluss den Tisch anbieten lassen'],
+    scripts: [{ l: 'Vorabschluss', x: 'Super Herr Müller, da haben Sie ja direkt was gefunden, da können sich die Nachbarn mal ’ne Scheibe abschneiden. So, schauen wir mal gemeinsam drüber: Sie hatten im letzten Jahr einen Verbrauch von 2.400 kWh, dadurch ist Ihr jetziger Abschlag von 56,00 € entstanden. Das liegt daran, dass Sie gerade 36,07 Cent pro Kilowattstunde bezahlen. Das senken wir auf 27,67 Cent, und darauf haben Sie wieder volle 2 Jahre Preisgarantie. Es gibt bloß einen Unterschied zu vorher: Sie haben nur noch erneuerbare Energien. Ihr Licht wird nicht grün, lediglich Ihr ökologischer Fußabdruck wird gesenkt. Ich muss das dann einmal aufnehmen. Wollen wir das hier machen, oder haben Sie kurz ein Stück Tisch frei?' }] },
+  { id: 'l7', st: 's2', t: 'Small Talk & Daten aufnehmen', d: '8:00',
+    take: ['Ernsthaftes Interesse am Kunden zeigen, aufrichtig zuhören', 'Aufhänger im Eingangsbereich nutzen, z. B. ein Bild von einem Zebra: „Waren Sie schon mal in Afrika?“', 'Guter Small Talk entscheidet oft über den Abschluss', 'Mit einer Floskel zurück in die Datenaufnahme: Geburtsdatum, IBAN, Zählernummer'],
+    scripts: [{ l: 'Zurück zum Abschluss', x: 'Mensch Herr Müller, jetzt habe ich mich schon wieder verquatscht, da meckert mein Chef immer, aber ist ja auch einfach interessant. Ich brauche dann bitte einmal die Zählernummer.' }] },
+  { id: 'l8', st: 's2', t: 'Finales Closing: die Ja-Schleife', d: '10:00',
+    take: ['Alle Daten gemeinsam durchgehen, jede Zeile endet mit einem „Ja“', 'Den Wechsel klar benennen: von Firma XY zu Firma XY, zwei unterschiedliche Firmen', 'Auf den Anruf vom Qualitätszentrum vorbereiten', 'Unterschriften, gute Wünsche, Wiedersehen in 1,5 Jahren'],
+    scripts: [{ l: 'Ja-Schleife', x: 'Jetzt schauen wir einmal drüber, dass auch alles richtig ist. Sie sind Herr Müller. (Ja) Sie wohnen in der XY-Straße. (Ja) Am 16.xx.77 sind Sie geboren. (Ja) Die Firma XY war Vorversorger, Verbrauch und Zählernummer haben wir hier. (Ja) Der Kilowattstundenpreis wird auf XY gesenkt, darauf haben Sie volle 2 Jahre Preisgarantie. (Ja) Von Ihrem Konto wird einmal im Monat abgebucht. (Ja) Sie werden nochmal angerufen und gefragt, ob Sie meinen Ausweis gesehen haben, ich nett und freundlich war und Sie verstanden haben, dass es ein ganz normaler Wechsel von Firma XY zu Firma XY ist und dass es zwei unterschiedliche Firmen sind. (Ja) Dann brauche ich hier, hier und hier Ihre Unterschrift. Wir sehen uns in 1,5 Jahren, da suche ich Ihnen wieder das Beste raus.' }] },
+  { id: 'l9', st: 's2', t: 'Kaufsignale & Verkaufsphrasen', d: '9:00',
+    take: ['Kaufsignale: „Wie lange habe ich Preisgarantie?“, „Machen Sie auch Gas?“, „Sie kümmern sich um die Kündigung?“', 'Abschluss: Geh immer davon aus, dass der Kunde es möchte', '„Mal abgesehen davon“, „Grundsätzlich“, „Genau deswegen“', 'Den Kunden immer loben', 'Menschen wollen geführt werden: Bring den Kunden immer wieder auf Deinen Leitfaden zurück'] },
+  { id: 'l10', st: 's3', t: 'Die Angst vor der Ablehnung verlieren', d: '11:00',
+    take: ['Just do it! Einfach machen, nicht darüber nachdenken, was andere denken', 'Lerne die Ablehnung zu schätzen: Ohne sie könnte jeder Deinen Job machen', 'D2D ist die schwierigste Disziplin des Vertriebs, genau dafür wirst Du gut bezahlt'] },
+  { id: 'l11', st: 's3', t: 'Gewinner-Mindset', d: '10:00',
+    take: ['Wir fahren ins Gebiet, um Kunden aufzunehmen, nicht um eventuell einen Abschluss zu machen', '2 Verträge pro Stunde, 10 Verträge pro Tag', 'Was wir ausstrahlen, ziehen wir an', 'Fleiß schlägt Talent: Jeder Arbeitstag macht 5 % Deines Monatsumsatzes aus'] },
+  { id: 'l12', st: 's3', t: 'Das Chamäleon: Rapport & Spiegeln', d: '12:00',
+    take: ['Pass Dich dem Kunden so gut wie möglich an: Er ist ein Öko, Du bist es auch', 'Menschen mögen Menschen, die ihnen ähnlich sind', 'In den ersten 30 Sekunden maximale Sympathie aufbauen', 'Empathie, Autorität, richtige Tonskala'] }
+];
+// Reihenfolge und IDs passen zu academy_quiz_key in der Datenbank (Lösungen liegen nur dort).
+const A_QUIZ = [
+  { id: 'q1', q: 'Was ist das primäre Ziel von Pitch und Einwandbehandlung?', a: ['Dass der Kunde sofort unterschreibt', 'Dass der Kunde Dir die Abrechnung bringt', 'Dass der Kunde Dich hereinbittet'] },
+  { id: 'q2', q: 'Welche drei Punkte muss jeder Pitch haben?', a: ['Sympathie, Vertrauen, Kompetenz', 'Preis, Bonus, Laufzeit', 'Lautstärke, Tempo, Lächeln'] },
+  { id: 'q3', q: 'Ein Kunde zahlt 50 € Abschlag für Strom und findet die Abrechnung nicht. Wie hoch ist der Jahresverbrauch ungefähr?', a: ['600 kWh', '1.920 kWh', '4.200 kWh'] },
+  { id: 'q4', q: 'Wie lange dauert ein komplettes Verkaufsgespräch maximal?', a: ['5 Minuten', '15 Minuten', '45 Minuten'] },
+  { id: 'q5', q: 'Welche Frage ist ein Kaufsignal?', a: ['„Wie lange habe ich eine Preisgarantie?“', '„Wer sind Sie überhaupt?“', '„Können Sie später wiederkommen?“'] },
+  { id: 'q6', q: 'Wie viel Deines Monatsumsatzes macht ein Arbeitstag in Vollzeit aus?', a: ['1 %', '5 %', '10 %'] },
+  { id: 'q7', q: 'Was bestätigt der Kunde in der Ja-Schleife zum Thema Wechsel?', a: ['Dass sich nichts ändert', 'Dass es ein normaler Wechsel zwischen zwei unterschiedlichen Firmen ist', 'Dass der Netzbetreiber den Vertrag schickt'] },
+  { id: 'q8', q: 'Wie lange hat der Kunde nach dem Abschluss an der Tür Zeit, es sich anders zu überlegen?', a: ['2 Wochen (Widerrufsrecht)', '24 Stunden', 'Gar nicht'] }
+];
+const A_S1 = A_LESSONS.filter(l => l.st === 's1').map(l => l.id);
+const A_CATS = ['Workbook', 'Einwände', 'Aufträge', 'Organisation', 'Allgemein'];
+
+let acadOpen = false, acadView = 'start', acadLesson = null, acadLoaded = false, acadBusy = false;
+let acad = { progress: [], attempts: [], videos: {}, files: [], fileCat: 'Alle', fileQ: '', quizResult: null };
+
+// kleiner DOM-Helfer: h('div', {class:'x', onclick: fn}, 'Text', kind, ...)
+function h(tag, attrs, ...kids) {
+  const el = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs || {})) {
+    if (v === null || v === undefined || v === false) continue;
+    if (k.startsWith('on')) el.addEventListener(k.slice(2), v);
+    else if (k === 'class') el.className = v;
+    else if (k === 'style') el.style.cssText = v;
+    else el.setAttribute(k, v === true ? '' : v);
+  }
+  for (const c of kids.flat()) if (c !== null && c !== undefined && c !== false) el.append(c instanceof Node ? c : String(c));
+  return el;
+}
+const aDone = (uid = me && me.id) => new Set(acad.progress.filter(p => p.user_id === uid).map(p => p.lesson_id));
+const aPassed = (uid = me && me.id) => acad.attempts.some(a => a.user_id === uid && a.passed);
+const aBest = uid => acad.attempts.filter(a => a.user_id === uid).reduce((m, a) => (!m || a.score > m.score ? a : m), null);
+function aDoor(uid = me && me.id) {
+  const d = aDone(uid), s1 = A_S1.every(id => d.has(id)), p = aPassed(uid);
+  if (s1 && p) return { cls: 'ok', txt: '✓ Türfreigabe erteilt' };
+  if (s1) return { cls: 'warn', txt: 'Prüfung offen' };
+  return { cls: '', txt: 'In Einarbeitung' };
+}
+const aBar = (n, of) => h('div', { class: 'a-bar' + (of && n >= of ? ' full' : '') }, h('i', { style: `width:${of ? Math.min(100, n / of * 100) : 0}%` }));
+
+async function loadAcad() {
+  if (!sb || !me) return;
+  acadBusy = true;
+  const [p, a, v, f] = await Promise.all([
+    sb.from('academy_progress').select('user_id,lesson_id,done_at'),
+    sb.from('academy_attempts').select('id,user_id,score,total,passed,created_at').order('created_at', { ascending: false }).limit(1000),
+    sb.from('academy_videos').select('lesson_id,url'),
+    sb.from('academy_files').select('*').order('position').order('created_at')
+  ]);
+  acadBusy = false;
+  const err = [p, a, v, f].find(x => x.error);
+  if (err) { acadNote(/does not exist|schema cache/i.test(err.error.message || '') ? 'Die Academy ist auf dem Server noch nicht eingerichtet.' : 'Academy-Daten konnten nicht geladen werden. Bitte später erneut versuchen.'); return; }
+  acad.progress = p.data; acad.attempts = a.data;
+  acad.videos = {}; for (const x of v.data) acad.videos[x.lesson_id] = x.url;
+  acad.files = f.data; acadLoaded = true;
+  if (acadOpen) renderAcad();
+}
+function acadNote(t) { const n = $('acadNote'); n.textContent = t; n.hidden = !t; }
+
+function openAcad(view) {
+  if (!me) return;
+  acadOpen = true; $('acad').hidden = false;
+  if (current) closeSheet(); if (chatOpen) closeChat(); if (dashOpen) closeDash();
+  if (view) acadView = view;
+  renderAcad(); loadAcad();
+}
+function closeAcad() { acadOpen = false; $('acad').hidden = true; }
+function goAcad(view, lesson) {
+  acadView = view; if (lesson !== undefined) acadLesson = lesson;
+  if (view !== 'exam') acad.quizResult = null;
+  renderAcad(); $('acadBody').scrollTop = 0;
+}
+
+function renderAcad() {
+  if (!acadOpen) return;
+  for (const b of document.querySelectorAll('#acadTabs button')) {
+    b.hidden = b.dataset.v === 'team' && !isAdmin();
+    b.setAttribute('aria-current', b.dataset.v === acadView ? 'page' : 'false');
+  }
+  const body = $('acadBody'); body.textContent = '';
+  if (!acadLoaded && acadBusy) body.append(h('p', { class: 'a-muted' }, 'Lade Academy …'));
+  const v = acadView === 'team' && !isAdmin() ? 'start' : acadView;
+  body.append(...({ start: aStart, lessons: aLessons, exam: aExam, files: aFiles, team: aTeam })[v]());
+}
+
+function aStart() {
+  const d = aDone(), door = aDoor(), next = A_LESSONS.find(l => !d.has(l.id)), s1n = A_S1.filter(id => d.has(id)).length;
+  const hero = h('div', { class: 'a-card a-hero' },
+    h('h4', { style: 'color:var(--chrome-muted)' }, 'P² Sales Academy'),
+    h('h2', {}, 'Fleiß schlägt Talent.'),
+    h('p', {}, 'Hier lernst Du alles für die Tür: Mindset, Pitch, Einwandbehandlung, Abrechnung und Closing. Lerne jede Lektion, bis Du sie 1 zu 1 umsetzen kannst.'),
+    h('div', { class: 'a-row' }, next
+      ? h('button', { class: 'btn', type: 'button', onclick: () => goAcad('lessons', next.id) }, 'Weiter: ' + next.t)
+      : h('button', { class: 'btn', type: 'button', onclick: () => goAcad('exam') }, aPassed() ? 'Türfreigabe ansehen' : 'Zur Prüfung')));
+  const status = h('div', { class: 'a-card' },
+    h('div', { class: 'a-row between' }, h('h3', {}, 'Dein Status'), h('span', { class: 'a-pill ' + door.cls }, door.txt)),
+    h('div', { class: 'a-row between' }, h('span', {}, 'Stufe 1: Vor der ersten Tür'), h('b', {}, `${s1n}/${A_S1.length}`)), aBar(s1n, A_S1.length),
+    h('div', { class: 'a-row between' }, h('span', {}, 'Gesamte Academy'), h('b', {}, `${d.size}/${A_LESSONS.length}`)), aBar(d.size, A_LESSONS.length),
+    h('p', { class: 'a-muted' }, `Türfreigabe: Stufe 1 komplett und Prüfung mit mindestens ${Math.ceil(A_QUIZ.length * 0.75)} von ${A_QUIZ.length} Punkten.`));
+  const stages = h('div', { class: 'a-grid' }, A_STAGES.map((s, i) => {
+    const ls = A_LESSONS.filter(l => l.st === s.id), n = ls.filter(l => d.has(l.id)).length;
+    return h('div', { class: 'a-card' },
+      h('div', { class: 'a-row between' }, h('h4', {}, 'Stufe ' + (i + 1)), h('span', { class: 'a-dur' }, `${n}/${ls.length}`)),
+      h('h3', {}, s.name), h('p', { class: 'a-muted' }, s.sub + ' · ' + s.desc), aBar(n, ls.length),
+      h('button', { class: 'btn', type: 'button', onclick: () => goAcad('lessons', (ls.find(l => !d.has(l.id)) || ls[0]).id) }, n === ls.length ? 'Wiederholen' : 'Öffnen'));
+  }));
+  return [hero, status, stages];
+}
+
+function aLessons() {
+  if (acadLesson) return aLesson(A_LESSONS.find(l => l.id === acadLesson) || A_LESSONS[0]);
+  const d = aDone(), out = [];
+  A_STAGES.forEach((s, i) => {
+    out.push(h('h4', {}, `Stufe ${i + 1} · ${s.name}`));
+    out.push(h('ul', { class: 'a-list' }, A_LESSONS.filter(l => l.st === s.id).map(l => h('li', {},
+      h('button', { type: 'button', onclick: () => goAcad('lessons', l.id) },
+        h('span', { class: 'a-num' + (d.has(l.id) ? ' done' : '') }, d.has(l.id) ? '✓' : String(A_LESSONS.indexOf(l) + 1)),
+        h('span', {}, l.t), h('span', { class: 'a-dur' }, acad.videos[l.id] ? '▶ ' + l.d : l.d))))));
+  });
+  out.push(h('button', { class: 'btn primary', type: 'button', onclick: () => goAcad('exam') }, '★ Prüfung & Türfreigabe'));
+  return out;
+}
+
+// Erlaubte Video-Einbettungen: Bunny Stream, YouTube (ohne Cookies), Vimeo
+function embedUrl(raw) {
+  let u; try { u = new URL(raw); } catch (e) { return null; }
+  if (u.protocol !== 'https:') return null;
+  const host = u.hostname.toLowerCase();
+  if (host === 'iframe.mediadelivery.net' || host === 'player.mediadelivery.net') { u.pathname = u.pathname.replace(/^\/play\//, '/embed/'); return u.pathname.startsWith('/embed/') ? u.href : null; }
+  if (host === 'youtu.be') return 'https://www.youtube-nocookie.com/embed/' + encodeURIComponent(u.pathname.slice(1));
+  if (/(^|\.)youtube(-nocookie)?\.com$/.test(host)) {
+    const id = u.searchParams.get('v') || (u.pathname.match(/^\/(embed|shorts)\/([\w-]+)/) || [])[2];
+    return id ? 'https://www.youtube-nocookie.com/embed/' + encodeURIComponent(id) : null;
+  }
+  if (host === 'vimeo.com' || host === 'player.vimeo.com') { const id = (u.pathname.match(/(\d{5,})/) || [])[1]; return id ? 'https://player.vimeo.com/video/' + id : null; }
+  return null;
+}
+
+function aLesson(l) {
+  const d = aDone(), idx = A_LESSONS.indexOf(l), st = A_STAGES.find(s => s.id === l.st), done = d.has(l.id);
+  const out = [h('button', { class: 'btn a-back', type: 'button', onclick: () => goAcad('lessons', null) }, '← Alle Lektionen')];
+  const raw = acad.videos[l.id], emb = raw && embedUrl(raw);
+  if (emb) out.push(h('div', { class: 'a-video' }, h('iframe', { src: emb, title: 'Video: ' + l.t, loading: 'lazy', allow: 'accelerometer; gyroscope; autoplay; encrypted-media; picture-in-picture; fullscreen', allowfullscreen: true, referrerpolicy: 'strict-origin-when-cross-origin' })));
+  else if (raw) out.push(h('div', { class: 'a-novideo' }, h('div', {}, h('b', {}, 'Video zu dieser Lektion'), h('br'), h('a', { class: 'btn', href: raw, target: '_blank', rel: 'noopener', style: 'margin-top:8px' }, 'Video öffnen'))));
+  else out.push(h('div', { class: 'a-novideo' }, h('div', {}, h('b', {}, `Lektion ${idx + 1} · ca. ${l.d} Min.`), h('br'), h('span', {}, 'Video folgt. Bis dahin: Inhalte unten lernen.'))));
+  if (isAdmin()) {
+    const inp = h('input', { type: 'url', inputmode: 'url', placeholder: 'Bunny-, YouTube- oder Vimeo-Link', value: raw || '', 'aria-label': 'Video-Link für diese Lektion' });
+    out.push(h('div', { class: 'a-card a-form' }, h('label', {}, 'Video-Link (nur für dich als Admin sichtbar)', inp),
+      h('div', { class: 'a-row' },
+        h('button', { class: 'btn primary', type: 'button', onclick: () => saveVideo(l.id, inp.value.trim()) }, 'Speichern'),
+        raw ? h('button', { class: 'btn danger', type: 'button', onclick: () => saveVideo(l.id, '') }, 'Video entfernen') : null)));
+  }
+  out.push(h('div', { class: 'a-row between' },
+    h('div', { style: 'display:grid;gap:2px;min-width:0' }, h('h4', {}, `Stufe ${A_STAGES.indexOf(st) + 1} · ${st.name}`), h('h3', { style: 'font-size:1.35em' }, l.t)),
+    h('button', { class: 'btn' + (done ? '' : ' primary'), type: 'button', id: 'aMark', onclick: () => toggleDone(l.id) }, done ? '✓ Erledigt' : 'Als erledigt markieren')));
+  out.push(h('div', { class: 'a-card' }, h('h3', {}, 'Das lernst Du'), h('ul', { class: 'a-take' }, l.take.map(t => h('li', {}, t)))));
+  if (l.calc) out.push(aCalc());
+  if (l.scripts) out.push(h('div', { class: 'a-card' }, h('h3', {}, 'Wording zum Auswendiglernen'), l.scripts.map(s => h('div', { class: 'a-script' }, h('b', {}, s.l), h('p', {}, s.x)))));
+  const files = acad.files.filter(f => (f.lessons || []).includes(l.id));
+  if (files.length) out.push(h('div', { class: 'a-card' }, h('h3', {}, 'Material'), files.map(aFileRow)));
+  out.push(h('div', { class: 'a-row between' },
+    h('button', { class: 'btn', type: 'button', disabled: idx === 0, onclick: () => goAcad('lessons', A_LESSONS[idx - 1].id) }, '← Zurück'),
+    idx < A_LESSONS.length - 1
+      ? h('button', { class: 'btn', type: 'button', onclick: () => goAcad('lessons', A_LESSONS[idx + 1].id) }, 'Nächste Lektion →')
+      : h('button', { class: 'btn primary', type: 'button', onclick: () => goAcad('exam') }, 'Zur Prüfung →')));
+  return out;
+}
+function aCalc() {
+  const fmt = n => n.toLocaleString('de-DE', { maximumFractionDigits: 0 });
+  const kS = h('b', {}), kG = h('b', {});
+  const inp = h('input', { type: 'number', inputmode: 'decimal', min: '0', step: '1', value: '56', id: 'aAbschlag' });
+  const up = () => { const v = Math.max(0, parseFloat(String(inp.value).replace(',', '.')) || 0); kS.textContent = fmt(v * 3.2 * 12) + ' kWh/Jahr'; kG.textContent = fmt(v * 12 / 0.07) + ' kWh/Jahr'; };
+  inp.addEventListener('input', up); up();
+  return h('div', { class: 'a-card a-calc' }, h('h3', {}, 'Verbrauchsrechner'), h('p', { class: 'a-muted' }, 'Kunde findet die Abrechnung nicht? Monatlichen Abschlag eingeben:'),
+    h('label', { for: 'aAbschlag', style: 'font-weight:700' }, 'Monatlicher Abschlag (€)'), inp,
+    h('div', { class: 'a-out' }, h('div', {}, h('span', { class: 'a-muted' }, 'Strom'), kS), h('div', {}, h('span', { class: 'a-muted' }, 'Gas'), kG)));
+}
+async function toggleDone(id) {
+  const d = aDone(), was = d.has(id);
+  if (was) acad.progress = acad.progress.filter(p => !(p.user_id === me.id && p.lesson_id === id));
+  else acad.progress.push({ user_id: me.id, lesson_id: id, done_at: new Date().toISOString() });
+  renderAcad();
+  const r = was ? await sb.from('academy_progress').delete().eq('user_id', me.id).eq('lesson_id', id)
+                : await sb.from('academy_progress').upsert({ lesson_id: id }, { onConflict: 'user_id,lesson_id', ignoreDuplicates: true });
+  if (r.error) {
+    if (was) acad.progress.push({ user_id: me.id, lesson_id: id, done_at: new Date().toISOString() });
+    else acad.progress = acad.progress.filter(p => !(p.user_id === me.id && p.lesson_id === id));
+    renderAcad(); say('Speichern hat nicht geklappt. Bitte Internetverbindung prüfen.', true); return;
+  }
+  if (!was) {
+    const dd = aDone();
+    if (A_S1.every(x => dd.has(x)) && A_S1.includes(id) && !aPassed()) showCheer('Stufe 1 geschafft! 🎓', 'Jetzt die Prüfung ablegen und die Türfreigabe holen', 'goal');
+    else if (dd.size === A_LESSONS.length) showCheer('Academy komplett! 🏆', 'Alle Lektionen erledigt', 'goal');
+    else say('Lektion als erledigt markiert.');
+  }
+}
+async function saveVideo(id, url) {
+  if (url && !/^https:\/\/\S+$/.test(url)) { say('Bitte den kompletten Link einfügen, er beginnt mit https://', true); return; }
+  if (url && !embedUrl(url) && !confirm('Diesen Link kann die App nicht direkt abspielen. Er wird dann als „Video öffnen“-Knopf angezeigt. Trotzdem speichern?')) return;
+  const r = url ? await sb.from('academy_videos').upsert({ lesson_id: id, url, updated_at: new Date().toISOString() }, { onConflict: 'lesson_id' })
+                : await sb.from('academy_videos').delete().eq('lesson_id', id);
+  if (r.error) { say('Video speichern hat nicht geklappt: ' + r.error.message, true); return; }
+  if (url) acad.videos[id] = url; else delete acad.videos[id];
+  say(url ? 'Video gespeichert. Das Team sieht es sofort.' : 'Video entfernt.'); renderAcad();
+}
+
+function aExam() {
+  const d = aDone(), open = A_S1.filter(id => !d.has(id)).length, need = Math.ceil(A_QUIZ.length * 0.75);
+  const res = acad.quizResult;
+  if (!res && aPassed() && !open) {
+    const best = aBest(me.id);
+    return [h('div', { class: 'a-card a-hero a-cert' },
+      h('h4', { style: 'color:var(--chrome-muted)' }, 'P² Sales Academy'), h('h2', {}, '🎓 Türfreigabe'),
+      h('p', {}, `${me.name || me.email}: Stufe 1 „Vor der ersten Tür“ abgeschlossen und die Prüfung mit ${best ? best.score : need} von ${best ? best.total : A_QUIZ.length} Punkten bestanden.`),
+      h('p', {}, 'Gewinner kennen keine Ausreden.'),
+      h('button', { class: 'btn', type: 'button', onclick: () => { acad.quizResult = { retry: true }; renderAcad(); } }, 'Prüfung wiederholen'))];
+  }
+  const out = [h('div', { style: 'display:grid;gap:4px' }, h('h4', {}, 'Abschluss'), h('h3', { style: 'font-size:1.35em' }, 'Prüfung zur Türfreigabe'),
+    h('p', { class: 'a-muted' }, `${A_QUIZ.length} Fragen, bestanden ab ${need} richtigen Antworten.` + (open ? ` Noch ${open} Lektion${open > 1 ? 'en' : ''} aus Stufe 1 offen: Die Türfreigabe gibt es erst, wenn Stufe 1 komplett ist.` : '')))];
+  const form = h('form', { class: 'a-form', id: 'aQuiz' });
+  A_QUIZ.forEach((x, i) => {
+    const fs = h('fieldset', { class: 'a-q' }, h('legend', {}, `${i + 1}. ${x.q}`));
+    x.a.forEach((a, j) => {
+      const cls = res && res.correct ? (j === res.correct[x.id] ? 'right' : (res.given[x.id] === j ? 'wrong' : '')) : '';
+      fs.append(h('label', { class: cls }, h('input', { type: 'radio', name: x.id, value: String(j), checked: res && res.given && res.given[x.id] === j }), a));
+    });
+    form.append(fs);
+  });
+  const msg = h('p', { id: 'aQuizRes', role: 'status', style: 'font-weight:700' });
+  if (res && res.correct) {
+    msg.textContent = res.passed ? (open ? `Bestanden: ${res.score}/${res.total}. Schließ noch Stufe 1 ab, dann gibt es die Türfreigabe.` : `Bestanden: ${res.score}/${res.total}. Glückwunsch, Türfreigabe erteilt!`)
+      : `${res.score}/${res.total}: noch nicht bestanden. Schau Dir die markierten Fragen an und versuch es erneut.`;
+    msg.style.color = res.passed ? 'var(--s-green)' : 'var(--danger)';
+  }
+  const sub = h('button', { class: 'btn primary', type: 'submit' }, res && res.correct ? 'Nochmal auswerten' : 'Auswerten');
+  form.append(h('div', { class: 'a-row' }, sub, res && res.correct ? h('button', { class: 'btn', type: 'button', onclick: () => { acad.quizResult = { retry: true }; renderAcad(); } }, 'Neu beginnen') : null), msg);
+  form.addEventListener('submit', async e => {
+    e.preventDefault();
+    const given = {}; let missing = 0;
+    for (const x of A_QUIZ) { const c = form.querySelector(`input[name="${x.id}"]:checked`); if (c) given[x.id] = +c.value; else missing++; }
+    if (missing) { msg.style.color = 'var(--danger)'; msg.textContent = `Bitte alle Fragen beantworten (${missing} offen).`; return; }
+    if (!navigator.onLine) { msg.style.color = 'var(--danger)'; msg.textContent = 'Für die Auswertung brauchst Du Internet.'; return; }
+    sub.disabled = true;
+    const { data, error } = await sb.rpc('academy_submit', { answers: given });
+    sub.disabled = false;
+    if (error || !data) { msg.style.color = 'var(--danger)'; msg.textContent = 'Auswertung hat nicht geklappt' + (error ? ': ' + error.message : '.'); return; }
+    acad.quizResult = Object.assign({ given }, data);
+    acad.attempts.unshift({ id: Date.now(), user_id: me.id, score: data.score, total: data.total, passed: data.passed, created_at: new Date().toISOString() });
+    renderAcad();
+    if (data.passed && !A_S1.some(id => !aDone().has(id))) showCheer('Türfreigabe! 🎓🔥', `${data.score} von ${data.total} – ab an die Tür`, 'goal');
+    const r = $('aQuizRes'); if (r) r.scrollIntoView({ block: 'center', behavior: 'smooth' });
+  });
+  out.push(form);
+  return out;
+}
+
+function aFileRow(f) {
+  const ext = h('span', { class: 'ext' }, (f.ext || 'DATEI').slice(0, 5));
+  const info = h('div', {}, h('b', {}, f.title), h('span', { class: 'a-muted' }, [f.description, f.category, f.size ? (f.size / 1024 < 1024 ? Math.round(f.size / 1024) + ' KB' : (f.size / 1048576).toFixed(1).replace('.', ',') + ' MB') : (f.path ? '' : 'Datei folgt')].filter(Boolean).join(' · ')));
+  const acts = h('div', { class: 'a-row' },
+    f.path ? h('button', { class: 'btn', type: 'button', 'aria-label': f.title + ' öffnen', onclick: () => openFile(f) }, '⬇ Öffnen') : null,
+    isAdmin() ? h('button', { class: 'btn danger', type: 'button', 'aria-label': f.title + ' löschen', onclick: () => deleteFile(f) }, '✕') : null);
+  return h('div', { class: 'a-file' }, ext, info, acts);
+}
+async function openFile(f) {
+  const w = window.open('', '_blank'); // sofort öffnen, sonst blockt Safari das Fenster
+  const { data, error } = await sb.storage.from('academy').createSignedUrl(f.path, 300);
+  if (error || !data) { if (w) w.close(); say('Datei konnte nicht geladen werden' + (error ? ': ' + error.message : '.'), true); return; }
+  if (w) w.location.href = data.signedUrl; else location.href = data.signedUrl;
+}
+async function deleteFile(f) {
+  if (!confirm(`„${f.title}“ löschen? Die Datei ist danach für das ganze Team weg.`)) return;
+  if (f.path) { const s = await sb.storage.from('academy').remove([f.path]); if (s.error) { say('Löschen hat nicht geklappt: ' + s.error.message, true); return; } }
+  const { error } = await sb.from('academy_files').delete().eq('id', f.id);
+  if (error) { say('Löschen hat nicht geklappt: ' + error.message, true); return; }
+  acad.files = acad.files.filter(x => x.id !== f.id); say('Unterlage gelöscht.'); renderAcad();
+}
+function aFiles() {
+  const cats = ['Alle', ...new Set(acad.files.map(f => f.category))];
+  const search = h('input', { type: 'search', placeholder: 'Unterlagen durchsuchen', value: acad.fileQ, 'aria-label': 'Unterlagen durchsuchen', style: 'width:100%;border:1px solid var(--line);background:var(--panel);color:var(--fg);border-radius:10px;padding:9px 11px;font-size:16px' });
+  const box = h('div', { style: 'display:grid;gap:8px' });
+  const draw = () => {
+    const qq = acad.fileQ.toLowerCase();
+    const l2 = acad.files.filter(f => (acad.fileCat === 'Alle' || f.category === acad.fileCat) && (f.title + ' ' + f.description).toLowerCase().includes(qq));
+    box.textContent = ''; box.append(...(l2.length ? l2.map(aFileRow) : [h('p', { class: 'a-muted' }, acad.files.length ? 'Nichts gefunden.' : (isAdmin() ? 'Noch keine Unterlagen. Lade unten die erste hoch.' : 'Noch keine Unterlagen hinterlegt.'))]));
+  };
+  search.addEventListener('input', () => { acad.fileQ = search.value; draw(); });
+  const out = [h('div', { style: 'display:grid;gap:4px' }, h('h4', {}, 'Downloadcenter'), h('h3', { style: 'font-size:1.35em' }, 'Unterlagen')), search,
+    h('div', { class: 'a-chips' }, cats.map(c => h('button', { type: 'button', 'aria-pressed': String(c === acad.fileCat), onclick: () => { acad.fileCat = c; renderAcad(); } }, c))), box];
+  draw();
+  if (isAdmin()) out.push(aUploadForm());
+  return out;
+}
+function aUploadForm() {
+  const file = h('input', { type: 'file', id: 'aUpFile', accept: '.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.jpg,.jpeg,.png,.mp3,.m4a,.txt' });
+  const title = h('input', { type: 'text', id: 'aUpTitle', maxlength: '160', placeholder: 'z. B. Einwandbehandlungen Strom & Gas' });
+  const desc = h('input', { type: 'text', id: 'aUpDesc', maxlength: '400', placeholder: 'kurze Beschreibung (optional)' });
+  const cat = h('select', { id: 'aUpCat' }, A_CATS.map(c => h('option', { value: c }, c)));
+  const less = h('select', { id: 'aUpLesson' }, h('option', { value: '' }, '– keiner Lektion zuordnen –'), A_LESSONS.map((l, i) => h('option', { value: l.id }, `${i + 1}. ${l.t}`)));
+  const note = h('p', { class: 'a-muted', role: 'status' });
+  const btn = h('button', { class: 'btn primary', type: 'submit' }, 'Hochladen');
+  file.addEventListener('change', () => { const f = file.files[0]; if (f && !title.value) title.value = f.name.replace(/\.[^.]+$/, '').replace(/[_-]+/g, ' ').slice(0, 160); });
+  const form = h('form', { class: 'a-card a-form', id: 'aUpForm' }, h('h3', {}, 'Unterlage hochladen (nur Admin)'),
+    h('label', {}, 'Datei (max. 50 MB)', file), h('label', {}, 'Titel', title), h('label', {}, 'Beschreibung', desc),
+    h('label', {}, 'Kategorie', cat), h('label', {}, 'In Lektion anzeigen', less), h('div', { class: 'a-row' }, btn), note);
+  form.addEventListener('submit', async e => {
+    e.preventDefault();
+    const f = file.files[0];
+    if (!f) { note.textContent = 'Bitte zuerst eine Datei wählen.'; return; }
+    if (f.size > 52428800) { note.textContent = 'Die Datei ist größer als 50 MB.'; return; }
+    if (!title.value.trim()) { note.textContent = 'Bitte einen Titel eingeben.'; return; }
+    const ext = ((f.name.match(/\.([a-z0-9]{1,6})$/i) || [])[1] || 'bin').toLowerCase();
+    const path = `files/${crypto.randomUUID()}.${ext}`;
+    btn.disabled = true; note.textContent = 'Lade hoch …';
+    const up = await sb.storage.from('academy').upload(path, f, { contentType: f.type || 'application/octet-stream', upsert: false });
+    if (up.error) { btn.disabled = false; note.textContent = 'Hochladen hat nicht geklappt: ' + up.error.message; return; }
+    const row = { title: title.value.trim(), description: desc.value.trim(), category: cat.value, path, ext: ext.toUpperCase(), size: f.size, lessons: less.value ? [less.value] : [], position: acad.files.length + 1 };
+    const { data, error } = await sb.from('academy_files').insert(row).select();
+    btn.disabled = false;
+    if (error) { await sb.storage.from('academy').remove([path]); note.textContent = 'Speichern hat nicht geklappt: ' + error.message; return; }
+    acad.files.push(data[0]); say(`„${row.title}“ ist hochgeladen. Das Team sieht sie sofort.`); renderAcad();
+  });
+  return form;
+}
+
+function aTeam() {
+  const members = Object.values(team).filter(x => x.active).sort((a, b) => (a.name || a.email || '').localeCompare(b.name || b.email || '', 'de'));
+  const last = uid => {
+    const t = [...acad.progress.filter(p => p.user_id === uid).map(p => p.done_at), ...acad.attempts.filter(a => a.user_id === uid).map(a => a.created_at)].sort().pop();
+    return t ? new Date(t).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' }) : '–';
+  };
+  const freed = members.filter(x => aDoor(x.id).cls === 'ok').length;
+  return [h('div', { style: 'display:grid;gap:4px' }, h('h4', {}, 'Für Teamleiter'), h('h3', { style: 'font-size:1.35em' }, 'Team-Fortschritt'),
+      h('p', { class: 'a-muted' }, `${freed} von ${members.length} mit Türfreigabe. Gesperrte Zugänge werden nicht angezeigt.`)),
+    h('div', { class: 'a-tbl' }, h('table', {},
+      h('thead', {}, h('tr', {}, ['Name', 'Stufe 1', 'Gesamt', 'Prüfung', 'Status', 'Zuletzt'].map(t => h('th', {}, t)))),
+      h('tbody', {}, members.map(x => {
+        const d = aDone(x.id), best = aBest(x.id), door = aDoor(x.id);
+        return h('tr', {},
+          h('td', {}, h('b', {}, (x.name || x.email) + (me && x.id === me.id ? ' (du)' : ''))),
+          h('td', {}, `${A_S1.filter(id => d.has(id)).length}/${A_S1.length}`),
+          h('td', {}, h('div', { style: 'display:grid;gap:4px;min-width:90px' }, `${d.size}/${A_LESSONS.length}`, aBar(d.size, A_LESSONS.length))),
+          h('td', {}, best ? `${best.score}/${best.total}` : '–'),
+          h('td', {}, h('span', { class: 'a-pill ' + door.cls }, door.txt)),
+          h('td', {}, last(x.id)));
+      }))))];
+}
+
+$('btnAcad').addEventListener('click', () => acadOpen ? closeAcad() : openAcad());
+$('acadClose').addEventListener('click', closeAcad);
+for (const b of document.querySelectorAll('#acadTabs button')) b.addEventListener('click', () => goAcad(b.dataset.v, b.dataset.v === 'lessons' ? null : undefined));
+function acadRealtime(table, p) {
+  if (!acadLoaded) return;
+  if (table === 'academy_progress') {
+    if (p.eventType === 'DELETE') { const o = p.old || {}; if (o.user_id && o.lesson_id) acad.progress = acad.progress.filter(x => !(x.user_id === o.user_id && x.lesson_id === o.lesson_id)); }
+    else if (p.new && p.new.user_id && !acad.progress.some(x => x.user_id === p.new.user_id && x.lesson_id === p.new.lesson_id)) acad.progress.push(p.new);
+  } else if (table === 'academy_attempts' && p.new && p.new.user_id) {
+    if (!(me && p.new.user_id === me.id)) acad.attempts.unshift(p.new);
+  }
+  if (acadOpen && acadView === 'team') renderAcad();
+}
 
 /* ===== Mehr-Dialog ===== */
 $('btnMore').addEventListener('click', () => {
