@@ -50,6 +50,20 @@ header.top{background:var(--chrome);color:var(--chrome-fg);display:flex;align-it
 .msg{position:absolute;left:12px;right:12px;bottom:12px;z-index:900;background:var(--panel);color:var(--fg);border:1px solid var(--line);border-radius:10px;padding:8px 12px;font-size:.9em;box-shadow:0 4px 16px rgba(0,0,0,.18);max-width:560px;margin:0 auto}
 .msg.error{border-color:var(--danger);color:var(--danger)}
 .msg:empty{display:none}
+/* Karte drehen: Nordpfeil */
+.north-btn{width:44px !important;height:44px !important;line-height:0 !important;display:grid !important;place-items:center;background:var(--panel) !important;color:var(--fg) !important;border-radius:10px !important;cursor:pointer}
+.north-btn svg{width:32px;height:32px;transition:transform .1s linear}
+.north-btn.hide{display:none !important}
+/* Anfeuer-Sprüche */
+.cheer{position:fixed;left:50%;top:calc(env(safe-area-inset-top,0px) + 16%);z-index:1200;transform:translateX(-50%);width:min(88%,420px);background:linear-gradient(135deg,#ff7a18,#e8341c 55%,#b3125e);color:#fff;border-radius:18px;padding:16px 18px 14px;text-align:center;box-shadow:0 14px 40px rgba(0,0,0,.35);cursor:pointer;animation:cheer-in .45s cubic-bezier(.2,1.4,.4,1) both}
+.cheer.team{background:linear-gradient(135deg,#2f6fde,#5b3fd0)}
+.cheer.goal{background:linear-gradient(135deg,#1f9d55,#0f7a6b)}
+.cheer b{display:block;font-size:1.45em;line-height:1.2;font-weight:850;letter-spacing:.01em;text-wrap:balance}
+.cheer small{display:block;margin-top:6px;font-weight:650;opacity:.92;font-size:.92em}
+.cheer.out{animation:cheer-out .3s ease-in both}
+@keyframes cheer-in{from{opacity:0;transform:translateX(-50%) scale(.6) rotate(-4deg)}to{opacity:1;transform:translateX(-50%) scale(1)}}
+@keyframes cheer-out{to{opacity:0;transform:translateX(-50%) translateY(-16px) scale(.95)}}
+@media (prefers-reduced-motion:reduce){.cheer,.cheer.out{animation:none}.north-btn svg{transition:none}}
 .backup-bar{position:absolute;top:10px;left:12px;right:60px;z-index:900;background:var(--mark);color:var(--mark-ink);border-radius:10px;padding:8px 10px 8px 12px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;max-width:560px;margin:0 auto;font-weight:600;font-size:.9em;box-shadow:0 4px 16px rgba(0,0,0,.2)}
 .backup-bar span{flex:1;min-width:160px}
 .backup-bar button{border:0;border-radius:8px;padding:6px 12px;font-weight:700;background:var(--mark-ink);color:var(--mark)}
@@ -485,6 +499,8 @@ dialog::backdrop{background:rgba(5,15,22,.55)}
   </form>
 </section>
 
+<div class="cheer" id="cheer" hidden role="status" aria-live="polite"><b id="cheerText"></b><small id="cheerSub"></small></div>
+
 <!-- Tagesziel -->
 <section class="chat dash" id="dash" hidden aria-labelledby="dashTitle">
   <div class="chat-head">
@@ -523,11 +539,12 @@ dialog::backdrop{background:rgba(5,15,22,.55)}
 </section>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/leaflet-rotate@0.2.8/dist/leaflet-rotate.js" integrity="sha384-MtIdllebpZyms2pw9K3YJl8BEqrKNQCdSFAySjeglab6z2PkeFdF4Lb9cDsnxQuG" crossorigin="anonymous"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js" crossorigin="anonymous"></script>
 <script>
 (() => {
 'use strict';
-const VERSION = '2.3';
+const VERSION = '2.4';
 const APP = 'P² Gebietskarte';
 const $ = id => document.getElementById(id);
 const msgEl = $('message');
@@ -654,8 +671,52 @@ function passes(id) {
 /* ===== Karte ===== */
 const DE = L.latLngBounds([47.2, 5.8], [55.1, 15.1]);
 const renderer = L.canvas({ padding: 0.4, tolerance: 6 });
-const map = L.map('map', { maxZoom: 21, minZoom: 6, maxBounds: DE.pad(0.15), zoomControl: false, renderer, attributionControl: true });
+// Drehen mit zwei Fingern (leaflet-rotate). Kleine Drehungen beim Zoomen werden ignoriert,
+// erst ab ~12° Fingerdrehung dreht sich die Karte mit.
+const CAN_ROTATE = !!(L.Map.TouchGestures && L.Map.prototype.setBearing);
+if (CAN_ROTATE) {
+  const P = L.Map.TouchGestures.prototype, start = P._onTouchStart, move = P._onTouchMove, end = P._onTouchEnd;
+  const ang = (m, e) => { const a = m.mouseEventToContainerPoint(e.touches[0]), b = m.mouseEventToContainerPoint(e.touches[1]); return Math.atan2(a.y - b.y, a.x - b.x); };
+  P._onTouchStart = function (e) { this._a0 = undefined; this._rotOn = false; return start.call(this, e); };
+  P._onTouchMove = function (e) {
+    if (this._rotating && !this._rotOn && e.touches && e.touches.length === 2) {
+      const a = ang(this._map, e); if (this._a0 === undefined) this._a0 = a;
+      const d = Math.abs((((a - this._a0) * 180 / Math.PI) + 540) % 360 - 180);
+      if (d < 12) { this._rotating = false; try { move.call(this, e); } finally { this._rotating = true; } return; }
+      this._rotOn = true; // ab hier mitdrehen, ohne Sprung
+      const v = this._map.mouseEventToContainerPoint(e.touches[0]).subtract(this._map.mouseEventToContainerPoint(e.touches[1]));
+      this._startTheta = Math.atan(v.x / v.y); this._startBearing = this._map.getBearing(); if (v.y < 0) this._startBearing += 180;
+    }
+    return move.call(this, e);
+  };
+  P._onTouchEnd = function (e) {
+    const moved = this._moved; end.call(this, e);
+    if (!moved) { // Plugin räumt sonst nicht auf -> nächste Zwei-Finger-Geste würde hängen
+      this._zooming = false; this._rotating = false;
+      L.DomEvent.off(document, 'touchmove', this._onTouchMove, this).off(document, 'touchend touchcancel', this._onTouchEnd, this);
+    }
+  };
+}
+const map = L.map('map', { maxZoom: 21, minZoom: 6, maxBounds: DE.pad(0.15), zoomControl: false, renderer, attributionControl: true,
+  rotate: CAN_ROTATE, touchRotate: CAN_ROTATE, rotateControl: false, shiftKeyRotate: CAN_ROTATE, bearing: 0 });
 L.control.zoom({ position: 'topright' }).addTo(map);
+if (CAN_ROTATE) {
+  const North = L.Control.extend({
+    options: { position: 'topright' },
+    onAdd() {
+      const box = L.DomUtil.create('div', 'leaflet-bar');
+      const a = this._a = L.DomUtil.create('a', 'north-btn hide', box);
+      a.href = '#'; a.title = 'Karte nach Norden ausrichten'; a.setAttribute('role', 'button'); a.setAttribute('aria-label', 'Karte nach Norden ausrichten');
+      a.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 1.5L16 12H8z" fill="#e03e3e"/><path d="M12 22.5L8 12h8z" fill="currentColor" opacity=".4"/><circle cx="12" cy="12" r="1.6" fill="currentColor"/></svg>';
+      L.DomEvent.disableClickPropagation(box);
+      L.DomEvent.on(a, 'click', ev => { L.DomEvent.preventDefault(ev); map.setBearing(0); });
+      map.on('rotate', this._upd, this); this._upd();
+      return box;
+    },
+    _upd() { const b = map.getBearing() || 0; this._a.classList.toggle('hide', Math.abs(((b % 360) + 360) % 360) < 0.5 || Math.abs(((b % 360) + 360) % 360 - 360) < 0.5); this._a.firstChild.style.transform = `rotate(${b}deg)`; }
+  });
+  new North().addTo(map);
+}
 map.attributionControl.setPrefix(false);
 if (settings.view && DE.pad(0.15).contains(settings.view.c)) map.setView(settings.view.c, settings.view.z);
 else map.setView([51.2254, 6.7763], 15); // Düsseldorf
@@ -1917,7 +1978,46 @@ async function loadStats() {
 function applyStatRow(r) {
   if (!r || r.day !== today()) return;
   if (statPending && me && r.user_id === me.id) return;
+  const before = stats[r.user_id] && stats[r.user_id].day === r.day ? stats[r.user_id].done || 0 : 0;
   stats[r.user_id] = r; renderDash();
+  if (me && r.user_id !== me.id && (r.done || 0) > before) cheerTeam(r);
+}
+
+/* ===== Anfeuer-Sprüche ===== */
+const pick = a => a[Math.floor(Math.random() * a.length)];
+const CHEER = {
+  free: ['Super gemacht, weiter so! 💪', 'Stark! Der nächste wartet schon. 🚪', 'Sauber abgeschlossen! 👊', 'Läuft bei dir! 🙌', 'Klasse! Genau so geht das. ⚡'],
+  on:   ['Super gemacht, weiter so! 💪', 'Läuft bei dir! 🙌', 'Sauber! Du bist im Flow. 🌊', 'Stark! Tür für Tür nach vorne. 🚪', 'Weiter so, das wird dein Tag! ⚡'],
+  near: ['Du kommst deinem Ziel gefährlich nah! 👀', 'Nur noch einer! Den holst du dir. 🎯', 'Fast geschafft – zieh durch! 🔥'],
+  goal: ['ZIEL ERREICHT! 🏆 Mega Tag!', 'Du Maschine!!! Ziel geknackt! 🔥🔥🔥', 'Geschafft! Respekt! 🏆'],
+  over: ['Du Maschine!!! Zieh durch 🔥', 'Unaufhaltsam! 🚀', 'Heute brennt die Hütte! 🔥🔥', 'Über dem Ziel – du Tier! 💥'],
+  team: ['{n} ist eine Maschine! 🔥', 'Stark, {n}! Weiter so! 💪', '{n} legt vor – wer zieht nach? 🚀', 'Läuft bei {n}! 🙌'],
+  teamGoal: ['{n} hat das Tagesziel geknackt! 🏆', '{n}: Ziel erreicht – Maschine! 🔥🔥']
+};
+let cheerTimer = 0;
+function showCheer(text, sub, kind) {
+  const el = $('cheer'); clearTimeout(cheerTimer);
+  el.className = 'cheer' + (kind ? ' ' + kind : ''); $('cheerText').textContent = text; $('cheerSub').textContent = sub || '';
+  el.hidden = false; void el.offsetWidth;
+  cheerTimer = setTimeout(hideCheer, kind === 'team' ? 3500 : 4000);
+  try { if (navigator.vibrate) navigator.vibrate(kind === 'team' ? 40 : [60, 40, 90]); } catch (e) {}
+}
+function hideCheer() {
+  const el = $('cheer'); if (el.hidden) return; clearTimeout(cheerTimer);
+  el.classList.add('out'); cheerTimer = setTimeout(() => { el.hidden = true; el.classList.remove('out'); }, 300);
+}
+$('cheer').addEventListener('click', hideCheer);
+function cheerMe(s) {
+  const left = s.goal - s.done;
+  if (!s.goal) return showCheer(pick(CHEER.free), `Vertrag Nr. ${s.done} heute`);
+  if (left > 1) return showCheer(pick(CHEER.on), `${s.done} von ${s.goal} – noch ${left} bis zum Ziel`);
+  if (left === 1) return showCheer(pick(CHEER.near), `${s.done} von ${s.goal}`);
+  if (left === 0) return showCheer(pick(CHEER.goal), `${s.done} von ${s.goal} – Tagesziel erreicht`, 'goal');
+  return showCheer(pick(CHEER.over), `${s.done} von ${s.goal} – ${-left} über dem Ziel`);
+}
+function cheerTeam(r) {
+  const n = memberName(r.user_id), hit = r.goal && r.done === r.goal;
+  showCheer(pick(hit ? CHEER.teamGoal : CHEER.team).replace('{n}', n), `${n} hat gerade einen Vertrag eingetragen: ${r.done}${r.goal ? ' von ' + r.goal : ''}`, 'team');
 }
 function changeStat(field, delta) {
   if (!me) return;
@@ -1927,7 +2027,7 @@ function changeStat(field, delta) {
   stats[me.id] = cur; statPending = true;
   LS.set('p2gk-stat-pending', { day: cur.day, goal: cur.goal, done: cur.done });
   renderDash();
-  if (field === 'done' && delta > 0 && cur.goal && cur.done === cur.goal) say('Tagesziel erreicht – stark!');
+  if (field === 'done' && delta > 0) cheerMe(cur);
   clearTimeout(statTimer); statTimer = setTimeout(saveStat, 600);
 }
 async function saveStat() {
