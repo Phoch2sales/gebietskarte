@@ -207,6 +207,51 @@ dialog::backdrop{background:rgba(5,15,22,.55)}
 .chat-attach button{border:0;background:none;color:var(--muted);width:32px;height:32px;font-size:1em}
 .chat-note{margin:0;font-size:.82em;color:var(--danger)}
 .chat-note:empty{display:none}
+.chat-head .iconbtn{background:var(--field);color:var(--fg);border:1px solid var(--line)}
+.bubble a{color:inherit;text-decoration:underline;overflow-wrap:anywhere}
+.join-btn{justify-self:start;display:inline-flex;align-items:center;gap:6px;background:var(--s-termin);color:#fff;border-radius:8px;padding:6px 12px;font-weight:800;text-decoration:none !important;font-size:.9em}
+.join-btn svg{width:16px;height:16px}
+.meet-form{display:grid;gap:8px;border:1px solid var(--line);border-radius:12px;padding:10px;background:var(--field)}
+.meet-form input{width:100%;min-width:0;border:1px solid var(--line);background:var(--panel);color:var(--fg);border-radius:10px;padding:9px 11px;font-size:16px}
+.meet-form b{font-size:.9em}
+.meet-bar{position:absolute;top:10px;left:12px;right:60px;z-index:905;max-width:560px;margin:0 auto;background:var(--s-termin);color:#fff;border-radius:12px;padding:8px 8px 8px 12px;display:flex;gap:8px;align-items:center;box-shadow:0 6px 20px rgba(0,0,0,.25);font-weight:600;font-size:.9em}
+.meet-bar span{flex:1;min-width:0}
+.meet-bar .btn{background:#fff;color:#13212b;border:0;min-height:36px;font-weight:800}
+.meet-bar button.x{background:none;border:0;color:#fff;width:32px;height:32px;font-size:1em}
+/* Tagesziel-Dashboard */
+.dash{grid-template-rows:auto 1fr}
+.dash-body{overflow-y:auto;padding:14px 16px calc(env(safe-area-inset-bottom,0px) + 18px);display:grid;gap:14px;align-content:start;min-height:0}
+.dash-body h3{margin:6px 0 0;font-size:.78em;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
+.goal-card{border:1px solid var(--line);border-radius:16px;padding:16px;display:grid;gap:12px;background:var(--field)}
+.goal-big{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;font-variant-numeric:tabular-nums}
+.goal-big b{font-size:2.6em;line-height:1;font-weight:800}
+.goal-big span{font-size:1.1em;color:var(--muted);font-weight:700}
+.goal-big small{flex-basis:100%;color:var(--muted);font-weight:600}
+.gbar{height:12px;border-radius:999px;background:var(--line);overflow:hidden}
+.gbar i{display:block;height:100%;width:0;background:var(--s-termin);border-radius:inherit;transition:width .25s}
+.gbar.reached i{background:var(--s-green)}
+@media (prefers-reduced-motion:reduce){.gbar i{transition:none}}
+.goal-state{margin:0;font-weight:700;font-size:.95em}
+.goal-state.reached{color:var(--s-green)}
+.goal-ctl{display:grid;grid-template-columns:1fr auto auto auto;align-items:center;gap:10px;border-top:1px solid var(--line);padding-top:12px}
+.goal-ctl > span{font-weight:700}
+.goal-ctl output{min-width:2.4em;text-align:center;font-size:1.5em;font-weight:800;font-variant-numeric:tabular-nums}
+.round{width:52px;height:52px;border-radius:50%;border:2px solid var(--line);background:var(--panel);color:var(--fg);font-size:1.6em;font-weight:700;line-height:1;display:grid;place-items:center}
+.round.plus{width:64px;height:64px;background:var(--s-green);border-color:var(--s-green);color:#fff;font-size:2em}
+.round:disabled{opacity:.35}
+.team-total{display:grid;gap:6px;font-weight:700;font-variant-numeric:tabular-nums}
+.team-goals{list-style:none;margin:0;padding:0;display:grid;gap:8px}
+.team-goals li{display:grid;grid-template-columns:1fr auto;gap:4px 10px;align-items:center;border:1px solid var(--line);border-radius:10px;padding:8px 10px}
+.team-goals li b{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.team-goals li span{font-variant-numeric:tabular-nums;font-weight:700}
+.team-goals li .gbar{grid-column:1/-1;height:8px}
+.team-goals li.none{opacity:.6}
+.team-goals li.none .gbar{display:none}
+.dash-tally{display:flex;flex-wrap:wrap;gap:8px 14px;font-size:.92em;font-variant-numeric:tabular-nums}
+.dash-tally span{display:inline-flex;align-items:center;gap:6px}
+.dash-tally i{width:12px;height:12px;border-radius:3px;display:inline-block}
+.dash-chip{font-weight:800;font-size:.95em;font-variant-numeric:tabular-nums}
+@media (max-width:520px){header.top .tally{display:none}}
 </style>
 </head>
 <body>
@@ -214,6 +259,10 @@ dialog::backdrop{background:rgba(5,15,22,.55)}
   <header class="top">
     <div class="brand">P²<span class="brand-full"> Gebietskarte</span><small id="ver"></small><span class="sync off" id="syncDot" role="img" aria-label="Nicht angemeldet" title="Nicht angemeldet"></span></div>
     <div class="tally" id="tally" aria-label="Zähler"></div>
+    <button class="iconbtn" id="btnDash" aria-label="Tagesziel" hidden>
+      <svg id="dashIcon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4.5"/><circle cx="12" cy="12" r="1" fill="currentColor"/></svg>
+      <span class="dash-chip" id="dashChip" hidden></span>
+    </button>
     <button class="iconbtn" id="btnChat" aria-label="Team-Chat" hidden>
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"><path d="M4 5h16v11H9l-5 4z"/></svg>
       <span class="badge" id="chatBadge" hidden></span>
@@ -237,6 +286,11 @@ dialog::backdrop{background:rgba(5,15,22,.55)}
       <button class="btn primary" type="submit">Suchen</button>
       <ul class="search-res" id="searchRes"></ul>
     </form>
+    <div class="meet-bar" id="meetBar" hidden role="status">
+      <span id="meetBarText"></span>
+      <a class="btn" id="meetBarJoin" target="_blank" rel="noopener">Beitreten</a>
+      <button class="x" type="button" id="meetBarX" aria-label="Hinweis schließen">✕</button>
+    </div>
     <div class="msg" id="message" role="status" aria-live="polite"></div>
   </main>
 
@@ -409,10 +463,19 @@ dialog::backdrop{background:rgba(5,15,22,.55)}
 <section class="chat" id="chat" hidden aria-labelledby="chatTitle">
   <div class="chat-head">
     <h2 id="chatTitle">Team-Chat<small id="chatSub">Alle im Team lesen mit</small></h2>
+    <button class="iconbtn" id="meetOpen" type="button" aria-label="Meeting-Link ans Team senden" title="Meeting-Link senden">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"><rect x="3" y="6" width="12" height="12" rx="2"/><path d="M15 10l6-3v10l-6-3z"/></svg>
+    </button>
     <button class="close" id="chatClose" type="button" aria-label="Chat schließen">✕</button>
   </div>
   <div class="chat-list" id="chatList"></div>
   <form class="chat-form" id="chatForm">
+    <div class="meet-form" id="meetForm" hidden>
+      <b>Meeting-Link ans Team senden</b>
+      <input id="meetUrl" type="url" inputmode="url" placeholder="Teams-, Zoom- oder Meet-Link einfügen" aria-label="Meeting-Link">
+      <input id="meetTitle" type="text" maxlength="120" placeholder="Thema (optional), z. B. Wochenstart 9 Uhr" aria-label="Thema">
+      <div class="row-wrap"><button class="btn primary" id="meetSend" type="button">Ans Team senden</button><button class="btn" id="meetCancel" type="button">Abbrechen</button></div>
+    </div>
     <div class="chat-attach" id="chatAttach" hidden><span id="chatAttachLabel"></span><button type="button" id="chatAttachX" aria-label="Haus wieder entfernen">✕</button></div>
     <p class="chat-note" id="chatNote" role="status"></p>
     <div class="chat-row">
@@ -420,6 +483,28 @@ dialog::backdrop{background:rgba(5,15,22,.55)}
       <button class="btn primary" id="chatSend" type="submit">Senden</button>
     </div>
   </form>
+</section>
+
+<!-- Tagesziel -->
+<section class="chat dash" id="dash" hidden aria-labelledby="dashTitle">
+  <div class="chat-head">
+    <h2 id="dashTitle">Tagesziel<small id="dashDate"></small></h2>
+    <button class="close" id="dashClose" type="button" aria-label="Tagesziel schließen">✕</button>
+  </div>
+  <div class="dash-body">
+    <div class="goal-card">
+      <div class="goal-big"><b id="gDone">0</b><span>von</span><b id="gGoal">0</b><small>Verträge heute</small></div>
+      <div class="gbar" id="gBarWrap"><i id="gBar"></i></div>
+      <p class="goal-state" id="gState"></p>
+      <div class="goal-ctl"><span>Verträge</span><button class="round" id="gDoneMinus" type="button" aria-label="Einen Vertrag weniger">−</button><output id="gDoneOut">0</output><button class="round plus" id="gDonePlus" type="button" aria-label="Einen Vertrag mehr">+</button></div>
+      <div class="goal-ctl"><span>Ziel heute</span><button class="round" id="gGoalMinus" type="button" aria-label="Ziel um eins senken">−</button><output id="gGoalOut">0</output><button class="round" id="gGoalPlus" type="button" aria-label="Ziel um eins erhöhen">+</button></div>
+    </div>
+    <h3>Team heute</h3>
+    <div class="team-total" id="tTotal"></div>
+    <ol class="team-goals" id="tList"></ol>
+    <h3>Markierte Häuser (ganzes Team)</h3>
+    <div class="dash-tally" id="dashTally"></div>
+  </div>
 </section>
 
 <!-- Anmeldung -->
@@ -442,7 +527,7 @@ dialog::backdrop{background:rgba(5,15,22,.55)}
 <script>
 (() => {
 'use strict';
-const VERSION = '2.2';
+const VERSION = '2.3';
 const APP = 'P² Gebietskarte';
 const $ = id => document.getElementById(id);
 const msgEl = $('message');
@@ -833,6 +918,15 @@ function updateTally() {
     s.append(i, String(n)); t.append(s);
   }
   if (due) { const s = document.createElement('span'); s.textContent = '⏰ ' + due; s.title = 'Wiedervorlage fällig'; t.append(s); }
+  const dt = $('dashTally');
+  if (dt) {
+    dt.textContent = '';
+    for (const [k, n] of [['green', c.green], ['red', c.red], ['termin', c.termin], ['kein', c.kein]]) {
+      const sp = document.createElement('span'); const i = document.createElement('i'); i.style.background = STATUS[k].fill;
+      sp.append(i, `${STATUS[k].label}: ${n}`); dt.append(sp);
+    }
+    if (due) { const sp = document.createElement('span'); sp.textContent = `Wiedervorlage fällig: ${due}`; dt.append(sp); }
+  }
 }
 
 /* ===== Haus-Blatt ===== */
@@ -846,7 +940,7 @@ function touch(id) {
 }
 function openSheet(id) {
   const prev = current; current = id; if (prev) restyle(prev); restyle(id);
-  if (typeof chatOpen !== 'undefined' && chatOpen) closeChat();
+  if (chatOpen) closeChat(); if (dashOpen) closeDash();
   sheet.hidden = false; renderSheet();
 }
 function closeSheet() { const prev = current; current = null; sheet.hidden = true; if (prev) restyle(prev); }
@@ -858,7 +952,7 @@ map.on('click', e => {
   if (map.getZoom() < 15) say('Zum Markieren näher heranzoomen, bis die einzelnen Häuser zu sehen sind.');
   else if (!loadedTiles[lon2x(e.latlng.lng) + '/' + lat2y(e.latlng.lat)]) say(loading ? 'Die Häuser hier werden gerade geladen …' : 'Hier sind noch keine Häuser geladen. Erst „Häuser finden“ tippen, dann ein Haus anklicken.');
 });
-document.addEventListener('keydown', e => { if (e.key !== 'Escape') return; if (chatOpen) closeChat(); else if (current) closeSheet(); });
+document.addEventListener('keydown', e => { if (e.key !== 'Escape') return; if (dashOpen) closeDash(); else if (chatOpen) closeChat(); else if (current) closeSheet(); });
 
 function infoFor(r, unit) {
   const x = unit || r;
@@ -1417,6 +1511,7 @@ function subscribe() {
       if ($('dlgMore').open) renderTeam();
     })
     .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, p => { if (p.new && p.new.id) addChatMsg(p.new); })
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'daily_stats' }, p => { if (p.new && p.new.user_id) applyStatRow(p.new); })
     .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'messages' }, p => { const id = p.old && p.old.id; if (id) { chatMsgs = chatMsgs.filter(m => m.id !== id); renderChat(); updateChatBadge(); } })
     .subscribe();
 }
@@ -1424,6 +1519,7 @@ function wipeLocal() {
   clearTimeout(persistTimer);
   records = {}; sketches = []; pendingRec.clear(); pendingSk.clear(); team = {};
   chatMsgs = []; chatLoaded = false; chatAttach = null; if (chatOpen) closeChat(); renderChat(); updateChatBadge();
+  stats = {}; statsDay = ''; statPending = false; clearTimeout(statTimer); try { localStorage.removeItem('p2gk-stat-pending'); } catch (e) {} if (dashOpen) closeDash(); renderDash(); updateMeetBar();
   for (const k of [K.rec, K.sk, 'p2gk-pending-rec', 'p2gk-pending-sk', 'p2gk-me']) { try { localStorage.removeItem(k); } catch (e) {} }
   idb.clear('snap').catch(() => {});
   if (current) closeSheet();
@@ -1457,7 +1553,7 @@ async function startSession(session) {
     me = mine; LS.set('p2gk-me', me); applyRole();
     say('Daten werden abgeglichen …', false, true);
     await pullAll();
-    subscribe(); flush(); loadChat();
+    subscribe(); flush(); loadChat(); loadStats(); if (LS.get('p2gk-stat-pending', null)) saveStat();
     say(`Angemeldet als ${me.name || me.email}. Alle Markierungen sind aktuell.`);
   } catch (e) {
     say('Keine Verbindung zum Server. Du kannst weiterarbeiten, die Änderungen werden später übertragen.', true);
@@ -1466,7 +1562,8 @@ async function startSession(session) {
 }
 function applyRole() {
   for (const x of document.querySelectorAll('.admin-only')) x.hidden = !isAdmin();
-  $('btnChat').hidden = !me; $('shShare').hidden = !me;
+  $('btnChat').hidden = !me; $('shShare').hidden = !me; $('btnDash').hidden = !me;
+  if (!me && dashOpen) closeDash();
   if (!me && chatOpen) closeChat();
 }
 function renderAccount() {
@@ -1644,14 +1741,14 @@ async function loadChat() {
   const fresh = data.reverse();
   for (const m of chatMsgs) if (!fresh.some(x => x.id === m.id)) fresh.push(m);
   chatMsgs = fresh.sort((a, b) => Date.parse(a.created_at) - Date.parse(b.created_at));
-  chatLoaded = true; renderChat(true);
+  chatLoaded = true; renderChat(true); updateMeetBar();
   if (chatOpen) markChatSeen(); else updateChatBadge();
 }
 function addChatMsg(m) {
   if (!m || chatMsgs.some(x => x.id === m.id)) return;
   chatMsgs.push(m); chatMsgs.sort((a, b) => Date.parse(a.created_at) - Date.parse(b.created_at));
   if (chatMsgs.length > 600) chatMsgs.shift();
-  renderChat(me && m.user_id === me.id);
+  renderChat(me && m.user_id === me.id); updateMeetBar();
   if (chatOpen) markChatSeen(); else updateChatBadge();
 }
 const memberName = id => { const p = team[id]; return p ? (p.name || p.email) : 'Ehemaliges Mitglied'; };
@@ -1685,7 +1782,9 @@ function renderChat(toBottom = false) {
       chip.addEventListener('click', () => goToHouse(m));
       bub.append(chip);
     }
-    if (m.body && !(m.house_id && m.body === 'Haus geteilt')) { const p = document.createElement('p'); p.textContent = m.body; bub.append(p); }
+    if (m.body && !(m.house_id && m.body === 'Haus geteilt')) { const p = document.createElement('p'); linkify(p, m.body); bub.append(p); }
+    const ml = meetLink(m.body);
+    if (ml) { const a = document.createElement('a'); a.className = 'join-btn'; a.href = ml; a.target = '_blank'; a.rel = 'noopener'; a.innerHTML = CAM; a.append(document.createTextNode(meetName(ml) + ' beitreten')); bub.append(a); }
     const tm = document.createElement('time'); tm.dateTime = m.created_at; tm.textContent = chatTime(m.created_at); bub.append(tm);
     row.append(bub); list.append(row);
   }
@@ -1705,7 +1804,7 @@ function renderAttach() {
 function openChat() {
   if (!me) return;
   chatOpen = true; $('chat').hidden = false;
-  if (current) closeSheet();
+  if (current) closeSheet(); if (dashOpen) closeDash();
   renderAttach(); renderChat(true); markChatSeen();
   if (!chatLoaded) loadChat();
   if (!isTouch) setTimeout(() => $('chatIn').focus(), 50);
@@ -1745,6 +1844,160 @@ $('chatForm').addEventListener('submit', async e => {
   if (!isTouch) $('chatIn').focus();
 });
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && me && navigator.onLine && chatLoaded) loadChat(); });
+
+/* ===== Meeting-Links (Teams, Zoom, Meet) ===== */
+const CAM = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linejoin="round"><rect x="3" y="6" width="12" height="12" rx="2"/><path d="M15 10l6-3v10l-6-3z"/></svg>';
+const URL_RE = /https:\/\/[^\s<>"']+/g;
+const MEET_RE = /^https:\/\/([a-z0-9-]+\.)*(teams\.microsoft\.com|teams\.live\.com|zoom\.us|meet\.google\.com|whereby\.com|meet\.jit\.si)(\/|$)/i;
+function meetLink(text) { for (const u of String(text || '').match(URL_RE) || []) { const c = u.replace(/[).,;:!?]+$/, ''); if (MEET_RE.test(c)) return c; } return null; }
+function meetName(u) { return /teams\./i.test(u) ? 'Teams-Meeting' : /zoom\.us/i.test(u) ? 'Zoom-Meeting' : /meet\.google/i.test(u) ? 'Google-Meet' : 'Meeting'; }
+function linkify(el, text) {
+  let last = 0; text = String(text);
+  for (const mt of text.matchAll(URL_RE)) {
+    const u = mt[0].replace(/[).,;:!?]+$/, '');
+    el.append(document.createTextNode(text.slice(last, mt.index)));
+    const a = document.createElement('a'); a.href = u; a.target = '_blank'; a.rel = 'noopener'; a.textContent = u.length > 48 ? u.slice(0, 45) + '…' : u;
+    el.append(a); last = mt.index + u.length;
+  }
+  el.append(document.createTextNode(text.slice(last)));
+}
+const MEET_HOURS = 3; // so lange steht der Hinweis oben auf der Karte
+function updateMeetBar() {
+  const bar = $('meetBar');
+  if (!me) { bar.hidden = true; return; }
+  const dismissed = LS.get('p2gk-meet-dismissed', 0);
+  let hit = null;
+  for (let i = chatMsgs.length - 1; i >= 0; i--) {
+    const m = chatMsgs[i];
+    if (Date.now() - Date.parse(m.created_at) > MEET_HOURS * 3600e3) break;
+    const u = meetLink(m.body); if (u) { hit = { m, u }; break; }
+  }
+  if (!hit || hit.m.id === dismissed) { bar.hidden = true; return; }
+  const who = me && hit.m.user_id === me.id ? 'dir' : memberName(hit.m.user_id);
+  const topic = String(hit.m.body).replace(URL_RE, '').trim().split('\n')[0].slice(0, 60);
+  $('meetBarText').textContent = `${meetName(hit.u)} von ${who}, ${chatTime(hit.m.created_at)} Uhr${topic ? ' – ' + topic : ''}`;
+  $('meetBarJoin').href = hit.u; $('meetBarX').dataset.id = hit.m.id;
+  bar.hidden = false;
+}
+$('meetBarX').addEventListener('click', () => { LS.set('p2gk-meet-dismissed', +$('meetBarX').dataset.id || 0); updateMeetBar(); });
+$('meetOpen').addEventListener('click', () => { $('meetForm').hidden = !$('meetForm').hidden; if (!$('meetForm').hidden) $('meetUrl').focus(); });
+$('meetCancel').addEventListener('click', () => { $('meetForm').hidden = true; $('meetUrl').value = ''; $('meetTitle').value = ''; chatNote(''); });
+$('meetSend').addEventListener('click', async () => {
+  const raw = $('meetUrl').value.trim(), title = $('meetTitle').value.trim();
+  let url = null; try { const x = new URL(raw); if (x.protocol === 'https:') url = x.href; } catch (e) {}
+  if (!url) { chatNote('Bitte den kompletten Link einfügen, er beginnt mit https://'); return; }
+  if (!MEET_RE.test(url)) { chatNote('Das sieht nicht nach einem Teams-, Zoom- oder Meet-Link aus. Bitte den Einladungslink aus dem Meeting kopieren.'); return; }
+  if (!navigator.onLine) { chatNote('Kein Netz. Der Link kann erst gesendet werden, wenn du wieder online bist.'); return; }
+  $('meetSend').disabled = true;
+  const { data, error } = await sb.from('messages').insert({ body: `${title || meetName(url) + ' – jetzt beitreten'}\n${url}` }).select();
+  $('meetSend').disabled = false;
+  if (error) { chatNote('Senden hat nicht geklappt: ' + error.message); return; }
+  $('meetForm').hidden = true; $('meetUrl').value = ''; $('meetTitle').value = ''; chatNote('');
+  if (data && data[0]) addChatMsg(data[0]);
+});
+setInterval(updateMeetBar, 60000);
+
+/* ===== Tagesziel-Dashboard ===== */
+let stats = {}, statsDay = '', statTimer = 0, statPending = false, dashOpen = false;
+function loadPendingStat() {
+  const p = LS.get('p2gk-stat-pending', null);
+  if (p && me && p.day === today()) { stats[me.id] = Object.assign({ user_id: me.id }, stats[me.id], p); statPending = true; }
+}
+async function loadStats() {
+  if (!sb || !me) return;
+  const day = today();
+  const { data, error } = await sb.from('daily_stats').select('user_id,day,goal,done,updated_at').eq('day', day);
+  if (error) return;
+  const keepMine = statPending && me && stats[me.id] && stats[me.id].day === day ? stats[me.id] : null;
+  stats = {}; statsDay = day;
+  for (const r of data) stats[r.user_id] = r;
+  if (keepMine) stats[me.id] = keepMine;
+  loadPendingStat(); renderDash();
+}
+function applyStatRow(r) {
+  if (!r || r.day !== today()) return;
+  if (statPending && me && r.user_id === me.id) return;
+  stats[r.user_id] = r; renderDash();
+}
+function changeStat(field, delta) {
+  if (!me) return;
+  if (statsDay !== today()) { stats = {}; statsDay = today(); }
+  const cur = Object.assign({ user_id: me.id, day: statsDay, goal: 0, done: 0 }, stats[me.id]);
+  cur[field] = Math.max(0, Math.min(field === 'goal' ? 99 : 999, (cur[field] || 0) + delta));
+  stats[me.id] = cur; statPending = true;
+  LS.set('p2gk-stat-pending', { day: cur.day, goal: cur.goal, done: cur.done });
+  renderDash();
+  if (field === 'done' && delta > 0 && cur.goal && cur.done === cur.goal) say('Tagesziel erreicht – stark!');
+  clearTimeout(statTimer); statTimer = setTimeout(saveStat, 600);
+}
+async function saveStat() {
+  const p = LS.get('p2gk-stat-pending', null);
+  if (!p || !sb || !me) { statPending = false; return; }
+  if (!navigator.onLine) { clearTimeout(statTimer); statTimer = setTimeout(saveStat, 15000); renderDash(); return; }
+  const { error } = await sb.from('daily_stats').upsert({ user_id: me.id, day: p.day, goal: p.goal, done: p.done }, { onConflict: 'user_id,day' });
+  if (error) {
+    if (error.code === '42501' || /row-level security/i.test(error.message || '')) checkMe();
+    clearTimeout(statTimer); statTimer = setTimeout(saveStat, 15000); renderDash(); return;
+  }
+  const now = LS.get('p2gk-stat-pending', null);
+  if (now && now.day === p.day && now.goal === p.goal && now.done === p.done) { try { localStorage.removeItem('p2gk-stat-pending'); } catch (e) {} statPending = false; }
+  renderDash();
+}
+function renderDash() {
+  const mine = (me && stats[me.id] && stats[me.id].day === today()) ? stats[me.id] : { goal: 0, done: 0 };
+  const chip = $('dashChip');
+  chip.hidden = !(mine.goal || mine.done); $('dashIcon').style.display = chip.hidden ? '' : 'none';
+  chip.textContent = `${mine.done}/${mine.goal}`;
+  $('btnDash').setAttribute('aria-label', `Tagesziel: ${mine.done} von ${mine.goal} Verträgen`);
+  if (!dashOpen) return;
+  $('dashDate').textContent = 'Heute, ' + new Date().toLocaleDateString('de-DE', { weekday: 'long', day: 'numeric', month: 'long' }) + (statPending ? ' · wird übertragen …' : '');
+  const reached = mine.goal > 0 && mine.done >= mine.goal;
+  $('gDone').textContent = mine.done; $('gGoal').textContent = mine.goal;
+  $('gDoneOut').textContent = mine.done; $('gGoalOut').textContent = mine.goal;
+  $('gBar').style.width = (mine.goal ? Math.min(100, mine.done / mine.goal * 100) : (mine.done ? 100 : 0)) + '%';
+  $('gBarWrap').classList.toggle('reached', reached);
+  $('gState').classList.toggle('reached', reached);
+  $('gState').textContent = !mine.goal ? 'Leg zuerst fest, wie viele Verträge du heute schaffen willst.'
+    : reached ? (mine.done > mine.goal ? `Ziel erreicht und ${mine.done - mine.goal} drüber!` : 'Ziel erreicht!')
+    : `Noch ${mine.goal - mine.done} bis zum Ziel.`;
+  $('gDoneMinus').disabled = mine.done <= 0; $('gGoalMinus').disabled = mine.goal <= 0;
+  // Team
+  const members = Object.values(team).filter(x => x.active);
+  const rows = members.map(x => ({ x, s: stats[x.id] && stats[x.id].day === today() ? stats[x.id] : null }));
+  rows.sort((a, b) => ((b.s ? b.s.done : -1) - (a.s ? a.s.done : -1)) || (memberName(a.x.id)).localeCompare(memberName(b.x.id), 'de'));
+  const sumDone = rows.reduce((n, r) => n + (r.s ? r.s.done : 0), 0), sumGoal = rows.reduce((n, r) => n + (r.s ? r.s.goal : 0), 0);
+  const tt = $('tTotal'); tt.textContent = '';
+  const tl = document.createElement('span'); tl.textContent = `Zusammen ${sumDone} von ${sumGoal} Verträgen`;
+  const tb = document.createElement('div'); tb.className = 'gbar' + (sumGoal && sumDone >= sumGoal ? ' reached' : '');
+  const ti = document.createElement('i'); ti.style.width = (sumGoal ? Math.min(100, sumDone / sumGoal * 100) : 0) + '%'; tb.append(ti);
+  tt.append(tl, tb);
+  const list = $('tList'); list.textContent = '';
+  for (const { x, s } of rows) {
+    const li = document.createElement('li'); if (!s) li.className = 'none';
+    const b = document.createElement('b'); b.textContent = me && x.id === me.id ? (x.name || x.email) + ' (du)' : memberName(x.id);
+    const sp = document.createElement('span'); sp.textContent = s ? `${s.done} von ${s.goal}` + (s.goal && s.done >= s.goal ? ' ✓' : '') : 'noch nichts eingetragen';
+    const bar = document.createElement('div'); bar.className = 'gbar' + (s && s.goal && s.done >= s.goal ? ' reached' : '');
+    const i = document.createElement('i'); i.style.width = (s && s.goal ? Math.min(100, s.done / s.goal * 100) : (s && s.done ? 100 : 0)) + '%'; bar.append(i);
+    li.append(b, sp, bar); list.append(li);
+  }
+}
+function openDash() {
+  if (!me) return;
+  dashOpen = true; $('dash').hidden = false;
+  if (current) closeSheet(); if (chatOpen) closeChat();
+  if (statsDay !== today()) { stats = {}; statsDay = today(); loadPendingStat(); }
+  updateTally(); renderDash(); loadStats();
+}
+function closeDash() { dashOpen = false; $('dash').hidden = true; }
+$('btnDash').addEventListener('click', () => dashOpen ? closeDash() : openDash());
+$('dashClose').addEventListener('click', closeDash);
+$('gDonePlus').addEventListener('click', () => changeStat('done', 1));
+$('gDoneMinus').addEventListener('click', () => changeStat('done', -1));
+$('gGoalPlus').addEventListener('click', () => changeStat('goal', 1));
+$('gGoalMinus').addEventListener('click', () => changeStat('goal', -1));
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && me && navigator.onLine) { loadStats(); if (LS.get('p2gk-stat-pending', null)) saveStat(); } });
+window.addEventListener('online', () => { if (me && LS.get('p2gk-stat-pending', null)) saveStat(); });
+setInterval(() => { if (me && statsDay && statsDay !== today()) { stats = {}; statsDay = today(); statPending = false; renderDash(); loadStats(); } }, 60000);
 
 /* ===== Mehr-Dialog ===== */
 $('btnMore').addEventListener('click', () => {
