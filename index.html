@@ -339,6 +339,20 @@ dialog::backdrop{background:rgba(5,15,22,.55)}
 .t-input{display:grid;gap:8px}
 .t-input textarea{width:100%;min-width:0;resize:none;border:1px solid var(--line);background:var(--panel);color:var(--fg);border-radius:12px;padding:10px 12px;font-size:16px;line-height:1.35}
 .t-input .a-row{justify-content:flex-end}
+.t-scene{position:relative;border-radius:14px;overflow:hidden;background:#e9dccb;border:1px solid var(--line);display:grid;justify-items:center}
+.t-scene svg{display:block;width:100%;max-width:420px;height:auto;max-height:34vh}
+.t-scene .t-person{transition:transform .35s ease}
+.t-scene.busy .t-person{animation:t-think 1.2s ease-in-out infinite}
+@keyframes t-think{50%{transform:translateY(-2px) rotate(-1deg)}}
+.t-scene-tag{position:absolute;left:10px;top:10px;display:grid;gap:1px;background:rgba(19,33,43,.82);color:#fff;border-radius:10px;padding:6px 10px;font-size:.85em;max-width:calc(100% - 20px)}
+.t-scene-tag b{font-size:1em}
+.t-scene.closed svg{filter:saturate(.7)}
+.t-chat.with-scene{max-height:30vh;min-height:140px}
+.t-hands[aria-pressed="true"]{background:var(--s-green);border-color:var(--s-green);color:#fff}
+.t-listen{display:flex;align-items:center;gap:8px;font-weight:700;color:var(--s-green)}
+.t-listen i{width:10px;height:10px;border-radius:50%;background:var(--s-green);animation:t-pulse 1s infinite}
+@keyframes t-pulse{50%{opacity:.25}}
+@media (prefers-reduced-motion:reduce){.t-scene.busy .t-person,.t-listen i{animation:none}}
 .acad-body details summary{list-style-position:inside}
 </style>
 </head>
@@ -634,7 +648,7 @@ dialog::backdrop{background:rgba(5,15,22,.55)}
 <script>
 (() => {
 'use strict';
-const VERSION = '2.6';
+const VERSION = '2.7';
 const APP = 'P² Gebietskarte';
 const $ = id => document.getElementById(id);
 const msgEl = $('message');
@@ -2638,15 +2652,117 @@ async function coach(body) {
   if (data && data.error) throw new Error(data.error);
   return data;
 }
-function speak(text) {
-  if (!tVoice || !window.speechSynthesis) return;
+let tHands = LS.get('p2gk-train-hands', false);
+function speak(text, persona, done) {
+  if (!tVoice || !window.speechSynthesis) { if (done) done(); return; }
   try {
     speechSynthesis.cancel();
-    const u = new SpeechSynthesisUtterance(tSplit(text).text.replace(/\*[^*]*\*/g, ' '));
-    u.lang = 'de-DE'; u.rate = 1.02;
-    const v = speechSynthesis.getVoices().find(x => /^de/i.test(x.lang)); if (v) u.voice = v;
+    const u = new SpeechSynthesisUtterance(tSplit(text).text.replace(/\*[^*]*\*/g, ' ').trim() || '…');
+    const cfg = tVoiceFor(persona || '');
+    u.lang = 'de-DE'; u.rate = cfg.rate; u.pitch = cfg.pitch; if (cfg.voice) u.voice = cfg.voice;
+    let fired = false; const fin = () => { if (!fired) { fired = true; if (done) done(); } };
+    u.onend = fin; u.onerror = fin;
     speechSynthesis.speak(u);
-  } catch (e) {}
+  } catch (e) { if (done) done(); }
+}
+function afterCustomer(t, text) {
+  speak(text, t.persona, () => { if (tHands && acad.train === t && !t.ended && !t.busy && acadOpen) tListen(true); });
+}
+
+/* --- Kunde an der Haustür: Zeichnung, Stimmung, Stimme --- */
+const T_LOOK = {
+  skeptisch: { skin: '#f1c7a5', shirt: '#8a8f7a', hair: '#b9b9b9', male: true, voice: { pitch: 0.85, rate: 0.95 } },
+  nein: { skin: '#f3cfb3', shirt: '#b23a48', hair: '#6b4226', male: false, voice: { pitch: 1.15, rate: 1.15 } },
+  vielleicht: { skin: '#d9a77c', shirt: '#3d6fb6', hair: '#1f1a17', male: true, voice: { pitch: 1.0, rate: 1.05 } },
+  ja: { skin: '#f5d2b8', shirt: '#4f9a72', hair: '#d9b46a', male: false, voice: { pitch: 1.08, rate: 1.0 } },
+  ablehnend: { skin: '#e2b08c', shirt: '#5b6770', hair: '#8d8d8d', male: true, voice: { pitch: 0.72, rate: 1.12 } }
+};
+const T_MOOD = {
+  misstrauisch: { icon: '🤨', label: 'misstrauisch' }, genervt: { icon: '😠', label: 'genervt' }, neutral: { icon: '😐', label: 'abwartend' },
+  interessiert: { icon: '🤔', label: 'interessiert' }, freundlich: { icon: '🙂', label: 'freundlich' }
+};
+const T_START_MOOD = { skeptisch: 'misstrauisch', nein: 'neutral', vielleicht: 'neutral', ja: 'freundlich', ablehnend: 'genervt' };
+function tState(t) {
+  const ks = t.lines.filter(l => l.r === 'k');
+  const last = ks[ks.length - 1] || {};
+  const marks = ks.map(l => tSplit(l.t).mark).filter(Boolean);
+  const mood = last.m || [...ks].reverse().map(l => l.m).find(Boolean) || T_START_MOOD[t.persona] || 'neutral';
+  const closed = marks.includes('TÜR ZU');
+  const signed = marks.includes('ABSCHLUSS');
+  const bill = marks.includes('ABRECHNUNG') || signed;
+  const door = closed ? 'zu' : (t.persona === 'skeptisch' && ks.length < 3 && !['interessiert', 'freundlich'].includes(mood)) ? 'spalt' : 'offen';
+  return { mood: closed ? 'genervt' : signed ? 'freundlich' : mood, door, bill, signed, closed };
+}
+function tFace(mood) {
+  const eyeRy = mood === 'misstrauisch' ? 2.2 : mood === 'genervt' ? 3 : 4;
+  const brows = {
+    misstrauisch: '<path d="M138 86 L152 84" /><path d="M168 80 L183 86" />',
+    genervt: '<path d="M137 82 L153 88" /><path d="M167 88 L183 82" />',
+    neutral: '<path d="M138 85 L153 85" /><path d="M167 85 L182 85" />',
+    interessiert: '<path d="M138 82 Q145 78 153 81" /><path d="M167 81 Q175 78 182 82" />',
+    freundlich: '<path d="M138 83 Q145 79 153 82" /><path d="M167 82 Q175 79 182 83" />'
+  }[mood];
+  const mouth = {
+    misstrauisch: '<path d="M150 122 Q160 120 172 124" fill="none"/>',
+    genervt: '<path d="M148 126 Q160 116 172 126" fill="none"/>',
+    neutral: '<path d="M150 122 L170 122" fill="none"/>',
+    interessiert: '<path d="M149 120 Q160 127 171 120" fill="none"/>',
+    freundlich: '<path d="M146 117 Q160 134 174 117 Z" fill="#7a2e2e"/>'
+  }[mood];
+  return `<g class="t-face"><ellipse cx="146" cy="96" rx="3.6" ry="${eyeRy}" fill="#2a1d17"/><ellipse cx="174" cy="96" rx="3.6" ry="${eyeRy}" fill="#2a1d17"/>`
+    + `<g stroke="#3b2a20" stroke-width="3" stroke-linecap="round" fill="none">${brows}</g>`
+    + `<g stroke="#5a2a2a" stroke-width="3" stroke-linecap="round">${mouth}</g></g>`;
+}
+function tHair(p, L) {
+  const c = L.hair;
+  switch (p) {
+    case 'skeptisch': return `<path d="M127 92 Q126 70 140 66 L146 74 L176 74 L180 66 Q194 70 193 92 L188 92 Q187 80 181 78 L139 78 Q133 80 132 92 Z" fill="${c}"/>`
+      + '<g fill="none" stroke="#3b3b3b" stroke-width="2.5"><circle cx="146" cy="96" r="9"/><circle cx="174" cy="96" r="9"/><path d="M155 96 L165 96"/></g>';
+    case 'nein': return `<path d="M124 112 Q118 62 160 60 Q202 62 196 112 L188 112 Q190 84 176 76 Q160 86 136 80 Q130 90 132 112 Z" fill="${c}"/>`;
+    case 'vielleicht': return `<path d="M128 88 Q130 64 160 63 Q190 64 192 88 Q182 74 160 74 Q138 74 128 88 Z" fill="${c}"/>`
+      + `<path d="M130 104 Q134 136 160 140 Q186 136 190 104 Q184 128 160 130 Q136 128 130 104 Z" fill="${c}" opacity=".85"/>`;
+    case 'ja': return `<g fill="${c}"><circle cx="134" cy="80" r="11"/><circle cx="148" cy="68" r="12"/><circle cx="164" cy="65" r="12"/><circle cx="180" cy="70" r="11"/><circle cx="189" cy="84" r="9"/><circle cx="130" cy="96" r="8"/><circle cx="191" cy="98" r="7"/></g>`
+      + '<g fill="#f0c94a"><circle cx="126" cy="112" r="3"/><circle cx="194" cy="112" r="3"/></g>';
+    case 'ablehnend': return `<path d="M126 100 Q125 84 132 78 L134 98 Z M194 100 Q195 84 188 78 L186 98 Z" fill="${c}"/>`
+      + '<path d="M146 112 Q160 106 174 112 Q168 116 160 114 Q152 116 146 112 Z" fill="#6f6f6f"/>';
+  }
+  return '';
+}
+function tScene(t) {
+  const L = T_LOOK[t.persona] || T_LOOK.nein, s = tState(t);
+  const crossed = ['misstrauisch', 'genervt'].includes(s.mood);
+  const body = `<path d="M108 232 Q110 160 160 152 Q210 160 212 232 Z" fill="${L.shirt}"/>`
+    + (t.persona === 'ablehnend' ? '<g stroke="#e07a2b" stroke-width="7"><path d="M138 160 L136 232"/><path d="M182 160 L184 232"/></g>' : '')
+    + (t.persona === 'nein' ? '<path d="M140 152 Q160 172 180 152 L176 166 Q160 176 144 166 Z" fill="#e8c56a"/>' : '')
+    + `<rect x="150" y="136" width="20" height="20" fill="${L.skin}"/>`;
+  const arms = crossed
+    ? `<path d="M118 190 Q160 176 202 190 L200 206 Q160 194 120 206 Z" fill="${L.shirt}" stroke="rgba(0,0,0,.18)" stroke-width="2"/><circle cx="122" cy="198" r="8" fill="${L.skin}"/><circle cx="198" cy="198" r="8" fill="${L.skin}"/>`
+    : `<path d="M112 176 L104 226 L118 228 L124 182 Z" fill="${L.shirt}" stroke="rgba(0,0,0,.15)"/><path d="M208 176 L216 226 L202 228 L196 182 Z" fill="${L.shirt}" stroke="rgba(0,0,0,.15)"/>`;
+  const item = s.signed ? '<g transform="translate(114 184) rotate(8)"><rect width="36" height="44" rx="2" fill="#fff" stroke="#999"/><path d="M6 10h24M6 17h24M6 24h16" stroke="#bbb" stroke-width="2"/><path d="M8 36 q6 -6 10 0 t10 -2" stroke="#2f6fde" stroke-width="2" fill="none"/></g>'
+    : s.bill ? '<g transform="translate(112 182) rotate(6)"><rect width="38" height="46" rx="2" fill="#fff" stroke="#999"/><rect x="5" y="5" width="18" height="5" fill="#2f6fde"/><path d="M5 16h28M5 22h28M5 28h20M5 36h12" stroke="#bbb" stroke-width="2"/></g>' : '';
+  const head = `<ellipse cx="160" cy="100" rx="33" ry="38" fill="${L.skin}"/><ellipse cx="127" cy="102" rx="5" ry="8" fill="${L.skin}"/><ellipse cx="193" cy="102" rx="5" ry="8" fill="${L.skin}"/>`;
+  const person = s.closed ? '' : `<g class="t-person"${s.door === 'spalt' ? ' transform="translate(-14 0)"' : ''}>${body}${arms}${item}${head}${tHair(t.persona, L)}${tFace(s.mood)}</g>`;
+  const doorLeaf = s.door === 'zu' ? '<rect x="104" y="30" width="112" height="202" fill="#8b5e3c"/><rect x="114" y="44" width="92" height="70" rx="3" fill="none" stroke="#6e4a2f" stroke-width="3"/><rect x="114" y="126" width="92" height="90" rx="3" fill="none" stroke="#6e4a2f" stroke-width="3"/><circle cx="200" cy="130" r="5" fill="#d8b04a"/>'
+    : s.door === 'spalt' ? '<rect x="168" y="30" width="48" height="202" fill="#8b5e3c"/><rect x="176" y="44" width="32" height="70" rx="3" fill="none" stroke="#6e4a2f" stroke-width="3"/><circle cx="174" cy="130" r="5" fill="#d8b04a"/>'
+    : '<path d="M216 30 L236 22 L236 240 L216 232 Z" fill="#8b5e3c"/><circle cx="231" cy="130" r="3.5" fill="#d8b04a"/>';
+  const mood = T_MOOD[s.mood] || T_MOOD.neutral;
+  const status = s.closed ? '🚪 Tür geschlossen' : s.signed ? '✍️ will wechseln' : s.bill ? '📄 hat die Abrechnung geholt' : `${mood.icon} ${mood.label}`;
+  const wrap = h('div', { class: 't-scene' + (s.closed ? ' closed' : '') + (t.busy ? ' busy' : ''), role: 'img', 'aria-label': `${t.name} an der Haustür, ${status}` });
+  wrap.innerHTML = `<svg viewBox="40 0 240 240" aria-hidden="true" preserveAspectRatio="xMidYMax meet">`
+    + '<rect x="0" y="0" width="320" height="240" fill="#e9dccb"/>'
+    + '<rect x="96" y="22" width="128" height="214" fill="#5b4330"/><rect x="104" y="30" width="112" height="206" fill="#2b2420"/>'
+    + `${person}${doorLeaf}<rect x="80" y="232" width="160" height="8" fill="#9c9c9c"/>`
+    + '<g transform="translate(244 70)"><rect width="22" height="28" rx="3" fill="#cfd5d8"/><circle cx="11" cy="14" r="5" fill="#f2c94c"/></g>'
+    + '</svg>';
+  wrap.append(h('div', { class: 't-scene-tag' }, h('b', {}, t.name), h('span', {}, t.busy ? '… überlegt' : status)));
+  return wrap;
+}
+function tVoiceFor(persona) {
+  const L = T_LOOK[persona] || {}, voices = window.speechSynthesis ? speechSynthesis.getVoices().filter(v => /^de/i.test(v.lang)) : [];
+  const male = /martin|markus|yannick|hans|viktor|stefan|conrad|klaus|thomas|reed|eddy|rocko|grandpa|male|mann/i, female = /anna|helena|petra|marlene|katja|vicki|sandy|shelley|flo|grandma|female|frau|google deutsch/i;
+  const pick = voices.filter(v => (L.male ? male : female).test(v.name));
+  const v = pick[persona.length % Math.max(1, pick.length)] || voices[0] || null;
+  return { voice: v, pitch: (L.voice || {}).pitch || 1, rate: (L.voice || {}).rate || 1 };
 }
 
 function aTrain() {
@@ -2679,13 +2795,13 @@ async function tStart(persona, btn) {
   if (btn) { btn.disabled = true; btn.textContent = 'Kunde öffnet …'; }
   try {
     const d = await coach({ action: 'start', persona });
-    acad.train = { view: 'chat', id: d.id, persona, name: d.name, lines: [{ r: 'k', t: d.reply }], ended: false, busy: false, err: '' };
-    renderAcad(); speak(d.reply);
+    acad.train = { view: 'chat', id: d.id, persona, name: d.name, lines: [{ r: 'k', t: d.reply, m: d.mood }], ended: false, busy: false, err: '' };
+    renderAcad(); afterCustomer(acad.train, d.reply);
   } catch (e) { say(e.message, true); if (btn) { btn.disabled = false; btn.textContent = 'Gespräch starten'; } }
 }
 function tChat() {
   const t = acad.train, p = T_PERSONAS.find(x => x.id === t.persona);
-  const list = h('div', { class: 't-chat', id: 'tChat', 'aria-live': 'polite' });
+  const list = h('div', { class: 't-chat with-scene', id: 'tChat', 'aria-live': 'polite' });
   for (const l of t.lines) {
     const s = l.r === 'k' ? tSplit(l.t) : { text: l.t, mark: null };
     list.append(h('div', { class: 'msg-row' + (l.r === 'v' ? ' mine' : '') }, h('div', { class: 'bubble' }, h('b', {}, l.r === 'v' ? 'Du' : t.name), h('p', {}, s.text))));
@@ -2698,13 +2814,19 @@ function tChat() {
   ta.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey && !isTouch) { e.preventDefault(); tSend(); } });
   const send = h('button', { class: 'btn primary', type: 'button', id: 'tSend', disabled: t.ended || t.busy, onclick: tSend }, 'Senden');
   const mic = SR ? h('button', { class: 'btn', type: 'button', id: 'tMic', 'aria-label': 'Sprechen', 'aria-pressed': String(!!tRec), disabled: t.ended || t.busy, onclick: tMic }, tRec ? '⏺ Stopp' : '🎤') : null;
+  const hands = SR ? h('button', { class: 'btn t-hands', type: 'button', id: 'tHands', 'aria-pressed': String(tHands), title: 'Freihändig: Kunde spricht, danach hört die App automatisch zu und sendet, wenn Du fertig bist', onclick: () => {
+    tHands = !tHands; LS.set('p2gk-train-hands', tHands);
+    if (tHands) { tVoice = true; LS.set('p2gk-train-voice', true); if (!t.ended && !t.busy && !tRec) tListen(true); } else tStopRec();
+    renderAcad(); } }, tHands ? '🗣️ Freihändig an' : '🗣️ Freihändig') : null;
   const vo = window.speechSynthesis ? h('button', { class: 'btn', type: 'button', 'aria-label': 'Kunde vorlesen', 'aria-pressed': String(tVoice), onclick: () => { tVoice = !tVoice; LS.set('p2gk-train-voice', tVoice); if (!tVoice) speechSynthesis.cancel(); renderAcad(); } }, tVoice ? '🔊' : '🔈') : null;
   const out = [
     h('div', { class: 'a-row between' }, h('div', { style: 'display:grid;gap:2px;min-width:0' }, h('h4', {}, 'Training · ' + p.label), h('h3', {}, p.icon + ' ' + t.name)),
       h('button', { class: 'btn', type: 'button', onclick: () => { if (t.lines.length > 2 && !t.ended && !confirm('Gespräch abbrechen? Es wird nicht bewertet.')) return; acad.train = null; tStopRec(); renderAcad(); } }, 'Abbrechen')),
+    tScene(t),
     list,
     t.err ? h('p', { class: 'chat-note' }, t.err) : null,
-    h('div', { class: 't-input' }, ta, h('div', { class: 'a-row' }, mic, vo, send)),
+    tRec ? h('div', { class: 't-listen', role: 'status' }, h('i'), tRec.auto ? 'Ich höre zu … sprich einfach, gesendet wird nach einer kurzen Pause.' : 'Ich höre zu …') : null,
+    h('div', { class: 't-input' }, ta, h('div', { class: 'a-row' }, hands, mic, vo, send)),
     h('button', { class: 'btn' + (t.ended ? ' primary' : ''), type: 'button', id: 'tGrade', disabled: t.busy || t.lines.filter(l => l.r === 'v').length < 2, onclick: tGrade }, t.ended ? 'Gespräch bewerten lassen' : 'Gespräch beenden & bewerten')
   ];
   setTimeout(() => { const c = $('tChat'); if (c) c.scrollTop = c.scrollHeight; const i = $('tIn'); if (i && !isTouch && !i.disabled) i.focus(); }, 0);
@@ -2719,22 +2841,33 @@ async function tSend() {
   try {
     const d = await coach({ action: 'say', id: t.id, text });
     if (acad.train !== t) return;
-    t.lines.push({ r: 'k', t: d.reply }); t.ended = !!d.ended; t.busy = false; renderAcad(); speak(d.reply);
+    t.lines.push({ r: 'k', t: d.reply, m: d.mood }); t.ended = !!d.ended; t.busy = false; renderAcad(); afterCustomer(t, d.reply);
   } catch (e) {
     if (acad.train !== t) return;
     t.lines.pop(); t.draft = text; t.busy = false; t.err = e.message; renderAcad();
   }
 }
-function tStopRec() { if (tRec) { try { tRec.stop(); } catch (e) {} tRec = null; } }
+function tStopRec() { if (tRec) { const r = tRec; tRec = null; try { r.abort ? r.abort() : r.stop(); } catch (e) {} } }
 function tMic() {
   if (tRec) { tStopRec(); renderAcad(); return; }
-  const t = acad.train; if (!t) return;
+  tListen(tHands);
+}
+function tListen(auto) {
+  const t = acad.train; if (!t || !SR || t.ended || t.busy) return;
+  tStopRec();
   try {
-    const r = new SR(); r.lang = 'de-DE'; r.interimResults = true; r.continuous = true;
+    const r = new SR(); r.lang = 'de-DE'; r.interimResults = true; r.continuous = !auto; r.auto = !!auto;
     const base = (t.draft ? t.draft.trim() + ' ' : '');
     r.onresult = ev => { let s = ''; for (let i = 0; i < ev.results.length; i++) s += ev.results[i][0].transcript; t.draft = base + s; const i2 = $('tIn'); if (i2) i2.value = t.draft; };
-    r.onerror = ev => { t.err = ev.error === 'not-allowed' ? 'Mikrofon nicht erlaubt. Bitte in den Einstellungen freigeben oder die Diktierfunktion der Tastatur nutzen.' : ''; tRec = null; renderAcad(); };
-    r.onend = () => { if (tRec === r) { tRec = null; renderAcad(); } };
+    r.onerror = ev => {
+      if (ev.error === 'not-allowed' || ev.error === 'service-not-allowed') t.err = auto ? 'Freihändig klappt auf diesem Gerät nicht automatisch. Tippe nach jeder Kundenantwort auf 🎤.' : 'Mikrofon nicht erlaubt. Bitte in den Einstellungen freigeben oder die Diktierfunktion der Tastatur nutzen.';
+      if (tRec === r) tRec = null; renderAcad();
+    };
+    r.onend = () => {
+      if (tRec !== r) return;
+      tRec = null;
+      if (auto && acad.train === t && (t.draft || '').trim()) tSend(); else renderAcad();
+    };
     tRec = r; r.start(); renderAcad();
   } catch (e) { tRec = null; say('Spracheingabe ist hier nicht verfügbar. Nutze das Mikrofon auf der Tastatur.', true); }
 }
