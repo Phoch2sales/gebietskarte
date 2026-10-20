@@ -660,7 +660,7 @@ dialog::backdrop{background:rgba(5,15,22,.55)}
 <script>
 (() => {
 'use strict';
-const VERSION = '2.9';
+const VERSION = '2.10';
 const APP = 'P² Gebietskarte';
 const $ = id => document.getElementById(id);
 const msgEl = $('message');
@@ -2299,7 +2299,9 @@ function h(tag, attrs, ...kids) {
 const aDone = (uid = me && me.id) => new Set(acad.progress.filter(p => p.user_id === uid).map(p => p.lesson_id));
 const aPassed = (uid = me && me.id) => acad.attempts.some(a => a.user_id === uid && a.passed);
 const aBest = uid => acad.attempts.filter(a => a.user_id === uid).reduce((m, a) => (!m || a.score > m.score ? a : m), null);
+const aLead = uid => { const x = (me && uid === me.id) ? me : team[uid]; return !!(x && x.role === 'admin'); }; // Admin = Head of Sales: gilt als vollständig ausgebildet
 function aDoor(uid = me && me.id) {
+  if (aLead(uid)) return { cls: 'ok', txt: '★ Admin · Head of Sales' };
   const d = aDone(uid), s1 = A_S1.every(id => d.has(id)), p = aPassed(uid), tr = tPassedTypes(uid) >= T_NEED;
   if (s1 && p && tr) return { cls: 'ok', txt: '✓ Türfreigabe erteilt' };
   if (s1 && p) return { cls: 'warn', txt: 'Training offen' };
@@ -2615,6 +2617,14 @@ function aTeam() {
       h('thead', {}, h('tr', {}, ['Name', 'Stufe 1', 'Gesamt', 'Prüfung', 'Training', 'Status', 'Zuletzt'].map(t => h('th', {}, t)))),
       h('tbody', {}, members.map(x => {
         const d = aDone(x.id), best = aBest(x.id), door = aDoor(x.id);
+        if (aLead(x.id)) return h('tr', {},
+          h('td', {}, h('b', {}, (x.name || x.email) + (me && x.id === me.id ? ' (du)' : ''))),
+          h('td', {}, `${A_S1.length}/${A_S1.length} ✓`),
+          h('td', {}, h('div', { style: 'display:grid;gap:4px;min-width:90px' }, `${A_LESSONS.length}/${A_LESSONS.length} ✓`, aBar(1, 1))),
+          h('td', {}, `${A_QUIZ.length}/${A_QUIZ.length} ✓`),
+          h('td', {}, `${T_NEED}/${T_NEED} ✓` + (tDeals(x.id) ? ` · 🤝 ${tDeals(x.id)}` : '')),
+          h('td', {}, h('span', { class: 'a-pill ' + door.cls }, door.txt)),
+          h('td', {}, last(x.id)));
         return h('tr', {},
           h('td', {}, h('b', {}, (x.name || x.email) + (me && x.id === me.id ? ' (du)' : ''))),
           h('td', {}, `${A_S1.filter(id => d.has(id)).length}/${A_S1.length}`),
