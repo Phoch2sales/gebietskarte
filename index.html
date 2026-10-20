@@ -660,7 +660,7 @@ dialog::backdrop{background:rgba(5,15,22,.55)}
 <script>
 (() => {
 'use strict';
-const VERSION = '2.8';
+const VERSION = '2.9';
 const APP = 'P² Gebietskarte';
 const $ = id => document.getElementById(id);
 const msgEl = $('message');
@@ -2249,8 +2249,8 @@ const A_LESSONS = [
   { id: 'l5', st: 's1', t: 'Abrechnung lesen & Verbrauch berechnen', d: '10:00', calc: true,
     take: ['Auf der Jahresabrechnung: Jahresverbrauch in kWh, Abschlag, Arbeitspreis, Zählernummer, Vorversorger', 'Findet der Kunde die Abrechnung nicht, rechnest Du den Jahresverbrauch aus dem Abschlag', 'Strom: monatlicher Abschlag × 3,2 × 12 = kWh pro Jahr', 'Gas: monatlicher Abschlag × 12 ÷ 0,07 = kWh pro Jahr'] },
   { id: 'l6', st: 's2', t: 'Der Vorabschluss', d: '9:00',
-    take: ['Das ist der Moment, um beim Kunden durchzudringen', 'Erst loben, dann gemeinsam über die Abrechnung schauen', 'Verbrauch → Abschlag → aktueller Preis → neuer Preis → Preisgarantie', 'Zum Schluss den Tisch anbieten lassen'],
-    scripts: [{ l: 'Vorabschluss', x: 'Super Herr Müller, da haben Sie ja direkt was gefunden, da können sich die Nachbarn mal ’ne Scheibe abschneiden. So, schauen wir mal gemeinsam drüber: Sie hatten im letzten Jahr einen Verbrauch von 2.400 kWh, dadurch ist Ihr jetziger Abschlag von 56,00 € entstanden. Das liegt daran, dass Sie gerade 36,07 Cent pro Kilowattstunde bezahlen. Das senken wir auf 27,67 Cent, und darauf haben Sie wieder volle 2 Jahre Preisgarantie. Es gibt bloß einen Unterschied zu vorher: Sie haben nur noch erneuerbare Energien. Ihr Licht wird nicht grün, lediglich Ihr ökologischer Fußabdruck wird gesenkt. Ich muss das dann einmal aufnehmen. Wollen wir das hier machen, oder haben Sie kurz ein Stück Tisch frei?' }] },
+    take: ['Das ist der Moment, um beim Kunden durchzudringen', 'Erst loben: „Sie scheinen gut organisiert zu sein“', 'Abschlag erklären: Grundpreis + Bruttopreis pro kWh → neuer Preis → 24 Monate Energiepreisgarantie', 'Ratefrage „Wissen Sie welchen Unterschied?“ – leise auflösen: nur noch erneuerbare Energien', 'Zum Schluss die Alternativfrage: hier oder kurz ein Stück Tisch?'],
+    scripts: [{ l: 'Vorabschluss', x: 'Mensch super, Herr Müller, da haben Sie ja direkt was gefunden. Da können sich die Nachbarn mal eine Scheibe von abschneiden, Sie scheinen gut organisiert zu sein. So, schauen wir mal gemeinsam drüber: Sie haben einen Abschlag in Höhe von 86 €, der ergibt sich aus dem Grundpreis von 13,50 € im Monat und dem Bruttopreis pro Kilowattstunde in Höhe von 36,07 Cent. Den senken wir jetzt auf 27,67 Cent, und darauf bekommen Sie nochmal 24 volle Monate Energiepreisgarantie. Es gibt nur einen Unterschied zu vorher … wissen Sie welchen? … (leise, wie ein kleines Geheimnis:) Sie haben nur noch erneuerbare Energien. Das kann Ihnen aber völlig egal sein: Das Licht fängt nicht an zu flackern, und es riecht auch nicht komisch aus der Steckdose. Lediglich Ihr ökologischer Fußabdruck wird kleiner. Ich muss das dann einmal aufnehmen … sollen wir das hier machen, oder haben Sie kurz ein Stück Tisch frei?' }] },
   { id: 'l7', st: 's2', t: 'Small Talk & Daten aufnehmen', d: '8:00',
     take: ['Ernsthaftes Interesse am Kunden zeigen, aufrichtig zuhören', 'Aufhänger im Eingangsbereich nutzen, z. B. ein Bild von einem Zebra: „Waren Sie schon mal in Afrika?“', 'Guter Small Talk entscheidet oft über den Abschluss', 'Mit einer Floskel zurück in die Datenaufnahme: Geburtsdatum, IBAN, Zählernummer'],
     scripts: [{ l: 'Zurück zum Abschluss', x: 'Mensch Herr Müller, jetzt habe ich mich schon wieder verquatscht, da meckert mein Chef immer, aber ist ja auch einfach interessant. Ich brauche dann bitte einmal die Zählernummer.' }] },
