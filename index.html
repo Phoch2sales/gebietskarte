@@ -348,6 +348,18 @@ dialog::backdrop{background:rgba(5,15,22,.55)}
 .t-scene-tag b{font-size:1em}
 .t-scene.closed svg{filter:saturate(.7)}
 .t-chat.with-scene{max-height:30vh;min-height:140px}
+.t-steps{list-style:none;margin:0;padding:0;display:flex;gap:4px}
+.t-steps li{flex:1 1 0;min-width:0;text-align:center;font-size:.72em;font-weight:700;color:var(--muted);border-top:4px solid var(--line);padding-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.t-steps li.done{color:var(--s-green);border-color:var(--s-green)}
+.t-steps li.now{color:var(--s-termin);border-color:var(--s-termin)}
+.t-steps.closed li.now{color:var(--danger);border-color:var(--danger)}
+.t-deal{display:grid;justify-items:center;text-align:center;gap:4px;padding:16px;border-radius:14px;background:linear-gradient(135deg,#1f9d55,#0f7a6b);color:#fff;animation:t-pop .6s ease-out both}
+.t-deal b{font-size:1.5em}
+.t-deal span{font-size:1.15em;font-weight:800}
+.t-deal small{opacity:.9}
+.t-confetti{font-size:1.6em;letter-spacing:.2em;animation:t-pop 1.2s ease-out both}
+@keyframes t-pop{0%{transform:scale(.3) translateY(10px);opacity:0}60%{transform:scale(1.08)}100%{transform:scale(1);opacity:1}}
+@media (prefers-reduced-motion:reduce){.t-deal,.t-confetti{animation:none}}
 .t-hands[aria-pressed="true"]{background:var(--s-green);border-color:var(--s-green);color:#fff}
 .t-listen{display:flex;align-items:center;gap:8px;font-weight:700;color:var(--s-green)}
 .t-listen i{width:10px;height:10px;border-radius:50%;background:var(--s-green);animation:t-pulse 1s infinite}
@@ -648,7 +660,7 @@ dialog::backdrop{background:rgba(5,15,22,.55)}
 <script>
 (() => {
 'use strict';
-const VERSION = '2.7';
+const VERSION = '2.8';
 const APP = 'P² Gebietskarte';
 const $ = id => document.getElementById(id);
 const msgEl = $('message');
@@ -2608,7 +2620,7 @@ function aTeam() {
           h('td', {}, `${A_S1.filter(id => d.has(id)).length}/${A_S1.length}`),
           h('td', {}, h('div', { style: 'display:grid;gap:4px;min-width:90px' }, `${d.size}/${A_LESSONS.length}`, aBar(d.size, A_LESSONS.length))),
           h('td', {}, best ? `${best.score}/${best.total}` : '–'),
-          h('td', {}, `${tPassedTypes(x.id)}/${T_NEED}` + (tAvg(x.id) ? ` · Ø ${tAvg(x.id).toFixed(1).replace('.', ',')}` : '')),
+          h('td', {}, `${tPassedTypes(x.id)}/${T_NEED}` + (tAvg(x.id) ? ` · Ø ${tAvg(x.id).toFixed(1).replace('.', ',')}` : '') + (tDeals(x.id) ? ` · 🤝 ${tDeals(x.id)}` : '')),
           h('td', {}, h('span', { class: 'a-pill ' + door.cls }, door.txt)),
           h('td', {}, last(x.id)));
       })))),
@@ -2630,7 +2642,9 @@ const T_PERSONAS = [
   { id: 'ablehnend', icon: '😠', label: 'Ablehnend', who: 'Herr Wagner, 57', desc: 'Genervt und unfreundlich. Bleibst Du ruhig und höflich?' }
 ];
 const T_PASS = 6, T_NEED = 3; // Türfreigabe: mind. 3 verschiedene Kundentypen mit Note 6+
-const T_MARK = { 'TÜR ZU': '🚪 Kunde schließt die Tür', 'ABRECHNUNG': '📄 Kunde holt die Abrechnung', 'ABSCHLUSS': '✍️ Kunde will wechseln' };
+const T_MARK = { 'TÜR ZU': '🚪 Kunde schließt die Tür', 'ABRECHNUNG': '📄 Kunde holt die Abrechnung', 'VORABSCHLUSS': '🤝 Vorabschluss: Kunde ist einverstanden – jetzt Daten aufnehmen', 'ABSCHLUSS': '✍️ Kunde unterschreibt – Deal!' };
+const T_STEPS = ['Tür auf', 'Abrechnung', 'Vorabschluss', 'Closing', 'Deal'];
+const tDeals = uid => acad.roleplays.filter(r => r.user_id === uid && r.result && r.result.ziel === 'Abschluss').length;
 const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
 let tVoice = LS.get('p2gk-train-voice', false), tRec = null;
 
@@ -2638,8 +2652,8 @@ const tBest = (uid, persona) => acad.roleplays.filter(r => r.user_id === uid && 
 const tPassedTypes = uid => T_PERSONAS.filter(p => tBest(uid, p.id) >= T_PASS).length;
 const tAvg = uid => { const s = acad.roleplays.filter(r => r.user_id === uid && r.score).map(r => r.score); return s.length ? (s.reduce((a, b) => a + b, 0) / s.length) : 0; };
 function tSplit(text) {
-  const m = String(text).match(/\[(TÜR ZU|ABRECHNUNG|ABSCHLUSS)\]/);
-  return { text: String(text).replace(/\[(TÜR ZU|ABRECHNUNG|ABSCHLUSS)\]/g, '').trim(), mark: m ? m[1] : null };
+  const m = String(text).match(/\[(TÜR ZU|ABRECHNUNG|VORABSCHLUSS|ABSCHLUSS)\]/);
+  return { text: String(text).replace(/\[(TÜR ZU|ABRECHNUNG|VORABSCHLUSS|ABSCHLUSS)\]/g, '').trim(), mark: m ? m[1] : null };
 }
 async function coach(body) {
   const { data, error } = await sb.functions.invoke('academy-coach', { body });
@@ -2689,9 +2703,11 @@ function tState(t) {
   const mood = last.m || [...ks].reverse().map(l => l.m).find(Boolean) || T_START_MOOD[t.persona] || 'neutral';
   const closed = marks.includes('TÜR ZU');
   const signed = marks.includes('ABSCHLUSS');
-  const bill = marks.includes('ABRECHNUNG') || signed;
+  const vorab = marks.includes('VORABSCHLUSS') || signed;
+  const bill = marks.includes('ABRECHNUNG') || vorab;
   const door = closed ? 'zu' : (t.persona === 'skeptisch' && ks.length < 3 && !['interessiert', 'freundlich'].includes(mood)) ? 'spalt' : 'offen';
-  return { mood: closed ? 'genervt' : signed ? 'freundlich' : mood, door, bill, signed, closed };
+  const step = signed ? 5 : vorab ? 3 : bill ? 2 : 1;
+  return { mood: closed ? 'genervt' : signed ? 'freundlich' : mood, door, bill, vorab, signed, closed, step };
 }
 function tFace(mood) {
   const eyeRy = mood === 'misstrauisch' ? 2.2 : mood === 'genervt' ? 3 : 4;
@@ -2728,6 +2744,10 @@ function tHair(p, L) {
   }
   return '';
 }
+function tSteps(t) {
+  const s = tState(t);
+  return h('ol', { class: 't-steps' + (s.closed ? ' closed' : ''), 'aria-label': 'Gesprächsphasen' }, T_STEPS.map((x, i) => h('li', { class: i < s.step ? 'done' : i === s.step ? 'now' : '' }, x)));
+}
 function tScene(t) {
   const L = T_LOOK[t.persona] || T_LOOK.nein, s = tState(t);
   const crossed = ['misstrauisch', 'genervt'].includes(s.mood);
@@ -2746,7 +2766,7 @@ function tScene(t) {
     : s.door === 'spalt' ? '<rect x="168" y="30" width="48" height="202" fill="#8b5e3c"/><rect x="176" y="44" width="32" height="70" rx="3" fill="none" stroke="#6e4a2f" stroke-width="3"/><circle cx="174" cy="130" r="5" fill="#d8b04a"/>'
     : '<path d="M216 30 L236 22 L236 240 L216 232 Z" fill="#8b5e3c"/><circle cx="231" cy="130" r="3.5" fill="#d8b04a"/>';
   const mood = T_MOOD[s.mood] || T_MOOD.neutral;
-  const status = s.closed ? '🚪 Tür geschlossen' : s.signed ? '✍️ will wechseln' : s.bill ? '📄 hat die Abrechnung geholt' : `${mood.icon} ${mood.label}`;
+  const status = s.closed ? '🚪 Tür geschlossen' : s.signed ? '✍️ hat unterschrieben' : s.vorab ? '🤝 einverstanden' : s.bill ? '📄 hat die Abrechnung geholt' : `${mood.icon} ${mood.label}`;
   const wrap = h('div', { class: 't-scene' + (s.closed ? ' closed' : '') + (t.busy ? ' busy' : ''), role: 'img', 'aria-label': `${t.name} an der Haustür, ${status}` });
   wrap.innerHTML = `<svg viewBox="40 0 240 240" aria-hidden="true" preserveAspectRatio="xMidYMax meet">`
     + '<rect x="0" y="0" width="320" height="240" fill="#e9dccb"/>'
@@ -2772,7 +2792,8 @@ function aTrain() {
   const uid = me.id, n = tPassedTypes(uid);
   const out = [h('div', { style: 'display:grid;gap:4px' }, h('h4', {}, 'Training'), h('h3', { style: 'font-size:1.35em' }, 'Gespräche mit KI-Kunden'),
     h('p', { class: 'a-muted' }, `Führe echte Gespräche an der Haustür: Die KI spielt den Kunden und bewertet Dich danach von 1 bis 10. Für die Türfreigabe brauchst Du in mindestens ${T_NEED} verschiedenen Kundentypen eine ${T_PASS} oder besser.`)),
-    h('div', { class: 'a-row between' }, h('span', {}, 'Bestandene Kundentypen'), h('b', {}, `${n}/${T_NEED}`)), aBar(n, T_NEED)];
+    h('div', { class: 'a-row between' }, h('span', {}, 'Bestandene Kundentypen'), h('b', {}, `${n}/${T_NEED}`)), aBar(n, T_NEED),
+    h('div', { class: 'a-row between' }, h('span', {}, 'Deals im Training'), h('b', {}, `🤝 ${tDeals(uid)}`))];
   out.push(h('div', { class: 'a-grid' }, T_PERSONAS.map(p => {
     const best = tBest(uid, p.id);
     return h('div', { class: 'a-card' },
@@ -2822,8 +2843,10 @@ function tChat() {
   const out = [
     h('div', { class: 'a-row between' }, h('div', { style: 'display:grid;gap:2px;min-width:0' }, h('h4', {}, 'Training · ' + p.label), h('h3', {}, p.icon + ' ' + t.name)),
       h('button', { class: 'btn', type: 'button', onclick: () => { if (t.lines.length > 2 && !t.ended && !confirm('Gespräch abbrechen? Es wird nicht bewertet.')) return; acad.train = null; tStopRec(); renderAcad(); } }, 'Abbrechen')),
+    tSteps(t),
     tScene(t),
     list,
+    tState(t).signed ? h('div', { class: 't-deal', role: 'status' }, h('div', { class: 't-confetti', 'aria-hidden': 'true' }, '🎉 🎊 ✨ 🎉 🎊'), h('b', {}, 'Herzlichen Glückwunsch!'), h('span', {}, 'Du hast den Deal gemacht! 🤝'), h('small', {}, 'Lass Dir jetzt Dein Gespräch bewerten und schau, was noch besser geht.')) : null,
     t.err ? h('p', { class: 'chat-note' }, t.err) : null,
     tRec ? h('div', { class: 't-listen', role: 'status' }, h('i'), tRec.auto ? 'Ich höre zu … sprich einfach, gesendet wird nach einer kurzen Pause.' : 'Ich höre zu …') : null,
     h('div', { class: 't-input' }, ta, h('div', { class: 'a-row' }, hands, mic, vo, send)),
@@ -2842,6 +2865,9 @@ async function tSend() {
     const d = await coach({ action: 'say', id: t.id, text });
     if (acad.train !== t) return;
     t.lines.push({ r: 'k', t: d.reply, m: d.mood }); t.ended = !!d.ended; t.busy = false; renderAcad(); afterCustomer(t, d.reply);
+    const mk = tSplit(d.reply).mark;
+    if (mk === 'ABSCHLUSS') showCheer('Herzlichen Glückwunsch! 🎉', 'Du hast den Deal gemacht!', 'goal');
+    else if (mk === 'VORABSCHLUSS') showCheer('Vorabschluss! 🤝', 'Jetzt sauber die Daten aufnehmen und abschließen');
   } catch (e) {
     if (acad.train !== t) return;
     t.lines.pop(); t.draft = text; t.busy = false; t.err = e.message; renderAcad();
@@ -2906,7 +2932,7 @@ function tResult() {
     h('div', { class: 'a-card a-hero' }, h('h4', { style: 'color:var(--chrome-muted)' }, who + 'Training · ' + (p.label || rp.persona)),
       h('div', { class: 'a-row', style: 'align-items:baseline' }, h('b', { style: 'font-size:3em;line-height:1' }, String(rp.score)), h('span', {}, 'von 10'), h('span', { class: 'a-pill ' + (rp.score >= T_PASS ? 'ok' : 'warn') }, rp.score >= T_PASS ? 'bestanden' : 'noch nicht bestanden')),
       res.fazit ? h('p', {}, res.fazit) : null,
-      h('p', {}, `Ergebnis: ${res.ziel || '–'} · Druck: ${res.druck || '–'}`)),
+      h('p', {}, `Ergebnis: ${res.ziel === 'Abschluss' ? '🎉 Deal gemacht' : res.ziel || '–'} · Druck: ${res.druck || '–'}`)),
     h('div', { class: 'a-card' }, h('h3', {}, 'Einzelnoten'), sub('Freundlich & höflich', res.freundlichkeit || 0), sub('Seriös & verständlich erklärt', res.seriositaet || 0), sub('Einwandbehandlung', res.einwandbehandlung || 0), sub('Auf den Kunden eingegangen', res.eingehen || 0))];
   if ((res.verstoesse || []).length) out.push(h('div', { class: 'a-card', style: 'border-color:var(--danger)' }, h('h3', { style: 'color:var(--danger)' }, '⚠️ Das geht so nicht'), h('ul', { class: 'a-take' }, res.verstoesse.map(x => h('li', {}, x)))));
   if ((res.staerken || []).length) out.push(h('div', { class: 'a-card' }, h('h3', {}, '👍 Das war stark'), h('ul', { class: 'a-take' }, res.staerken.map(x => h('li', {}, x)))));
