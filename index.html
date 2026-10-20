@@ -660,7 +660,7 @@ dialog::backdrop{background:rgba(5,15,22,.55)}
 <script>
 (() => {
 'use strict';
-const VERSION = '2.10';
+const VERSION = '2.11';
 const APP = 'P² Gebietskarte';
 const $ = id => document.getElementById(id);
 const msgEl = $('message');
@@ -2690,7 +2690,7 @@ function speak(text, persona, done) {
   } catch (e) { if (done) done(); }
 }
 function afterCustomer(t, text) {
-  speak(text, t.persona, () => { if (tHands && acad.train === t && !t.ended && !t.busy && acadOpen) tListen(true); });
+  speak(text, t.persona, () => { if (tHands && acad.train === t && !t.ended && !t.busy && acadOpen) { tRestarts = []; tListen(true); } });
 }
 
 /* --- Kunde an der Haustür: Zeichnung, Stimmung, Stimme --- */
@@ -2858,7 +2858,7 @@ function tChat() {
     list,
     tState(t).signed ? h('div', { class: 't-deal', role: 'status' }, h('div', { class: 't-confetti', 'aria-hidden': 'true' }, '🎉 🎊 ✨ 🎉 🎊'), h('b', {}, 'Herzlichen Glückwunsch!'), h('span', {}, 'Du hast den Deal gemacht! 🤝'), h('small', {}, 'Lass Dir jetzt Dein Gespräch bewerten und schau, was noch besser geht.')) : null,
     t.err ? h('p', { class: 'chat-note' }, t.err) : null,
-    tRec ? h('div', { class: 't-listen', role: 'status' }, h('i'), tRec.auto ? 'Ich höre zu … sprich einfach, gesendet wird nach einer kurzen Pause.' : 'Ich höre zu …') : null,
+    tRec ? h('div', { class: 't-listen', role: 'status' }, h('i'), tRec.auto ? 'Ich höre zu … Pausen sind okay. Gesendet wird nach 5 Sekunden Stille.' : 'Ich höre zu … Tippe auf ⏺ Stopp, wenn Du fertig bist.') : null,
     h('div', { class: 't-input' }, ta, h('div', { class: 'a-row' }, hands, mic, vo, send)),
     h('button', { class: 'btn' + (t.ended ? ' primary' : ''), type: 'button', id: 'tGrade', disabled: t.busy || t.lines.filter(l => l.r === 'v').length < 2, onclick: tGrade }, t.ended ? 'Gespräch bewerten lassen' : 'Gespräch beenden & bewerten')
   ];
@@ -2883,29 +2883,42 @@ async function tSend() {
     t.lines.pop(); t.draft = text; t.busy = false; t.err = e.message; renderAcad();
   }
 }
-function tStopRec() { if (tRec) { const r = tRec; tRec = null; try { r.abort ? r.abort() : r.stop(); } catch (e) {} } }
+const T_SILENCE = 5000; // Freihändig: erst nach 5 Sekunden Stille senden – Pausen gehören zum Gespräch
+let tSilence = null, tRestarts = [], tLastWord = 0;
+function tStopRec() { clearTimeout(tSilence); if (tRec) { const r = tRec; tRec = null; try { r.abort ? r.abort() : r.stop(); } catch (e) {} } }
 function tMic() {
   if (tRec) { tStopRec(); renderAcad(); return; }
-  tListen(tHands);
+  tRestarts = []; tListen(tHands);
 }
-function tListen(auto) {
+function tListen(auto, resume) {
   const t = acad.train; if (!t || !SR || t.ended || t.busy) return;
-  tStopRec();
+  if (!resume) tStopRec(); else clearTimeout(tSilence);
   try {
-    const r = new SR(); r.lang = 'de-DE'; r.interimResults = true; r.continuous = !auto; r.auto = !!auto;
+    const r = new SR(); r.lang = 'de-DE'; r.interimResults = true; r.continuous = true; r.auto = !!auto;
     const base = (t.draft ? t.draft.trim() + ' ' : '');
-    r.onresult = ev => { let s = ''; for (let i = 0; i < ev.results.length; i++) s += ev.results[i][0].transcript; t.draft = base + s; const i2 = $('tIn'); if (i2) i2.value = t.draft; };
+    const finish = () => { // Stille lang genug: Aufnahme beenden und senden
+      if (tRec !== r) return;
+      tRec = null; try { r.stop(); } catch (e) {}
+      if (acad.train === t && (t.draft || '').trim()) tSend(); else renderAcad();
+    };
+    const arm = () => { clearTimeout(tSilence); if (auto) tSilence = setTimeout(finish, Math.max(300, T_SILENCE - (Date.now() - tLastWord))); }; // gezählt ab dem letzten gehörten Wort
+    r.onresult = ev => { let s = ''; for (let i = 0; i < ev.results.length; i++) s += ev.results[i][0].transcript; t.draft = (base + s).replace(/\s+/g, ' '); const i2 = $('tIn'); if (i2) i2.value = t.draft; tLastWord = Date.now(); if ((t.draft || '').trim()) arm(); };
     r.onerror = ev => {
+      if (ev.error === 'no-speech' || ev.error === 'aborted') return; // Schweigen ist erlaubt, onend startet neu
+      clearTimeout(tSilence);
       if (ev.error === 'not-allowed' || ev.error === 'service-not-allowed') t.err = auto ? 'Freihändig klappt auf diesem Gerät nicht automatisch. Tippe nach jeder Kundenantwort auf 🎤.' : 'Mikrofon nicht erlaubt. Bitte in den Einstellungen freigeben oder die Diktierfunktion der Tastatur nutzen.';
       if (tRec === r) tRec = null; renderAcad();
     };
-    r.onend = () => {
+    r.onend = () => { // Browser beendet die Aufnahme oft schon nach kurzer Pause: dann still weiter zuhören
       if (tRec !== r) return;
-      tRec = null;
+      const now = Date.now(); tRestarts = tRestarts.filter(x => now - x < 10000); tRestarts.push(now);
+      if (acad.train === t && !t.busy && !t.ended && tRestarts.length < 8) { tListen(auto, true); return; }
+      tRec = null; clearTimeout(tSilence);
       if (auto && acad.train === t && (t.draft || '').trim()) tSend(); else renderAcad();
     };
-    tRec = r; r.start(); renderAcad();
-  } catch (e) { tRec = null; say('Spracheingabe ist hier nicht verfügbar. Nutze das Mikrofon auf der Tastatur.', true); }
+    const fresh = !tRec; tRec = r; r.start(); if (fresh) renderAcad();
+    if (resume && (t.draft || '').trim()) arm(); // Pause mitten im Satz: Stille-Uhr läuft weiter
+  } catch (e) { tRec = null; clearTimeout(tSilence); say('Spracheingabe ist hier nicht verfügbar. Nutze das Mikrofon auf der Tastatur.', true); }
 }
 async function tGrade() {
   const t = acad.train; if (!t || t.busy) return;
