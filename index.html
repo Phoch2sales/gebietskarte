@@ -660,7 +660,7 @@ dialog::backdrop{background:rgba(5,15,22,.55)}
 <script>
 (() => {
 'use strict';
-const VERSION = '2.14';
+const VERSION = '2.15';
 const APP = 'P² Gebietskarte';
 const $ = id => document.getElementById(id);
 const msgEl = $('message');
@@ -2236,7 +2236,8 @@ const A_LESSONS = [
     scripts: [
       { l: 'Standard-Pitch', x: 'Schönen guten Tag, Frau Müller, einmal für den Stromversorger ENNI sind wir da. Es geht bei Ihnen auch nochmal darum, wie bei allen anderen Nachbarn hier in der Postleitzahl, dass wir aktuell mit anbieten, umzustellen auf preisgarantierte Tarife. Da bleibt im Grunde alles gleich … aber … ab dem nächsten Monat, Frau Müller, können wir Sie dadurch ca. X % günstiger abrechnen, und darauf bekommen Sie dann noch 24 volle Monate Energiepreisgarantie. Also schon mal eine gute Nachricht. Einmal im Jahr werden ja Ihre Zähler abgelesen … (nicken) und daraufhin bekommen Sie Ihre Jahresabrechnung per Post oder Mail zugesandt, richtig? … Die müssten Sie mal kurz raussuchen bitte, dann zeige ich Ihnen, was das für Sie bedeutet. Ich warte kurz hier …' },
       { l: 'Standard-Pitch 2 (Tarif-Check)', x: 'Schönen guten Tag, Herr Müller, [Dein Name] von der P hoch 2 Sales hier. Wir sind Vertriebspartner von der ENNI und aktuell hier im Ort unterwegs, um die Strom- und Gastarife mal zu prüfen. Wissen Sie, Herr Müller, viele Einwohner hier im Ort stecken noch in der Grundversorgung fest oder haben veraltete Verträge, wo die Preisgarantie schon lange ausgelaufen ist, und zahlen deswegen einfach unnötig zu viel für das gleiche Produkt. Was wir dafür einmal bräuchten, wäre Ihre letzte Strom- und Gasabrechnung. Die müssten Sie jetzt einmal kurz raussuchen, dann kann ich Ihnen in 2 Minuten sagen, wo Sie aktuell stehen und ob ein Wechsel für Sie Sinn machen würde. Holen Sie die mal kurz bitte, ich warte kurz hier.' },
-      { l: 'Mehrfamilienhaus-Pitch (direkt & dominant)', x: 'Tachchen Herr Müller, Mensch, gut, dass ich Sie mal antreffe! [Dein Name] von P hoch 2 Sales, wir sind für die ENNI heute hier im ganzen Haus unterwegs. Kurz und knapp: Wir stellen hier gerade auf Ökostrom von der ENNI um, und meistens wird’s dadurch günstiger. Ist ein ganz normaler Anbieterwechsel, um die Kündigung beim alten Versorger kümmern wir uns, da haben Sie keine Arbeit mit. Was ich dafür einmal brauche, ist die letzte Abrechnung vom Strom (Gas). Die suchen Sie mal kurz raus, ich wart’ hier. (Ton: kurz, selbstverständlich, keine Rückfrage. Kein Behördenton.)' }
+      { l: 'Mehrfamilienhaus-Pitch 1', x: 'Hallo Herr Müller, einmal für die ENNI sind wir da … Sie wissen bereits, worum es geht, oder? … Nicht?! Okay … Na, wir wollen Sie ab dem nächsten Monat wieder deutlich günstiger abrechnen … kennen Sie ja, wie jedes Jahr … Was wir dafür einmal brauchen, ist Ihre letzte Strom- und Gasabrechnung, die müssen Sie mal kurz holen. Ich warte kurz hier.' },
+      { l: 'Mehrfamilienhaus-Pitch 2', x: 'Moin Herr Müller … Mensch, gut, dass wir Sie mal antreffen … wir waren schon 2-mal hier gewesen, da waren Sie immer nicht zu Hause … wo waren Sie denn die ganze Zeit? … Na ja, jetzt haben wir uns ja gefunden, ist auch nichts Schlimmes. Ab dem nächsten Monat wollen wir Sie wieder günstiger abrechnen, und darauf kriegen Sie dann wieder 2 Jahre Energiepreisgarantie, also ’ne super Sache … Dafür brauchen wir einmal die letzte Strom- und Gasabrechnung, die müssen Sie mal kurz raussuchen. Ich warte kurz.' }
     ] },
   { id: 'l4', st: 's1', t: 'Die Top-Einwände', d: '16:00',
     take: ['Primäres Ziel von Pitch & Einwandbehandlung: Der Kunde bringt Dir die Abrechnung', 'Nicht rechtfertigen, sondern die Boss-Position einnehmen', '„Kein Interesse“ am besten überhören und weiter pitchen'],
