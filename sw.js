@@ -1,5 +1,5 @@
-// P² Gebietskarte – Offline-Speicher
-const APP = 'p2gk-app-v3';
+// P² Sales Vertriebs MultiTool – Offline-Speicher
+const APP = 'p2gk-app-v4';
 const TILES = 'p2gk-tiles-v1';
 const MAX_TILES = 4000;
 const SHELL = ['./', './index.html', './manifest.webmanifest', './icon.svg'];

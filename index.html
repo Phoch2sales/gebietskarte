@@ -4,7 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0f2a3a">
-<title>P² Gebietskarte</title>
+<title>P² Sales Vertriebs MultiTool</title>
+<meta name="apple-mobile-web-app-title" content="P² MultiTool">
+<meta name="application-name" content="P² MultiTool">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="icon.svg">
@@ -371,7 +373,7 @@ dialog::backdrop{background:rgba(5,15,22,.55)}
 <body>
 <div class="app">
   <header class="top">
-    <div class="brand">P²<span class="brand-full"> Gebietskarte</span><small id="ver"></small><span class="sync off" id="syncDot" role="img" aria-label="Nicht angemeldet" title="Nicht angemeldet"></span></div>
+    <div class="brand">P²<span class="brand-full"> Sales Vertriebs MultiTool</span><small id="ver"></small><span class="sync off" id="syncDot" role="img" aria-label="Nicht angemeldet" title="Nicht angemeldet"></span></div>
     <div class="tally" id="tally" aria-label="Zähler"></div>
     <button class="iconbtn" id="btnAcad" aria-label="Academy" hidden>
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linejoin="round" stroke-linecap="round"><path d="M2 9.5L12 4.5l10 5-10 5z"/><path d="M6 11.5v4.5c0 1.4 2.7 3 6 3s6-1.6 6-3v-4.5"/><path d="M22 9.5v6"/></svg>
@@ -642,7 +644,7 @@ dialog::backdrop{background:rgba(5,15,22,.55)}
 <!-- Anmeldung -->
 <section class="auth" id="auth" hidden>
   <form class="auth-card" id="authForm" novalidate>
-    <div class="auth-brand">P² Gebietskarte</div>
+    <div class="auth-brand">P² Sales Vertriebs MultiTool</div>
     <h1 id="authTitle">Anmelden</h1>
     <p class="auth-text" id="authText"></p>
     <label class="field" id="authEmailWrap">E-Mail<input id="authEmail" type="email" autocomplete="username" inputmode="email"></label>
@@ -660,7 +662,7 @@ dialog::backdrop{background:rgba(5,15,22,.55)}
 <script>
 (() => {
 'use strict';
-const VERSION = '2.18';
+const VERSION = '2.19';
 const APP = 'P² Gebietskarte';
 const $ = id => document.getElementById(id);
 const msgEl = $('message');
@@ -1817,7 +1819,7 @@ const AUTH = {
   forgot:  { title: 'Passwort vergessen', text: 'Gib deine E-Mail-Adresse ein. Du bekommst einen Link, mit dem du ein neues Passwort festlegst.', email: true, pass: false, submit: 'Link schicken', alt: 'Zurück zur Anmeldung' },
   newpass: { title: 'Neues Passwort', text: 'Lege ein neues Passwort fest, mindestens 8 Zeichen.', email: false, pass: true, pass2: true, submit: 'Passwort speichern', alt: '' },
   change:  { title: 'Passwort ändern', text: 'Lege ein neues Passwort fest, mindestens 8 Zeichen. Du bleibst danach angemeldet.', email: false, pass: true, pass2: true, submit: 'Passwort speichern', alt: 'Abbrechen' },
-  blocked: { title: 'Zugang gesperrt', text: 'Dein Zugang zur Gebietskarte ist nicht mehr aktiv. Die Kundendaten wurden von diesem Gerät entfernt. Bei Fragen wende dich an P² Sales.', email: false, pass: false, submit: 'Mit anderem Zugang anmelden', alt: '' }
+  blocked: { title: 'Zugang gesperrt', text: 'Dein Zugang zum P² Sales Vertriebs MultiTool ist nicht mehr aktiv. Die Kundendaten wurden von diesem Gerät entfernt. Bei Fragen wende dich an P² Sales.', email: false, pass: false, submit: 'Mit anderem Zugang anmelden', alt: '' }
 };
 function showAuth(mode, msg = '', ok = false) {
   authMode = mode; const m = AUTH[mode];
