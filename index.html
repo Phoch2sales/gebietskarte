@@ -675,7 +675,7 @@ dialog::backdrop{background:rgba(5,15,22,.55)}
 <script>
 (() => {
 'use strict';
-const VERSION = '2.20';
+const VERSION = '2.21';
 const APP = 'P² Gebietskarte';
 const $ = id => document.getElementById(id);
 const msgEl = $('message');
@@ -2356,7 +2356,7 @@ function openAcad(view) {
   if (view) acadView = view;
   renderAcad(); loadAcad();
 }
-function closeAcad() { acadOpen = false; $('acad').hidden = true; if (typeof tStopRec === 'function') tStopRec(); try { if (window.speechSynthesis) speechSynthesis.cancel(); } catch (e) {} }
+function closeAcad() { acadOpen = false; $('acad').hidden = true; if (typeof tStopRec === 'function') tStopRec(); if (typeof tStopVoice === 'function') tStopVoice(); }
 function goAcad(view, lesson) {
   acadView = view; if (lesson !== undefined) acadLesson = lesson;
   if (view !== 'exam') acad.quizResult = null;
@@ -2674,7 +2674,7 @@ const T_MARK = { 'TÜR ZU': '🚪 Kunde schließt die Tür', 'ABRECHNUNG': '📄
 const T_STEPS = ['Tür auf', 'Abrechnung', 'Vorabschluss', 'Closing', 'Deal'];
 const tDeals = uid => acad.roleplays.filter(r => r.user_id === uid && r.result && r.result.ziel === 'Abschluss').length;
 const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-let tVoice = LS.get('p2gk-train-voice', false), tRec = null;
+let tVoice = LS.get('p2gk-train-voice', true), tRec = null;
 
 const tBest = (uid, persona) => acad.roleplays.filter(r => r.user_id === uid && r.persona === persona && r.score).reduce((m, r) => Math.max(m, r.score), 0);
 const tPassedTypes = uid => T_PERSONAS.filter(p => tBest(uid, p.id) >= T_PASS).length;
@@ -2709,8 +2709,40 @@ function speak(text, persona, done) {
     speechSynthesis.speak(u); tTalk(true, est * 2.5);
   } catch (e) { tTalk(false); if (done) done(); }
 }
+/* --- Natürliche Stimme (OpenAI über academy-coach) mit Rückfall auf die Gerätestimme --- */
+let tAudio = null, tTtsOk = true;
+function tAudioEl() { if (!tAudio) { tAudio = new Audio(); tAudio.preload = 'auto'; tAudio.setAttribute('playsinline', ''); } return tAudio; }
+function tUnlockAudio() { // iPad/iPhone: Ton nur nach einem Tippen erlaubt – einmal still abspielen, dann darf die App später selbst
+  try {
+    const a = tAudioEl(); if (a.dataset.unlocked) return;
+    const n = 400, b = new DataView(new ArrayBuffer(44 + n)), w = (o, str) => [...str].forEach((c, i) => b.setUint8(o + i, c.charCodeAt(0)));
+    w(0, 'RIFF'); b.setUint32(4, 36 + n, true); w(8, 'WAVEfmt '); b.setUint32(16, 16, true); b.setUint16(20, 1, true); b.setUint16(22, 1, true);
+    b.setUint32(24, 8000, true); b.setUint32(28, 8000, true); b.setUint16(32, 1, true); b.setUint16(34, 8, true); w(36, 'data'); b.setUint32(40, n, true);
+    for (let i = 0; i < n; i++) b.setUint8(44 + i, 128);
+    a.src = URL.createObjectURL(new Blob([b.buffer], { type: 'audio/wav' }));
+    const pr = a.play(); if (pr && pr.then) pr.then(() => { a.pause(); a.dataset.unlocked = '1'; }).catch(() => {});
+  } catch (e) {}
+}
+function tStopVoice() { try { if (window.speechSynthesis) speechSynthesis.cancel(); } catch (e) {} if (tAudio) { tAudio.onended = tAudio.onerror = null; tAudio.pause(); } tTalk(false); }
+async function tSpeak(t, idx, text, done) {
+  if (!tVoice || !tTtsOk || !t.id) { speak(text, t.persona, done); return; }
+  let over = false; const fin = () => { if (over) return; over = true; tTalk(false); if (done) done(); };
+  const fallback = () => { if (over) return; over = true; tTalk(false); speak(text, t.persona, done); };
+  try {
+    const d = await Promise.race([coach({ action: 'tts', id: t.id, idx }), new Promise((_, rej) => setTimeout(() => rej(new Error('Stimme zu langsam')), 12000))]);
+    if (acad.train !== t || !tVoice) return;
+    const a = tAudioEl();
+    a.onended = fin; a.onerror = fallback;
+    a.onplaying = () => tTalk(true, ((isFinite(a.duration) ? a.duration : 8) + 2) * 1000);
+    a.src = 'data:' + (d.type || 'audio/mpeg') + ';base64,' + d.audio;
+    await a.play();
+  } catch (e) {
+    if (/OPENAI_API_KEY|nicht eingerichtet/.test(e.message || '')) tTtsOk = false;
+    if (acad.train === t) fallback();
+  }
+}
 function afterCustomer(t, text) {
-  speak(text, t.persona, () => { if (tHands && acad.train === t && !t.ended && !t.busy && acadOpen) { tRestarts = []; tListen(true); } });
+  tSpeak(t, t.lines.length - 1, text, () => { if (tHands && acad.train === t && !t.ended && !t.busy && acadOpen) { tRestarts = []; tListen(true); } });
 }
 
 /* --- Kunde an der Haustür: Zeichnung, Stimmung, Stimme --- */
@@ -2884,7 +2916,7 @@ function aTrain() {
 async function tStart(persona, btn) {
   if (!navigator.onLine) { say('Für das Training brauchst Du Internet.', true); return; }
   if (btn) { btn.disabled = true; btn.textContent = 'Kunde öffnet …'; }
-  tPreload(persona);
+  tPreload(persona); if (tVoice) tUnlockAudio();
   try {
     const d = await coach({ action: 'start', persona });
     acad.train = { view: 'chat', id: d.id, persona, name: d.name, lines: [{ r: 'k', t: d.reply, m: d.mood }], ended: false, busy: false, err: '' };
@@ -2908,12 +2940,12 @@ function tChat() {
   const mic = SR ? h('button', { class: 'btn', type: 'button', id: 'tMic', 'aria-label': 'Sprechen', 'aria-pressed': String(!!tRec), disabled: t.ended || t.busy, onclick: tMic }, tRec ? '⏺ Stopp' : '🎤') : null;
   const hands = SR ? h('button', { class: 'btn t-hands', type: 'button', id: 'tHands', 'aria-pressed': String(tHands), title: 'Freihändig: Kunde spricht, danach hört die App automatisch zu und sendet, wenn Du fertig bist', onclick: () => {
     tHands = !tHands; LS.set('p2gk-train-hands', tHands);
-    if (tHands) { tVoice = true; LS.set('p2gk-train-voice', true); if (!t.ended && !t.busy && !tRec) tListen(true); } else tStopRec();
+    if (tHands) { tVoice = true; LS.set('p2gk-train-voice', true); tUnlockAudio(); if (!t.ended && !t.busy && !tRec) tListen(true); } else tStopRec();
     renderAcad(); } }, tHands ? '🗣️ Freihändig an' : '🗣️ Freihändig') : null;
-  const vo = window.speechSynthesis ? h('button', { class: 'btn', type: 'button', 'aria-label': 'Kunde vorlesen', 'aria-pressed': String(tVoice), onclick: () => { tVoice = !tVoice; LS.set('p2gk-train-voice', tVoice); if (!tVoice) speechSynthesis.cancel(); renderAcad(); } }, tVoice ? '🔊' : '🔈') : null;
+  const vo = window.speechSynthesis ? h('button', { class: 'btn', type: 'button', 'aria-label': 'Kunde vorlesen', 'aria-pressed': String(tVoice), onclick: () => { tVoice = !tVoice; LS.set('p2gk-train-voice', tVoice); if (!tVoice) tStopVoice(); else tUnlockAudio(); renderAcad(); } }, tVoice ? '🔊' : '🔈') : null;
   const out = [
     h('div', { class: 'a-row between' }, h('div', { style: 'display:grid;gap:2px;min-width:0' }, h('h4', {}, 'Training · ' + p.label), h('h3', {}, p.icon + ' ' + t.name)),
-      h('button', { class: 'btn', type: 'button', onclick: () => { if (t.lines.length > 2 && !t.ended && !confirm('Gespräch abbrechen? Es wird nicht bewertet.')) return; acad.train = null; tStopRec(); renderAcad(); } }, 'Abbrechen')),
+      h('button', { class: 'btn', type: 'button', onclick: () => { if (t.lines.length > 2 && !t.ended && !confirm('Gespräch abbrechen? Es wird nicht bewertet.')) return; acad.train = null; tStopRec(); tStopVoice(); renderAcad(); } }, 'Abbrechen')),
     tSteps(t),
     tScene(t),
     list,
@@ -2930,7 +2962,8 @@ async function tSend() {
   const t = acad.train; if (!t || t.busy || t.ended) return;
   const text = (t.draft || '').trim(); if (!text) return;
   tStopRec();
-  if (tVoice && window.speechSynthesis) { try { speechSynthesis.cancel(); speechSynthesis.speak(new SpeechSynthesisUtterance('')); } catch (e) {} } // iPad: Ton freischalten
+  tStopVoice(); if (tVoice) tUnlockAudio();
+  if (tVoice && window.speechSynthesis) { try { speechSynthesis.speak(new SpeechSynthesisUtterance('')); } catch (e) {} } // iPad: Ton freischalten
   t.lines.push({ r: 'v', t: text }); t.draft = ''; t.busy = true; t.err = ''; renderAcad();
   try {
     const d = await coach({ action: 'say', id: t.id, text });
