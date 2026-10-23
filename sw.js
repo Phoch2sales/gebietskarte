@@ -1,6 +1,7 @@
 // P² Sales Vertriebs MultiTool – Offline-Speicher
-const APP = 'p2gk-app-v4';
+const APP = 'p2gk-app-v5';
 const TILES = 'p2gk-tiles-v1';
+const IMG = 'p2gk-img-v1'; // Kundenbilder: ändern sich nie, daher aus dem Speicher
 const MAX_TILES = 4000;
 const SHELL = ['./', './index.html', './manifest.webmanifest', './icon.svg'];
 const LIBS = [
@@ -23,7 +24,7 @@ self.addEventListener('install', e => {
 
 self.addEventListener('activate', e => {
   e.waitUntil((async () => {
-    for (const k of await caches.keys()) if (k !== APP && k !== TILES) await caches.delete(k);
+    for (const k of await caches.keys()) if (k !== APP && k !== TILES && k !== IMG) await caches.delete(k);
     await self.clients.claim();
   })());
 });
@@ -39,6 +40,12 @@ self.addEventListener('fetch', e => {
   const req = e.request;
   if (req.method !== 'GET') return;
   const url = new URL(req.url);
+
+  // Kundenbilder: einmal laden, danach aus dem Speicher (spart mobile Daten)
+  if (url.origin === self.location.origin && url.pathname.includes('/assets/customers/')) {
+    e.respondWith(caches.open(IMG).then(async c => (await c.match(req)) || fetch(req).then(res => { if (res.ok) c.put(req, res.clone()); return res; })));
+    return;
+  }
 
   // App selbst: erst Netz (Updates kommen sofort an), offline aus dem Speicher
   if (url.origin === self.location.origin) {

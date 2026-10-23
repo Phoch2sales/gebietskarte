@@ -349,6 +349,19 @@ dialog::backdrop{background:rgba(5,15,22,.55)}
 .t-scene-tag{position:absolute;left:10px;top:10px;display:grid;gap:1px;background:rgba(19,33,43,.82);color:#fff;border-radius:10px;padding:6px 10px;font-size:.85em;max-width:calc(100% - 20px)}
 .t-scene-tag b{font-size:1em}
 .t-scene.closed svg{filter:saturate(.7)}
+.t-photo{display:block;height:clamp(240px,42vh,480px);background:#13212b}
+.t-photo img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;display:block}
+.t-photo .t-bg{object-fit:cover;filter:blur(18px) brightness(.62);transform:scale(1.15)}
+.t-photo .t-ppl{position:absolute;inset:0;transform-origin:50% 100%;animation:t-breathe 4.6s ease-in-out infinite}
+.t-photo .t-talk{visibility:hidden}
+.t-photo.talk .t-talk{visibility:visible}
+.t-photo.busy .t-ppl{animation-duration:2.2s}
+.t-photo .t-door{position:absolute;inset:0;background:linear-gradient(90deg,#5d3f28,#8b5e3c 35%,#7a5234 70%,#5d3f28);animation:t-shut .45s ease-out both}
+.t-photo .t-door::before{content:'';position:absolute;inset:8% 14%;border:4px solid rgba(0,0,0,.18);border-radius:6px;box-shadow:inset 0 0 0 4px rgba(255,255,255,.06)}
+.t-photo .t-door::after{content:'';position:absolute;right:20%;top:52%;width:16px;height:16px;border-radius:50%;background:#d8b04a;box-shadow:0 1px 3px rgba(0,0,0,.4)}
+.t-photo .t-item{position:absolute;right:10px;bottom:10px;background:rgba(19,33,43,.82);color:#fff;border-radius:999px;padding:5px 12px;font-size:.85em;font-weight:700}
+@keyframes t-breathe{50%{transform:scale(1.006)}}
+@keyframes t-shut{from{transform:scaleX(.05);transform-origin:100% 50%}to{transform:scaleX(1);transform-origin:100% 50%}}
 .t-chat.with-scene{max-height:30vh;min-height:140px}
 .t-steps{list-style:none;margin:0;padding:0;display:flex;gap:4px}
 .t-steps li{flex:1 1 0;min-width:0;text-align:center;font-size:.72em;font-weight:700;color:var(--muted);border-top:4px solid var(--line);padding-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -366,7 +379,7 @@ dialog::backdrop{background:rgba(5,15,22,.55)}
 .t-listen{display:flex;align-items:center;gap:8px;font-weight:700;color:var(--s-green)}
 .t-listen i{width:10px;height:10px;border-radius:50%;background:var(--s-green);animation:t-pulse 1s infinite}
 @keyframes t-pulse{50%{opacity:.25}}
-@media (prefers-reduced-motion:reduce){.t-scene.busy .t-person,.t-listen i{animation:none}}
+@media (prefers-reduced-motion:reduce){.t-scene.busy .t-person,.t-listen i,.t-photo .t-ppl,.t-photo .t-door{animation:none}}
 .acad-body details summary{list-style-position:inside}
 </style>
 </head>
@@ -662,7 +675,7 @@ dialog::backdrop{background:rgba(5,15,22,.55)}
 <script>
 (() => {
 'use strict';
-const VERSION = '2.19';
+const VERSION = '2.20';
 const APP = 'P² Gebietskarte';
 const $ = id => document.getElementById(id);
 const msgEl = $('message');
@@ -2683,16 +2696,18 @@ async function coach(body) {
 }
 let tHands = LS.get('p2gk-train-hands', false);
 function speak(text, persona, done) {
-  if (!tVoice || !window.speechSynthesis) { if (done) done(); return; }
+  const said = tSplit(text).text.replace(/\*[^*]*\*/g, ' ').trim();
+  const est = Math.min(9000, 600 + said.length * 62); // geschätzte Sprechdauer
+  if (!tVoice || !window.speechSynthesis) { tTalk(true, Math.min(est, 4500)); if (done) done(); return; }
   try {
     speechSynthesis.cancel();
-    const u = new SpeechSynthesisUtterance(tSplit(text).text.replace(/\*[^*]*\*/g, ' ').trim() || '…');
+    const u = new SpeechSynthesisUtterance(said || '…');
     const cfg = tVoiceFor(persona || '');
     u.lang = 'de-DE'; u.rate = cfg.rate; u.pitch = cfg.pitch; if (cfg.voice) u.voice = cfg.voice;
-    let fired = false; const fin = () => { if (!fired) { fired = true; if (done) done(); } };
-    u.onend = fin; u.onerror = fin;
-    speechSynthesis.speak(u);
-  } catch (e) { if (done) done(); }
+    let fired = false; const fin = () => { if (!fired) { fired = true; tTalk(false); if (done) done(); } };
+    u.onend = fin; u.onerror = fin; u.onstart = () => tTalk(true, est * 2.5);
+    speechSynthesis.speak(u); tTalk(true, est * 2.5);
+  } catch (e) { tTalk(false); if (done) done(); }
 }
 function afterCustomer(t, text) {
   speak(text, t.persona, () => { if (tHands && acad.train === t && !t.ended && !t.busy && acadOpen) { tRestarts = []; tListen(true); } });
@@ -2763,8 +2778,48 @@ function tSteps(t) {
   const s = tState(t);
   return h('ol', { class: 't-steps' + (s.closed ? ' closed' : ''), 'aria-label': 'Gesprächsphasen' }, T_STEPS.map((x, i) => h('li', { class: i < s.step ? 'done' : i === s.step ? 'now' : '' }, x)));
 }
+/* --- Fotorealistische Kunden: 5 Stimmungen × Mund zu/offen (assets/customers) --- */
+const T_PHOTO = { skeptisch: 'becker', nein: 'kraemer', vielleicht: 'yilmaz', ja: 'schmitz', ablehnend: 'wagner' };
+const T_MOOD_IDS = ['neutral', 'misstrauisch', 'genervt', 'interessiert', 'freundlich'];
+const tPhotoBad = new Set(); // Kunden, deren Bilder nicht laden: dann gezeichnete Szene
+const tImg = (p, m, talk) => `assets/customers/${T_PHOTO[p]}_${m}${talk ? '_spricht' : ''}.webp`;
+function tPhotoFail(p) { if (tPhotoBad.has(p)) return; tPhotoBad.add(p); if (acad.train && acad.train.persona === p) renderAcad(); }
+function tPreload(p) {
+  if (!T_PHOTO[p] || tPhotoBad.has(p)) return;
+  for (const m of T_MOOD_IDS) for (const k of [false, true]) { const i = new Image(); i.onerror = () => tPhotoFail(p); i.src = tImg(p, m, k); }
+}
+let tTalkTimer = null, tTalkStop = null;
+function tTalk(on, ms) { // Mund bewegt sich, solange der Kunde spricht
+  clearInterval(tTalkTimer); clearTimeout(tTalkStop);
+  const el = document.querySelector('.t-photo');
+  if (!on) { if (el) el.classList.remove('talk'); return; }
+  let n = 0;
+  tTalkTimer = setInterval(() => {
+    const e = document.querySelector('.t-photo'); if (!e) return;
+    n++; e.classList.toggle('talk', n % 7 === 0 ? false : Math.random() < .6);
+  }, 120);
+  tTalkStop = setTimeout(() => tTalk(false), ms || 4000);
+}
+function tPhotoScene(t, s, status) {
+  const p = t.persona, m = T_MOOD_IDS.includes(s.mood) ? s.mood : 'neutral';
+  const fail = () => tPhotoFail(p);
+  const wrap = h('div', { class: 't-scene t-photo' + (s.closed ? ' closed' : '') + (t.busy ? ' busy' : ''), role: 'img', 'aria-label': `${t.name} an der Haustür, ${status}`, 'data-mood': m });
+  wrap.append(h('img', { class: 't-bg', src: tImg(p, m, false), alt: '', 'aria-hidden': 'true' }));
+  if (!s.closed) wrap.append(h('div', { class: 't-ppl' },
+    h('img', { class: 't-still', src: tImg(p, m, false), alt: '', onerror: fail }),
+    h('img', { class: 't-talk', src: tImg(p, m, true), alt: '', onerror: fail })));
+  else wrap.append(h('div', { class: 't-door', 'aria-hidden': 'true' }));
+  const item = s.closed ? '' : s.signed ? '✍️ Vertrag unterschrieben' : s.vorab ? '🤝 einverstanden' : s.bill ? '📄 Abrechnung in der Hand' : '';
+  if (item) wrap.append(h('div', { class: 't-item' }, item));
+  wrap.append(h('div', { class: 't-scene-tag' }, h('b', {}, t.name), h('span', {}, t.busy ? '… überlegt' : status)));
+  return wrap;
+}
 function tScene(t) {
   const L = T_LOOK[t.persona] || T_LOOK.nein, s = tState(t);
+  if (T_PHOTO[t.persona] && !tPhotoBad.has(t.persona)) {
+    const mo = T_MOOD[s.mood] || T_MOOD.neutral;
+    return tPhotoScene(t, s, s.closed ? '🚪 Tür geschlossen' : s.signed ? '✍️ hat unterschrieben' : s.vorab ? '🤝 einverstanden' : s.bill ? '📄 hat die Abrechnung geholt' : `${mo.icon} ${mo.label}`);
+  }
   const crossed = ['misstrauisch', 'genervt'].includes(s.mood);
   const body = `<path d="M108 232 Q110 160 160 152 Q210 160 212 232 Z" fill="${L.shirt}"/>`
     + (t.persona === 'ablehnend' ? '<g stroke="#e07a2b" stroke-width="7"><path d="M138 160 L136 232"/><path d="M182 160 L184 232"/></g>' : '')
@@ -2829,6 +2884,7 @@ function aTrain() {
 async function tStart(persona, btn) {
   if (!navigator.onLine) { say('Für das Training brauchst Du Internet.', true); return; }
   if (btn) { btn.disabled = true; btn.textContent = 'Kunde öffnet …'; }
+  tPreload(persona);
   try {
     const d = await coach({ action: 'start', persona });
     acad.train = { view: 'chat', id: d.id, persona, name: d.name, lines: [{ r: 'k', t: d.reply, m: d.mood }], ended: false, busy: false, err: '' };
