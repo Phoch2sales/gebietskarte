@@ -304,6 +304,17 @@ dialog::backdrop{background:rgba(5,15,22,.55)}
 .a-video iframe{position:absolute;inset:0;width:100%;height:100%;border:0}
 .a-novideo{width:100%;aspect-ratio:16/9;border-radius:14px;background:linear-gradient(160deg,var(--chrome-2),var(--chrome));color:var(--chrome-fg);display:grid;place-items:center;text-align:center;padding:16px;gap:6px}
 .a-novideo span{color:var(--chrome-muted);font-size:.9em}
+.a-vlist{display:flex;gap:6px;flex-wrap:wrap}
+.a-poster{position:relative;display:block;width:100%;aspect-ratio:16/9;border:0;padding:0;border-radius:14px;overflow:hidden;cursor:pointer;color:#fff;background:#737373 url(data:image/webp;base64,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) center 42%/auto 70% no-repeat}
+.a-poster .pl{position:absolute;right:16px;bottom:14px;width:58px;height:58px;border-radius:50%;background:rgba(255,255,255,.95);color:#2b2b2b;display:grid;place-items:center;font-size:1.5em;padding-left:5px;box-shadow:0 4px 14px rgba(0,0,0,.25)}
+.a-poster .cap{position:absolute;left:14px;bottom:14px;right:90px;text-align:left;font-weight:800;font-size:.95em;text-shadow:0 1px 3px rgba(0,0,0,.4);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.a-poster:hover .pl,.a-poster:focus-visible .pl{transform:scale(1.06)}
+.a-vlist button{border:1px solid var(--line);background:var(--panel);color:var(--fg);border-radius:999px;padding:7px 14px;font-weight:700;font-size:.88em;min-height:38px;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.a-vlist button[aria-pressed="true"]{background:var(--chrome);color:var(--chrome-fg);border-color:var(--chrome)}
+.a-vrow{display:grid;grid-template-columns:30px minmax(0,1fr) auto;gap:8px;align-items:center;border:1px solid var(--line);background:var(--panel);border-radius:12px;padding:8px 10px}
+.a-vrow small{display:block;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.a-vrow .a-row{gap:4px;flex-wrap:nowrap}
+.a-vrow .btn{min-height:34px;padding:0 10px}
 .a-take{margin:0;padding-left:20px;display:grid;gap:6px}
 .a-script{display:grid;gap:4px}
 .a-script b{font-size:.78em;text-transform:uppercase;letter-spacing:.06em;color:var(--s-termin)}
@@ -675,7 +686,7 @@ dialog::backdrop{background:rgba(5,15,22,.55)}
 <script>
 (() => {
 'use strict';
-const VERSION = '2.21';
+const VERSION = '2.23';
 const APP = 'P² Gebietskarte';
 const $ = id => document.getElementById(id);
 const msgEl = $('message');
@@ -2334,16 +2345,20 @@ async function loadAcad() {
   const [p, a, v, f, rp] = await Promise.all([
     sb.from('academy_progress').select('user_id,lesson_id,done_at'),
     sb.from('academy_attempts').select('id,user_id,score,total,passed,created_at').order('created_at', { ascending: false }).limit(1000),
-    sb.from('academy_videos').select('lesson_id,url'),
+    sb.from('academy_lesson_videos').select('id,lesson_id,url,title,position,created_at').order('position').order('created_at'),
     sb.from('academy_files').select('*').order('position').order('created_at'),
     sb.from('academy_roleplays').select('id,user_id,persona,status,score,result,created_at').order('created_at', { ascending: false }).limit(500)
   ]);
   acadBusy = false;
   acad.roleplays = rp.error ? [] : rp.data;
-  const err = [p, a, v, f].find(x => x.error);
+  let vids = v;
+  if (v.error && /does not exist|schema cache/i.test(v.error.message || '')) { // Rückfall: alte Tabelle (ein Video pro Lektion)
+    const o = await sb.from('academy_videos').select('lesson_id,url'); vids = o.error ? o : { data: o.data.map(x => ({ id: null, lesson_id: x.lesson_id, url: x.url, title: '', position: 0 })) }; acad.vOld = true;
+  } else acad.vOld = false;
+  const err = [p, a, vids, f].find(x => x.error);
   if (err) { acadNote(/does not exist|schema cache/i.test(err.error.message || '') ? 'Die Academy ist auf dem Server noch nicht eingerichtet.' : 'Academy-Daten konnten nicht geladen werden. Bitte später erneut versuchen.'); return; }
   acad.progress = p.data; acad.attempts = a.data;
-  acad.videos = {}; for (const x of v.data) acad.videos[x.lesson_id] = x.url;
+  acad.videos = {}; for (const x of vids.data) (acad.videos[x.lesson_id] = acad.videos[x.lesson_id] || []).push(x);
   acad.files = f.data; acadLoaded = true;
   if (acadOpen) renderAcad();
 }
@@ -2359,6 +2374,7 @@ function openAcad(view) {
 function closeAcad() { acadOpen = false; $('acad').hidden = true; if (typeof tStopRec === 'function') tStopRec(); if (typeof tStopVoice === 'function') tStopVoice(); }
 function goAcad(view, lesson) {
   acadView = view; if (lesson !== undefined) acadLesson = lesson;
+  acad.vPlay = null; // neues Video startet wieder mit dem Logo
   if (view !== 'exam') acad.quizResult = null;
   renderAcad(); $('acadBody').scrollTop = 0;
 }
@@ -2411,7 +2427,7 @@ function aLessons() {
     out.push(h('ul', { class: 'a-list' }, A_LESSONS.filter(l => l.st === s.id).map(l => h('li', {},
       h('button', { type: 'button', onclick: () => goAcad('lessons', l.id) },
         h('span', { class: 'a-num' + (d.has(l.id) ? ' done' : '') }, d.has(l.id) ? '✓' : String(A_LESSONS.indexOf(l) + 1)),
-        h('span', {}, l.t), h('span', { class: 'a-dur' }, acad.videos[l.id] ? '▶ ' + l.d : l.d))))));
+        h('span', {}, l.t), h('span', { class: 'a-dur' }, (acad.videos[l.id] || []).length ? `▶${acad.videos[l.id].length > 1 ? ' ' + acad.videos[l.id].length : ''} · ${l.d}` : l.d))))));
   });
   out.push(h('button', { class: 'btn primary', type: 'button', onclick: () => goAcad('exam') }, '★ Prüfung & Türfreigabe'));
   return out;
@@ -2435,17 +2451,19 @@ function embedUrl(raw) {
 function aLesson(l) {
   const d = aDone(), idx = A_LESSONS.indexOf(l), st = A_STAGES.find(s => s.id === l.st), done = d.has(l.id);
   const out = [h('button', { class: 'btn a-back', type: 'button', onclick: () => goAcad('lessons', null) }, '← Alle Lektionen')];
-  const raw = acad.videos[l.id], emb = raw && embedUrl(raw);
-  if (emb) out.push(h('div', { class: 'a-video' }, h('iframe', { src: emb, title: 'Video: ' + l.t, loading: 'lazy', allow: 'accelerometer; gyroscope; autoplay; encrypted-media; picture-in-picture; fullscreen', allowfullscreen: true, referrerpolicy: 'strict-origin-when-cross-origin' })));
-  else if (raw) out.push(h('div', { class: 'a-novideo' }, h('div', {}, h('b', {}, 'Video zu dieser Lektion'), h('br'), h('a', { class: 'btn', href: raw, target: '_blank', rel: 'noopener', style: 'margin-top:8px' }, 'Video öffnen'))));
+  const vids = acad.videos[l.id] || [];
+  const sel = Math.min(acad.vSel && acad.vSel[l.id] || 0, Math.max(0, vids.length - 1)), cur = vids[sel];
+  const raw = cur && cur.url, emb = raw && embedUrl(raw);
+  const vName = (v, i) => v.title || `Teil ${i + 1}`;
+  const playKey = l.id + ':' + sel;
+  if (emb && acad.vPlay === playKey) out.push(h('div', { class: 'a-video' }, h('iframe', { src: withAutoplay(emb), title: `Video: ${l.t} – ${vName(cur, sel)}`, allow: 'accelerometer; gyroscope; autoplay; encrypted-media; picture-in-picture; fullscreen', allowfullscreen: true, referrerpolicy: 'strict-origin-when-cross-origin' })));
+  else if (emb) out.push(h('button', { class: 'a-poster', type: 'button', 'aria-label': `Video abspielen: ${vName(cur, sel)}`, onclick: () => { acad.vPlay = playKey; renderAcad(); } }, // Logo statt Standbild
+    h('span', { class: 'cap' }, vids.length > 1 ? `${sel + 1}. ${vName(cur, sel)}` : l.t), h('span', { class: 'pl', 'aria-hidden': 'true' }, '▶')));
+  else if (raw) out.push(h('div', { class: 'a-novideo' }, h('div', {}, h('b', {}, vName(cur, sel)), h('br'), h('a', { class: 'btn', href: raw, target: '_blank', rel: 'noopener', style: 'margin-top:8px' }, 'Video öffnen'))));
   else out.push(h('div', { class: 'a-novideo' }, h('div', {}, h('b', {}, `Lektion ${idx + 1} · ca. ${l.d} Min.`), h('br'), h('span', {}, 'Video folgt. Bis dahin: Inhalte unten lernen.'))));
-  if (isAdmin()) {
-    const inp = h('input', { type: 'url', inputmode: 'url', placeholder: 'Bunny-, YouTube- oder Vimeo-Link', value: raw || '', 'aria-label': 'Video-Link für diese Lektion' });
-    out.push(h('div', { class: 'a-card a-form' }, h('label', {}, 'Video-Link (nur für dich als Admin sichtbar)', inp),
-      h('div', { class: 'a-row' },
-        h('button', { class: 'btn primary', type: 'button', onclick: () => saveVideo(l.id, inp.value.trim()) }, 'Speichern'),
-        raw ? h('button', { class: 'btn danger', type: 'button', onclick: () => saveVideo(l.id, '') }, 'Video entfernen') : null)));
-  }
+  if (vids.length > 1) out.push(h('div', { style: 'display:grid;gap:6px' }, h('h4', {}, `${vids.length} Videos zu dieser Lektion`),
+    h('div', { class: 'a-vlist', role: 'group', 'aria-label': 'Video wählen' }, vids.map((v, i) => h('button', { type: 'button', 'aria-pressed': String(i === sel), title: vName(v, i), onclick: () => { acad.vSel = acad.vSel || {}; acad.vSel[l.id] = i; acad.vPlay = l.id + ':' + i; renderAcad(); } }, `▶ ${i + 1}. ${vName(v, i)}`)))));
+  if (isAdmin()) out.push(aVideoAdmin(l, vids));
   out.push(h('div', { class: 'a-row between' },
     h('div', { style: 'display:grid;gap:2px;min-width:0' }, h('h4', {}, `Stufe ${A_STAGES.indexOf(st) + 1} · ${st.name}`), h('h3', { style: 'font-size:1.35em' }, l.t)),
     h('button', { class: 'btn' + (done ? '' : ' primary'), type: 'button', id: 'aMark', onclick: () => toggleDone(l.id) }, done ? '✓ Erledigt' : 'Als erledigt markieren')));
@@ -2490,14 +2508,60 @@ async function toggleDone(id) {
     else say('Lektion als erledigt markiert.');
   }
 }
-async function saveVideo(id, url) {
-  if (url && !/^https:\/\/\S+$/.test(url)) { say('Bitte den kompletten Link einfügen, er beginnt mit https://', true); return; }
-  if (url && !embedUrl(url) && !confirm('Diesen Link kann die App nicht direkt abspielen. Er wird dann als „Video öffnen“-Knopf angezeigt. Trotzdem speichern?')) return;
-  const r = url ? await sb.from('academy_videos').upsert({ lesson_id: id, url, updated_at: new Date().toISOString() }, { onConflict: 'lesson_id' })
-                : await sb.from('academy_videos').delete().eq('lesson_id', id);
-  if (r.error) { say('Video speichern hat nicht geklappt: ' + r.error.message, true); return; }
-  if (url) acad.videos[id] = url; else delete acad.videos[id];
-  say(url ? 'Video gespeichert. Das Team sieht es sofort.' : 'Video entfernt.'); renderAcad();
+function withAutoplay(u) { // startet nach dem Tippen aufs Logo direkt
+  try { const x = new URL(u); x.searchParams.set('autoplay', /mediadelivery\.net$/.test(x.hostname) ? 'true' : '1'); return x.href; } catch (e) { return u; }
+}
+function aVideoAdmin(l, vids) { // nur Admin: Videos der Lektion verwalten
+  const title = h('input', { type: 'text', maxlength: '120', placeholder: 'Titel, z. B. „Teil 2: Einwand Keine Zeit“ (optional)', 'aria-label': 'Titel des neuen Videos' });
+  const url = h('input', { type: 'url', inputmode: 'url', placeholder: 'Bunny-, YouTube- oder Vimeo-Link', 'aria-label': 'Link des neuen Videos' });
+  const rows = vids.map((v, i) => h('div', { class: 'a-vrow' },
+    h('span', { class: 'a-num' }, String(i + 1)),
+    h('div', { style: 'min-width:0' }, h('b', {}, v.title || `Teil ${i + 1}`), h('small', {}, v.url)),
+    h('div', { class: 'a-row' },
+      h('button', { class: 'btn', type: 'button', title: 'Nach oben', 'aria-label': 'Nach oben', disabled: i === 0 || !v.id, onclick: () => moveVideo(l.id, i, -1) }, '↑'),
+      h('button', { class: 'btn', type: 'button', title: 'Nach unten', 'aria-label': 'Nach unten', disabled: i === vids.length - 1 || !v.id, onclick: () => moveVideo(l.id, i, 1) }, '↓'),
+      h('button', { class: 'btn', type: 'button', title: 'Titel ändern', 'aria-label': 'Titel ändern', disabled: !v.id, onclick: () => renameVideo(v) }, '✎'),
+      h('button', { class: 'btn danger', type: 'button', title: 'Entfernen', 'aria-label': 'Video entfernen', disabled: !v.id, onclick: () => deleteVideo(v) }, '✕'))));
+  return h('div', { class: 'a-card a-form' },
+    h('h3', {}, `Videos dieser Lektion (${vids.length})`),
+    h('p', { class: 'a-muted' }, 'Nur für dich als Admin sichtbar. Das Team sieht die Videos in dieser Reihenfolge.'),
+    acad.vOld ? h('p', { class: 'chat-note' }, 'Für mehrere Videos fehlt noch die Tabelle auf dem Server (SQL „academy_videos_multi“).') : null,
+    rows.length ? rows : null,
+    h('label', {}, 'Titel', title), h('label', {}, 'Link', url),
+    h('div', { class: 'a-row' }, h('button', { class: 'btn primary', type: 'button', disabled: acad.vOld, onclick: () => addVideo(l.id, url.value.trim(), title.value.trim()) }, '＋ Video hinzufügen')));
+}
+async function addVideo(id, url, title) {
+  if (!/^https:\/\/\S+$/.test(url)) { say('Bitte den kompletten Link einfügen, er beginnt mit https://', true); return; }
+  if (!embedUrl(url) && !confirm('Diesen Link kann die App nicht direkt abspielen. Er wird dann als „Video öffnen“-Knopf angezeigt. Trotzdem speichern?')) return;
+  const list = acad.videos[id] || [], pos = list.length ? Math.max(...list.map(v => v.position || 0)) + 1 : 0;
+  const { data, error } = await sb.from('academy_lesson_videos').insert({ lesson_id: id, url, title: title.slice(0, 120), position: pos }).select().single();
+  if (error) { say('Video speichern hat nicht geklappt: ' + error.message, true); return; }
+  acad.videos[id] = [...list, data]; acad.vSel = acad.vSel || {}; acad.vSel[id] = acad.videos[id].length - 1;
+  say('Video hinzugefügt. Das Team sieht es sofort.'); renderAcad();
+}
+async function renameVideo(v) {
+  const t = prompt('Titel für dieses Video:', v.title || '');
+  if (t === null) return;
+  const { error } = await sb.from('academy_lesson_videos').update({ title: t.trim().slice(0, 120) }).eq('id', v.id);
+  if (error) { say('Umbenennen hat nicht geklappt: ' + error.message, true); return; }
+  v.title = t.trim().slice(0, 120); renderAcad();
+}
+async function deleteVideo(v) {
+  if (!confirm(`Video „${v.title || v.url}“ aus der Lektion entfernen? (Bei Bunny bleibt es erhalten.)`)) return;
+  const { error } = await sb.from('academy_lesson_videos').delete().eq('id', v.id);
+  if (error) { say('Entfernen hat nicht geklappt: ' + error.message, true); return; }
+  acad.videos[v.lesson_id] = (acad.videos[v.lesson_id] || []).filter(x => x.id !== v.id);
+  if (acad.vSel) acad.vSel[v.lesson_id] = 0;
+  say('Video entfernt.'); renderAcad();
+}
+async function moveVideo(id, i, dir) {
+  const list = [...(acad.videos[id] || [])], j = i + dir; if (j < 0 || j >= list.length) return;
+  [list[i], list[j]] = [list[j], list[i]];
+  const res = await Promise.all(list.map((v, k) => v.position === k ? null : sb.from('academy_lesson_videos').update({ position: k }).eq('id', v.id)));
+  const bad = res.find(r => r && r.error); if (bad) { say('Reihenfolge speichern hat nicht geklappt: ' + bad.error.message, true); return; }
+  list.forEach((v, k) => { v.position = k; }); acad.videos[id] = list;
+  if (acad.vSel && acad.vSel[id] === i) acad.vSel[id] = j;
+  renderAcad();
 }
 
 function aExam() {
