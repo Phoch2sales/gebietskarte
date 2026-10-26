@@ -686,7 +686,7 @@ dialog::backdrop{background:rgba(5,15,22,.55)}
 <script>
 (() => {
 'use strict';
-const VERSION = '2.23';
+const VERSION = '2.24';
 const APP = 'P² Gebietskarte';
 const $ = id => document.getElementById(id);
 const msgEl = $('message');
@@ -2276,7 +2276,7 @@ const A_LESSONS = [
       { l: '„Das macht mein Partner / meine Frau!“', x: 'Verstehe ich, Herr Müller, aber Sie stehen doch auf der Rechnung?! Deswegen müssen wir das ja auch mit Ihnen machen, Herr Müller. Ich hatte das vorhin schon mal bei einem Kunden, da war es genau dasselbe, doch der Kunde meinte, wenn er durch den Wechsel 200,00 € sparen würde, hätte seine Frau wohl nichts dagegen. Das ist bei Ihnen wahrscheinlich ähnlich, oder? Dann holen Sie mal kurz die letzte Abrechnung, dann zeige ich Ihnen, was da bei Ihnen passiert. Da werden Sie sich wirklich freuen.' }
     ] },
   { id: 'l5', st: 's1', t: 'Abrechnung lesen & Verbrauch berechnen', d: '10:00', calc: true,
-    take: ['Auf der Jahresabrechnung: Jahresverbrauch in kWh, Abschlag, Arbeitspreis, Zählernummer, Vorversorger', 'Findet der Kunde die Abrechnung nicht, rechnest Du den Jahresverbrauch aus dem Abschlag', 'Strom: monatlicher Abschlag × 3,2 × 12 = kWh pro Jahr', 'Gas: monatlicher Abschlag × 12 ÷ 0,07 = kWh pro Jahr'] },
+    take: ['Auf der Jahresabrechnung: Jahresverbrauch in kWh, Abschlag, Arbeitspreis, Zählernummer, Vorversorger', 'Findet der Kunde die Abrechnung nicht, rechnest Du den Jahresverbrauch aus dem Abschlag', 'Strom: monatlicher Abschlag × 3,2 × 12 = kWh pro Jahr', 'Gas: monatlicher Abschlag × 12 ÷ 0,12 = kWh pro Jahr'] },
   { id: 'l6', st: 's2', t: 'Der Vorabschluss', d: '9:00',
     take: ['Das ist der Moment, um beim Kunden durchzudringen', 'Erst loben: „Sie scheinen gut organisiert zu sein“', 'Abschlag erklären: Grundpreis + Bruttopreis pro kWh → neuer Preis → 24 Monate Energiepreisgarantie', 'Ratefrage „Wissen Sie welchen Unterschied?“ – leise auflösen: nur noch erneuerbare Energien', 'Zum Schluss die Alternativfrage: hier oder kurz ein Stück Tisch?'],
     scripts: [{ l: 'Vorabschluss', x: 'Mensch super, Herr Müller, da haben Sie ja direkt was gefunden. Da können sich die Nachbarn mal eine Scheibe von abschneiden, Sie scheinen gut organisiert zu sein. So, schauen wir mal gemeinsam drüber: Sie haben einen Abschlag in Höhe von 86 €, der ergibt sich aus dem Grundpreis von 13,50 € im Monat und dem Bruttopreis pro Kilowattstunde in Höhe von 36,07 Cent. Den senken wir jetzt auf 27,67 Cent, und darauf bekommen Sie nochmal 24 volle Monate Energiepreisgarantie. Es gibt nur einen Unterschied zu vorher … wissen Sie welchen? … (leise, wie ein kleines Geheimnis:) Sie haben nur noch erneuerbare Energien. Das kann Ihnen aber völlig egal sein: Das Licht fängt nicht an zu flackern, und es riecht auch nicht komisch aus der Steckdose. Lediglich Ihr ökologischer Fußabdruck wird kleiner. Ich muss das dann einmal aufnehmen … sollen wir das hier machen, oder haben Sie kurz ein Stück Tisch frei?' }] },
@@ -2483,7 +2483,7 @@ function aCalc() {
   const fmt = n => n.toLocaleString('de-DE', { maximumFractionDigits: 0 });
   const kS = h('b', {}), kG = h('b', {});
   const inp = h('input', { type: 'number', inputmode: 'decimal', min: '0', step: '1', value: '56', id: 'aAbschlag' });
-  const up = () => { const v = Math.max(0, parseFloat(String(inp.value).replace(',', '.')) || 0); kS.textContent = fmt(v * 3.2 * 12) + ' kWh/Jahr'; kG.textContent = fmt(v * 12 / 0.07) + ' kWh/Jahr'; };
+  const up = () => { const v = Math.max(0, parseFloat(String(inp.value).replace(',', '.')) || 0); kS.textContent = fmt(v * 3.2 * 12) + ' kWh/Jahr'; kG.textContent = fmt(v * 12 / 0.12) + ' kWh/Jahr'; };
   inp.addEventListener('input', up); up();
   return h('div', { class: 'a-card a-calc' }, h('h3', {}, 'Verbrauchsrechner'), h('p', { class: 'a-muted' }, 'Kunde findet die Abrechnung nicht? Monatlichen Abschlag eingeben:'),
     h('label', { for: 'aAbschlag', style: 'font-weight:700' }, 'Monatlicher Abschlag (€)'), inp,
