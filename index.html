@@ -195,6 +195,9 @@ dialog::backdrop{background:rgba(5,15,22,.55)}
 .team-row.off{opacity:.6}
 .pill{font-size:.75em;font-weight:700;border-radius:999px;padding:2px 8px;background:var(--field);border:1px solid var(--line);white-space:nowrap}
 .pill.off{color:var(--danger);border-color:var(--danger)}
+.team-row .seen{color:var(--muted);font-weight:600}
+.team-row .seen.on{color:var(--s-green)}
+.team-now{margin:0;font-weight:700}
 /* Team-Chat */
 .iconbtn{position:relative}
 .badge{position:absolute;top:-4px;right:-4px;min-width:20px;height:20px;padding:0 5px;border-radius:999px;background:var(--danger);color:#fff;font-size:12px;font-weight:800;line-height:20px;text-align:center;box-shadow:0 0 0 2px var(--chrome)}
@@ -319,6 +322,14 @@ dialog::backdrop{background:rgba(5,15,22,.55)}
 .a-script{display:grid;gap:4px}
 .a-script b{font-size:.78em;text-transform:uppercase;letter-spacing:.06em;color:var(--s-termin)}
 .a-script p{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px 14px;line-height:1.55}
+.a-vtext{display:grid;gap:10px}
+.a-vtext p{margin:0;line-height:1.6}
+.a-vtext h4{margin:6px 0 0}
+.a-vtext .a-say{background:var(--panel);border:1px solid var(--line);border-left:4px solid var(--s-termin);border-radius:12px;padding:10px 14px}
+.a-vtext .a-say.k{border-left-color:var(--line)}
+.a-vtext .a-say b{display:block;font-size:.78em;text-transform:uppercase;letter-spacing:.06em;color:var(--s-termin)}
+.a-vtext .a-say.k b{color:var(--muted)}
+.a-vtext textarea{width:100%;min-height:320px;font:inherit;line-height:1.5}
 .a-calc input,.a-form input,.a-form select,.a-form textarea{width:100%;min-width:0;border:1px solid var(--line);background:var(--panel);color:var(--fg);border-radius:10px;padding:9px 11px;font-size:16px}
 .a-calc input{max-width:200px}
 .a-out{display:grid;grid-template-columns:1fr 1fr;gap:8px}
@@ -686,7 +697,7 @@ dialog::backdrop{background:rgba(5,15,22,.55)}
 <script>
 (() => {
 'use strict';
-const VERSION = '2.24';
+const VERSION = '2.25';
 const APP = 'P² Gebietskarte';
 const $ = id => document.getElementById(id);
 const msgEl = $('message');
@@ -1759,7 +1770,7 @@ async function startSession(session) {
     me = mine; LS.set('p2gk-me', me); applyRole();
     say('Daten werden abgeglichen …', false, true);
     await pullAll();
-    subscribe(); flush(); loadChat(); loadStats(); if (LS.get('p2gk-stat-pending', null)) saveStat();
+    subscribe(); flush(); loadChat(); loadStats(); touchPresence(); if (LS.get('p2gk-stat-pending', null)) saveStat();
     say(`Angemeldet als ${me.name || me.email}. Alle Markierungen sind aktuell.`);
   } catch (e) {
     say('Keine Verbindung zum Server. Du kannst weiterarbeiten, die Änderungen werden später übertragen.', true);
@@ -1773,10 +1784,41 @@ function applyRole() {
   if (!me && dashOpen) closeDash();
   if (!me && chatOpen) closeChat();
 }
+// Wer ist gerade aktiv? Jeder meldet sich alle 2 Minuten, solange die App offen ist. Nur der Admin sieht die Liste.
+let presence = {}, presenceTimer = null;
+const ONLINE_MS = 5 * 60000;
+async function touchPresence() {
+  if (!sb || !me || !navigator.onLine || document.visibilityState !== 'visible') return;
+  try { await sb.rpc('touch_presence'); } catch (e) {}
+}
+setInterval(touchPresence, 120000);
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') touchPresence(); });
+async function loadPresence() {
+  if (!sb || !isAdmin()) return;
+  const { data, error } = await sb.from('presence').select('user_id,last_seen');
+  if (error) return;
+  presence = {}; for (const x of data) presence[x.user_id] = new Date(x.last_seen).getTime();
+  if ($('dlgMore').open) renderTeam();
+}
+function seenText(id) {
+  const t = presence[id];
+  if (!t) return ['noch nicht aktiv gewesen', false];
+  const d = Date.now() - t, m = Math.round(d / 60000);
+  if (d < ONLINE_MS) return ['🟢 gerade aktiv', true];
+  if (m < 60) return [`zuletzt aktiv vor ${m} Min.`, false];
+  const day = new Date(t), today = new Date();
+  const hm = day.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+  if (day.toDateString() === today.toDateString()) return [`zuletzt aktiv heute ${hm} Uhr`, false];
+  const y = new Date(today); y.setDate(today.getDate() - 1);
+  if (day.toDateString() === y.toDateString()) return [`zuletzt aktiv gestern ${hm} Uhr`, false];
+  return [`zuletzt aktiv am ${day.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' })}`, false];
+}
 function renderAccount() {
   $('mMe').textContent = me ? `Angemeldet als ${me.name || me.email}${me.name ? ' (' + me.email + ')' : ''}${isAdmin() ? ' · Admin' : ''}` : 'Nicht angemeldet';
   $('mUsersLink').href = SB_USERS;
-  updateSyncDot(); if (isAdmin()) renderTeam();
+  updateSyncDot(); if (isAdmin()) { renderTeam(); loadPresence(); }
+  clearInterval(presenceTimer);
+  if (isAdmin()) presenceTimer = setInterval(() => { if ($('dlgMore').open) loadPresence(); else clearInterval(presenceTimer); }, 30000);
 }
 async function refreshTeam() {
   const { data, error } = await sb.from('profiles').select('*');
@@ -1788,14 +1830,20 @@ function renderTeam() {
   const box = $('mTeam'); box.textContent = '';
   const counts = {};
   for (const r of Object.values(records)) if (r.by && hasData(r)) counts[r.by] = (counts[r.by] || 0) + 1;
-  const list = Object.values(team).sort((a, b) => (b.active - a.active) || (a.name || a.email || '').localeCompare(b.name || b.email || '', 'de'));
+  const isOn = x => !!presence[x.id] && Date.now() - presence[x.id] < ONLINE_MS && !(me && x.id === me.id);
+  const list = Object.values(team).sort((a, b) => (b.active - a.active) || (isOn(b) - isOn(a)) || (a.name || a.email || '').localeCompare(b.name || b.email || '', 'de'));
   if (!list.length) { const p = document.createElement('p'); p.textContent = 'Noch keine Zugänge.'; box.append(p); return; }
+  const nOn = list.filter(isOn).length;
+  const head = document.createElement('p'); head.className = 'team-now';
+  head.textContent = nOn ? `🟢 ${nOn} ${nOn === 1 ? 'Teammitglied ist' : 'Teammitglieder sind'} gerade aktiv` : 'Gerade ist niemand aus dem Team aktiv.';
+  box.append(head);
   for (const x of list) {
     const row = document.createElement('div'); row.className = 'team-row' + (x.active ? '' : ' off');
     const info = document.createElement('div');
     const b = document.createElement('b'); b.textContent = x.name || x.email;
     const sm = document.createElement('small'); sm.textContent = `${x.email} · ${counts[x.id] || 0} Häuser bearbeitet${x.role === 'admin' ? ' · Admin' : ''}`;
     info.append(b, sm);
+    if (!(me && x.id === me.id)) { const [txt, on] = seenText(x.id); const sn = document.createElement('small'); sn.className = 'seen' + (on ? ' on' : ''); sn.textContent = txt; info.append(sn); }
     const rn = document.createElement('button'); rn.type = 'button'; rn.className = 'linkbtn'; rn.style.justifySelf = 'start'; rn.style.paddingLeft = '0';
     rn.textContent = 'Namen ändern'; rn.addEventListener('click', () => renameMember(x));
     info.append(rn); row.append(info);
@@ -2345,7 +2393,7 @@ async function loadAcad() {
   const [p, a, v, f, rp] = await Promise.all([
     sb.from('academy_progress').select('user_id,lesson_id,done_at'),
     sb.from('academy_attempts').select('id,user_id,score,total,passed,created_at').order('created_at', { ascending: false }).limit(1000),
-    sb.from('academy_lesson_videos').select('id,lesson_id,url,title,position,created_at').order('position').order('created_at'),
+    sb.from('academy_lesson_videos').select('id,lesson_id,url,title,position,created_at,script').order('position').order('created_at'),
     sb.from('academy_files').select('*').order('position').order('created_at'),
     sb.from('academy_roleplays').select('id,user_id,persona,status,score,result,created_at').order('created_at', { ascending: false }).limit(500)
   ]);
@@ -2463,6 +2511,7 @@ function aLesson(l) {
   else out.push(h('div', { class: 'a-novideo' }, h('div', {}, h('b', {}, `Lektion ${idx + 1} · ca. ${l.d} Min.`), h('br'), h('span', {}, 'Video folgt. Bis dahin: Inhalte unten lernen.'))));
   if (vids.length > 1) out.push(h('div', { style: 'display:grid;gap:6px' }, h('h4', {}, `${vids.length} Videos zu dieser Lektion`),
     h('div', { class: 'a-vlist', role: 'group', 'aria-label': 'Video wählen' }, vids.map((v, i) => h('button', { type: 'button', 'aria-pressed': String(i === sel), title: vName(v, i), onclick: () => { acad.vSel = acad.vSel || {}; acad.vSel[l.id] = i; acad.vPlay = l.id + ':' + i; renderAcad(); } }, `▶ ${i + 1}. ${vName(v, i)}`)))));
+  if (cur && (cur.script || (isAdmin() && cur.id))) out.push(aVideoText(cur, vids.length > 1 ? `${sel + 1}. ${vName(cur, sel)}` : ''));
   if (isAdmin()) out.push(aVideoAdmin(l, vids));
   out.push(h('div', { class: 'a-row between' },
     h('div', { style: 'display:grid;gap:2px;min-width:0' }, h('h4', {}, `Stufe ${A_STAGES.indexOf(st) + 1} · ${st.name}`), h('h3', { style: 'font-size:1.35em' }, l.t)),
@@ -2510,6 +2559,31 @@ async function toggleDone(id) {
 }
 function withAutoplay(u) { // startet nach dem Tippen aufs Logo direkt
   try { const x = new URL(u); x.searchParams.set('autoplay', /mediadelivery\.net$/.test(x.hostname) ? 'true' : '1'); return x.href; } catch (e) { return u; }
+}
+function aVideoText(v, name) { // Text zum Video: Wording zum Nachlesen, Admin kann bearbeiten
+  if (acad.tEdit === v.id) {
+    const ta = h('textarea', { maxlength: '20000', 'aria-label': 'Text zum Video' }); ta.value = v.script || '';
+    return h('div', { class: 'a-card a-form a-vtext' }, h('h3', {}, 'Text zum Video bearbeiten'),
+      h('p', { class: 'a-muted' }, 'Absätze mit einer Leerzeile trennen. „## Überschrift“ für Zwischenüberschriften. Absätze mit „Kunde:“ oder „Du:“ am Anfang werden als Gesprächszeile hervorgehoben.'), ta,
+      h('div', { class: 'a-row' }, h('button', { class: 'btn primary', type: 'button', onclick: () => saveVideoText(v, ta.value) }, 'Speichern'),
+        h('button', { class: 'btn', type: 'button', onclick: () => { acad.tEdit = null; renderAcad(); } }, 'Abbrechen')));
+  }
+  const paras = String(v.script || '').split(/\n\s*\n/).map(x => x.trim()).filter(Boolean);
+  const body = paras.map(x => {
+    if (x.startsWith('## ')) return h('h4', {}, x.slice(3));
+    const m = x.match(/^(Kunde|Du):\s*([\s\S]*)$/);
+    return m ? h('p', { class: 'a-say' + (m[1] === 'Kunde' ? ' k' : '') }, h('b', {}, m[1] === 'Du' ? 'Du sagst' : 'Kunde'), m[2]) : h('p', {}, x);
+  });
+  return h('div', { class: 'a-card a-vtext' },
+    h('div', { class: 'a-row between' }, h('div', { style: 'min-width:0' }, h('h3', {}, 'Text zum Video'), name ? h('p', { class: 'a-muted' }, name) : null),
+      isAdmin() && v.id ? h('button', { class: 'btn', type: 'button', onclick: () => { acad.tEdit = v.id; renderAcad(); } }, '✎ Text bearbeiten') : null),
+    body.length ? body : h('p', { class: 'a-muted' }, 'Noch kein Text hinterlegt.'));
+}
+async function saveVideoText(v, t) {
+  const s = String(t).replace(/\r\n/g, '\n').trim().slice(0, 20000);
+  const { error } = await sb.from('academy_lesson_videos').update({ script: s }).eq('id', v.id);
+  if (error) { say('Speichern hat nicht geklappt: ' + error.message, true); return; }
+  v.script = s; acad.tEdit = null; say('Text gespeichert. Das Team sieht ihn sofort.'); renderAcad();
 }
 function aVideoAdmin(l, vids) { // nur Admin: Videos der Lektion verwalten
   const title = h('input', { type: 'text', maxlength: '120', placeholder: 'Titel, z. B. „Teil 2: Einwand Keine Zeit“ (optional)', 'aria-label': 'Titel des neuen Videos' });
