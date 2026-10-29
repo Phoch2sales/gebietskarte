@@ -700,7 +700,7 @@ dialog::backdrop{background:rgba(5,15,22,.55)}
 <script>
 (() => {
 'use strict';
-const VERSION = '2.26';
+const VERSION = '2.27';
 const APP = 'P² Gebietskarte';
 const $ = id => document.getElementById(id);
 const msgEl = $('message');
@@ -2865,12 +2865,12 @@ function tUnlockAudio() { // iPad/iPhone: Ton nur nach einem Tippen erlaubt – 
   } catch (e) {}
 }
 function tStopVoice() { try { if (window.speechSynthesis) speechSynthesis.cancel(); } catch (e) {} if (tAudio) { tAudio.onended = tAudio.onerror = null; tAudio.pause(); } tTalk(false); }
-async function tSpeak(t, idx, text, done) {
+async function tSpeak(t, idx, text, done, pre) { // pre: Stimme kam schon mit der Antwort
   if (!tVoice || !tTtsOk || !t.id) { speak(text, t.persona, done); return; }
   let over = false; const fin = () => { if (over) return; over = true; tTalk(false); if (done) done(); };
   const fallback = () => { if (over) return; over = true; tTalk(false); speak(text, t.persona, done); };
   try {
-    const d = await Promise.race([coach({ action: 'tts', id: t.id, idx }), new Promise((_, rej) => setTimeout(() => rej(new Error('Stimme zu langsam')), 12000))]);
+    const d = pre && pre.audio ? pre : await Promise.race([coach({ action: 'tts', id: t.id, idx }), new Promise((_, rej) => setTimeout(() => rej(new Error('Stimme zu langsam')), 12000))]);
     if (acad.train !== t || !tVoice) return;
     const a = tAudioEl();
     a.onended = fin; a.onerror = fallback;
@@ -2882,8 +2882,8 @@ async function tSpeak(t, idx, text, done) {
     if (acad.train === t) fallback();
   }
 }
-function afterCustomer(t, text) {
-  tSpeak(t, t.lines.length - 1, text, () => { if (tHands && acad.train === t && !t.ended && !t.busy && acadOpen) { tRestarts = []; tListen(true); } });
+function afterCustomer(t, text, pre) {
+  tSpeak(t, t.lines.length - 1, text, () => { if (tHands && acad.train === t && !t.ended && !t.busy && acadOpen) { tRestarts = []; tListen(true); } }, pre);
 }
 
 /* --- Kunde an der Haustür: Zeichnung, Stimmung, Stimme --- */
@@ -3095,7 +3095,7 @@ function tChat() {
     list,
     tState(t).signed ? h('div', { class: 't-deal', role: 'status' }, h('div', { class: 't-confetti', 'aria-hidden': 'true' }, '🎉 🎊 ✨ 🎉 🎊'), h('b', {}, 'Herzlichen Glückwunsch!'), h('span', {}, 'Du hast den Deal gemacht! 🤝'), h('small', {}, 'Lass Dir jetzt Dein Gespräch bewerten und schau, was noch besser geht.')) : null,
     t.err ? h('p', { class: 'chat-note' }, t.err) : null,
-    tRec ? h('div', { class: 't-listen', role: 'status' }, h('i'), tRec.auto ? 'Ich höre zu … Pausen sind okay. Gesendet wird nach 3 Sekunden Stille.' : 'Ich höre zu … Tippe auf ⏺ Stopp, wenn Du fertig bist.') : null,
+    tRec ? h('div', { class: 't-listen', role: 'status' }, h('i'), tRec.auto ? 'Ich höre zu … Pausen sind okay. Gesendet wird nach 2 Sekunden Stille.' : 'Ich höre zu … Tippe auf ⏺ Stopp, wenn Du fertig bist.') : null,
     h('div', { class: 't-input' }, ta, h('div', { class: 'a-row' }, hands, mic, vo, send)),
     h('button', { class: 'btn' + (t.ended ? ' primary' : ''), type: 'button', id: 'tGrade', disabled: t.busy || t.lines.filter(l => l.r === 'v').length < 2, onclick: tGrade }, t.ended ? 'Gespräch bewerten lassen' : 'Gespräch beenden & bewerten')
   ];
@@ -3110,9 +3110,9 @@ async function tSend() {
   if (tVoice && window.speechSynthesis) { try { speechSynthesis.speak(new SpeechSynthesisUtterance('')); } catch (e) {} } // iPad: Ton freischalten
   t.lines.push({ r: 'v', t: text }); t.draft = ''; t.busy = true; t.err = ''; renderAcad();
   try {
-    const d = await coach({ action: 'say', id: t.id, text });
+    const d = await coach({ action: 'say', id: t.id, text, voice: !!(tVoice && tTtsOk) }); // Antwort + Stimme in einem Schritt
     if (acad.train !== t) return;
-    t.lines.push({ r: 'k', t: d.reply, m: d.mood }); t.ended = !!d.ended; t.busy = false; renderAcad(); afterCustomer(t, d.reply);
+    t.lines.push({ r: 'k', t: d.reply, m: d.mood }); t.ended = !!d.ended; t.busy = false; renderAcad(); afterCustomer(t, d.reply, d.audio ? { audio: d.audio, type: d.type } : null);
     const mk = tSplit(d.reply).mark;
     if (mk === 'ABSCHLUSS') showCheer('Herzlichen Glückwunsch! 🎉', 'Du hast den Deal gemacht!', 'goal');
     else if (mk === 'VORABSCHLUSS') showCheer('Vorabschluss! 🤝', 'Jetzt sauber die Daten aufnehmen und abschließen');
@@ -3121,7 +3121,7 @@ async function tSend() {
     t.lines.pop(); t.draft = text; t.busy = false; t.err = e.message; renderAcad();
   }
 }
-const T_SILENCE = 3000; // Freihändig: erst nach 3 Sekunden Stille senden – Pausen gehören zum Gespräch
+const T_SILENCE = 2000; // Freihändig: nach 2 Sekunden Stille senden
 let tSilence = null, tRestarts = [], tLastWord = 0;
 function tStopRec() { clearTimeout(tSilence); if (tRec) { const r = tRec; tRec = null; try { r.abort ? r.abort() : r.stop(); } catch (e) {} } }
 function tMic() {
