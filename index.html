@@ -700,7 +700,7 @@ dialog::backdrop{background:rgba(5,15,22,.55)}
 <script>
 (() => {
 'use strict';
-const VERSION = '2.27';
+const VERSION = '2.28';
 const APP = 'P² Gebietskarte';
 const $ = id => document.getElementById(id);
 const msgEl = $('message');
@@ -2805,9 +2805,9 @@ for (const b of document.querySelectorAll('#acadTabs button')) b.addEventListene
 /* ===== Academy-Training: Gespräche mit KI-Kunden ===== */
 const T_PERSONAS = [
   { id: 'skeptisch', icon: '🤨', label: 'Skeptisch', who: 'Herr Becker, 61', desc: 'Misstrauisch, will Ausweis, Fakten und den Haken wissen.' },
-  { id: 'nein', icon: '✋', label: 'Absoluter Nein-Kunde', who: 'Frau Krämer, 45', desc: 'Kein Interesse, keine Zeit. Hier zählt Profi-Verhalten und ein sauberer Abschied.' },
+  { id: 'nein', icon: '✋', label: 'Absoluter Nein-Kunde', who: 'Frau Krämer, 45', desc: 'Kauft nicht. Ziel: freundlich bleiben, einmal kurz nachfassen, sauber verabschieden und weitergehen.' },
   { id: 'vielleicht', icon: '🤔', label: 'Vielleicht-Kunde', who: 'Herr Yilmaz, 38', desc: 'Offen, aber unentschlossen: „Muss erst mit meiner Frau sprechen.“' },
-  { id: 'ja', icon: '🙂', label: 'Ja-Kunde', who: 'Frau Schmitz, 52', desc: 'Ärgert sich über den Preis, will es aber genau verstehen.' },
+  { id: 'ja', icon: '🙂', label: 'Ja-Kunde', who: 'Frau Schmitz, 52', desc: 'Ärgert sich über den Preis und kauft schnell, wenn Du klar und ehrlich erklärst.' },
   { id: 'ablehnend', icon: '😠', label: 'Ablehnend', who: 'Herr Wagner, 57', desc: 'Genervt und unfreundlich. Bleibst Du ruhig und höflich?' }
 ];
 const T_PASS = 6, T_NEED = 3; // Türfreigabe: mind. 3 verschiedene Kundentypen mit Note 6+
