@@ -367,6 +367,9 @@ dialog::backdrop{background:rgba(5,15,22,.55)}
 .t-scene svg{display:block;width:100%;max-width:420px;height:auto;max-height:34vh}
 .t-scene .t-person{transition:transform .35s ease}
 .t-scene.busy .t-person{animation:t-think 1.2s ease-in-out infinite}
+.t-scene.speaking:not(.t-photo) .t-person{animation:t-speak .32s ease-in-out infinite alternate}
+@keyframes t-speak{from{translate:0 0}to{translate:0 -2px}}
+@media (prefers-reduced-motion: reduce){.t-scene.speaking .t-person{animation:none}}
 @keyframes t-think{50%{transform:translateY(-2px) rotate(-1deg)}}
 .t-scene-tag{position:absolute;left:10px;top:10px;display:grid;gap:1px;background:rgba(19,33,43,.82);color:#fff;border-radius:10px;padding:6px 10px;font-size:.85em;max-width:calc(100% - 20px)}
 .t-scene-tag b{font-size:1em}
@@ -697,7 +700,7 @@ dialog::backdrop{background:rgba(5,15,22,.55)}
 <script>
 (() => {
 'use strict';
-const VERSION = '2.25';
+const VERSION = '2.26';
 const APP = 'P² Gebietskarte';
 const $ = id => document.getElementById(id);
 const msgEl = $('message');
@@ -2950,21 +2953,24 @@ function tSteps(t) {
 }
 /* --- Fotorealistische Kunden: 5 Stimmungen × Mund zu/offen (assets/customers) --- */
 const T_PHOTO = { skeptisch: 'becker', nein: 'kraemer', vielleicht: 'yilmaz', ja: 'schmitz', ablehnend: 'wagner' };
+const T_USE_PHOTOS = false; // aus: gezeichnete Kunden (Fotos bleiben im Ordner, true schaltet sie wieder ein)
 const T_MOOD_IDS = ['neutral', 'misstrauisch', 'genervt', 'interessiert', 'freundlich'];
 const tPhotoBad = new Set(); // Kunden, deren Bilder nicht laden: dann gezeichnete Szene
 const tImg = (p, m, talk) => `assets/customers/${T_PHOTO[p]}_${m}${talk ? '_spricht' : ''}.webp`;
 function tPhotoFail(p) { if (tPhotoBad.has(p)) return; tPhotoBad.add(p); if (acad.train && acad.train.persona === p) renderAcad(); }
 function tPreload(p) {
-  if (!T_PHOTO[p] || tPhotoBad.has(p)) return;
+  if (!T_USE_PHOTOS || !T_PHOTO[p] || tPhotoBad.has(p)) return;
   for (const m of T_MOOD_IDS) for (const k of [false, true]) { const i = new Image(); i.onerror = () => tPhotoFail(p); i.src = tImg(p, m, k); }
 }
 let tTalkTimer = null, tTalkStop = null;
 function tTalk(on, ms) { // Mund bewegt sich, solange der Kunde spricht
   clearInterval(tTalkTimer); clearTimeout(tTalkStop);
-  const el = document.querySelector('.t-photo');
-  if (!on) { if (el) el.classList.remove('talk'); return; }
+  const el = document.querySelector('.t-photo'), sc = document.querySelector('.t-scene');
+  if (!on) { if (el) el.classList.remove('talk'); if (sc) sc.classList.remove('speaking'); return; }
   let n = 0;
+  if (sc) sc.classList.add('speaking');
   tTalkTimer = setInterval(() => {
+    const g = document.querySelector('.t-scene'); if (g) g.classList.add('speaking');
     const e = document.querySelector('.t-photo'); if (!e) return;
     n++; e.classList.toggle('talk', n % 7 === 0 ? false : Math.random() < .6);
   }, 120);
@@ -2986,7 +2992,7 @@ function tPhotoScene(t, s, status) {
 }
 function tScene(t) {
   const L = T_LOOK[t.persona] || T_LOOK.nein, s = tState(t);
-  if (T_PHOTO[t.persona] && !tPhotoBad.has(t.persona)) {
+  if (T_USE_PHOTOS && T_PHOTO[t.persona] && !tPhotoBad.has(t.persona)) {
     const mo = T_MOOD[s.mood] || T_MOOD.neutral;
     return tPhotoScene(t, s, s.closed ? '🚪 Tür geschlossen' : s.signed ? '✍️ hat unterschrieben' : s.vorab ? '🤝 einverstanden' : s.bill ? '📄 hat die Abrechnung geholt' : `${mo.icon} ${mo.label}`);
   }
