@@ -715,7 +715,8 @@ dialog::backdrop{background:rgba(5,15,22,.55)}
 <script>
 (() => {
 'use strict';
-const VERSION = '2.29';
+const VERSION = '2.30';
+const WM_OPEN = false; // Wechselmeister für Vertreter: erst auf Florians Signal auf true setzen (bis dahin nur Admin)
 const APP = 'P² Gebietskarte';
 const $ = id => document.getElementById(id);
 const msgEl = $('message');
@@ -1798,7 +1799,7 @@ async function startSession(session) {
 }
 function applyRole() {
   for (const x of document.querySelectorAll('.admin-only')) x.hidden = !isAdmin();
-  $('btnChat').hidden = !me; $('shShare').hidden = !me; $('btnDash').hidden = !me; $('btnAcad').hidden = !me; $('btnWm').hidden = !me;
+  $('btnChat').hidden = !me; $('shShare').hidden = !me; $('btnDash').hidden = !me; $('btnAcad').hidden = !me; $('btnWm').hidden = !me || !(WM_OPEN || isAdmin());
   if (!me) { closeWm(); $('wmBody').textContent = ''; }
   if (!me && acadOpen) closeAcad();
   if (!me && dashOpen) closeDash();
@@ -2820,7 +2821,7 @@ $('btnAcad').addEventListener('click', () => acadOpen ? closeAcad() : openAcad()
 $('acadClose').addEventListener('click', closeAcad);
 /* ===== Wechselmeister: Tarifrechner für Vertreter (eigene Seite, im MultiTool eingebettet; Abschlüsse werden dem angemeldeten Vertreter zugeordnet) ===== */
 function openWm() {
-  if (!me) return;
+  if (!me || !(WM_OPEN || isAdmin())) return;
   wmOpen = true; $('wm').hidden = false;
   if (current) closeSheet(); if (chatOpen) closeChat(); if (dashOpen) closeDash(); if (acadOpen) closeAcad();
   if (!$('wmBody').firstChild) $('wmBody').append(h('iframe', { src: './wechselmeister/?vertreter=1&embed=1', title: 'Wechselmeister Tarifrechner', allow: 'clipboard-write' }));
