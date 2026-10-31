@@ -94,6 +94,15 @@ label.f{display:grid;gap:6px;font-size:.88rem;font-weight:500;align-content:star
 .vbar button,.vbar a{background:rgba(255,255,255,.12);color:var(--on-dark);border:0;border-radius:var(--pill);padding:8px 14px;font-weight:600;cursor:pointer;text-decoration:none;font-size:.85rem}
 .vbar button[aria-pressed="true"]{background:var(--on-dark);color:var(--dark)}
 .prov{display:inline-block;margin-top:8px;background:#dfeee2;color:var(--ok);border-radius:var(--pill);padding:3px 12px;font-size:.82rem;font-weight:700}
+.mandate{margin:18px 0 6px;border:1.5px solid var(--dark);border-radius:var(--r2);padding:16px;background:#fff}
+.mandate>label.mh{display:flex;gap:12px;align-items:flex-start;cursor:pointer;font-size:.95rem}
+.mandate>label.mh input{width:22px;height:22px;accent-color:var(--dark);flex:none;margin-top:1px}
+.mandate .rec{display:inline-block;background:var(--dark);color:var(--on-dark);border-radius:var(--pill);padding:1px 9px;font-size:.72rem;font-weight:700;margin-left:6px;vertical-align:middle}
+.mandate .body{display:grid;gap:12px;margin-top:14px;padding-top:14px;border-top:1px solid var(--line2)}
+.sig{display:block;width:100%;height:auto;aspect-ratio:3/1;background:#fff;border:1.5px dashed var(--soft);border-radius:var(--r2);touch-action:none;cursor:crosshair}
+.sigrow{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;font-size:.85rem;color:var(--muted)}
+.vm-text p{margin:0 0 10px}
+.pill.vollmacht{background:#e7e1f3;border-color:#cfc4e6}
 .pill.offen{background:#f3e6c9;border-color:#e3cf9f}.pill.freigegeben{background:#dfeee2;border-color:#bcd9c2;color:var(--ok)}.pill.ausgezahlt{background:var(--dark);color:var(--on-dark);border-color:var(--dark)}
 label.f small{color:var(--muted);font-weight:400}
 .in-f{width:100%;min-height:52px;border:1.5px solid var(--line);background:#fff;border-radius:var(--pill);padding:0 20px;font-size:1rem}
@@ -219,9 +228,29 @@ const sb = window.supabase ? window.supabase.createClient(SB_URL, SB_KEY, { auth
 // Rechtstexte: vor dem Start von P² Sales ergänzen und anwaltlich prüfen lassen
 const LEGAL = {
   impressum: { t: 'Impressum', x: ['Angaben gemäß § 5 DDG', 'P hoch 2 Sales UG (haftungsbeschränkt)\nKönigsallee 27\n40212 Düsseldorf', 'Vertreten durch: Florian Pfeufer, Gabriele Pfeufer', 'Handelsregister: HRB 136851, Amtsgericht Düsseldorf', 'Umsatzsteuer-Identifikationsnummer gemäß § 27a UStG: DE458470080', 'Telefon: +49 211 238 55 199\nE-Mail: f.pfeufer@phoch2sales.de', 'Verantwortlich für den Inhalt nach § 18 Abs. 2 MStV: Florian Pfeufer, Anschrift wie oben', 'P² Sales vermittelt Strom- und Gaslieferverträge. Vertragspartner des Energieliefervertrags ist der jeweilige Energieversorger. Für erfolgreiche Vermittlungen erhält P² Sales eine Provision vom Energieversorger; für dich ist der Service kostenlos.'] },
-  datenschutz: { t: 'Datenschutzhinweise', x: ['Verantwortlich: P hoch 2 Sales UG (haftungsbeschränkt), Königsallee 27, 40212 Düsseldorf, f.pfeufer@phoch2sales.de, +49 211 238 55 199.', 'Welche Daten: Postleitzahl, Ort, Straße, Jahresverbrauch, Name, E-Mail, Telefon sowie freiwillig bisheriger Anbieter und Zählernummer. Wird der Wechsel über einen Vertriebspartner von P² Sales vor Ort abgeschlossen, speichern wir zusätzlich, welcher Vertriebspartner ihn vermittelt hat (für die Provisionsabrechnung).','Wozu: Tarifvergleich, Durchführung des beauftragten Tarifwechsels (Art. 6 Abs. 1 lit. b DSGVO) und – nur mit deiner Einwilligung – Erinnerung vor Vertragsende (Art. 6 Abs. 1 lit. a DSGVO). Die Einwilligung kannst du jederzeit widerrufen.', 'Empfänger: der ausgewählte Energieversorger sowie unsere Vertriebspartner für die Abwicklung des Wechsels (z. B. Stromkreis, stromschalten.de). Hosting der Datenbank: Supabase (EU-Region, [bitte prüfen]). Schriften und Programmbibliotheken werden über jsDelivr geladen; dabei wird deine IP-Adresse an jsDelivr übermittelt.', 'Speicherdauer: solange es für den Vertrag und gesetzliche Aufbewahrungspflichten nötig ist.', 'Deine Rechte: Auskunft, Berichtigung, Löschung, Einschränkung, Datenübertragbarkeit, Widerspruch und Beschwerde bei einer Aufsichtsbehörde.', '[Vollständigen Text bitte ergänzen und anwaltlich prüfen lassen.]'] }
+  datenschutz: { t: 'Datenschutzhinweise', x: ['Verantwortlich: P hoch 2 Sales UG (haftungsbeschränkt), Königsallee 27, 40212 Düsseldorf, f.pfeufer@phoch2sales.de, +49 211 238 55 199.', 'Welche Daten: Postleitzahl, Ort, Straße, Jahresverbrauch, Name, E-Mail, Telefon sowie freiwillig bisheriger Anbieter und Zählernummer. Wird der Wechsel über einen Vertriebspartner von P² Sales vor Ort abgeschlossen, speichern wir zusätzlich, welcher Vertriebspartner ihn vermittelt hat (für die Provisionsabrechnung).','Wozu: Tarifvergleich, Durchführung des beauftragten Tarifwechsels (Art. 6 Abs. 1 lit. b DSGVO) und – nur mit deiner Einwilligung – Erinnerung vor Vertragsende (Art. 6 Abs. 1 lit. a DSGVO). Die Einwilligung kannst du jederzeit widerrufen.', 'Empfänger: der ausgewählte Energieversorger sowie unsere Vertriebspartner für die Abwicklung des Wechsels (z. B. Stromkreis, stromschalten.de). Hosting der Datenbank: Supabase (EU-Region, [bitte prüfen]). Schriften und Programmbibliotheken werden über jsDelivr geladen; dabei wird deine IP-Adresse an jsDelivr übermittelt.', 'Wechselvollmacht (freiwillig): Erteilst du uns die Vollmacht, speichern wir zum Nachweis deine Unterschrift, deinen Namen, Zeitpunkt, Fassung des Vollmachttexts, IP-Adresse und Browserkennung sowie deine Vorgaben für künftige Wechsel (Art. 6 Abs. 1 lit. b DSGVO), solange die Vollmacht besteht und danach für gesetzliche Aufbewahrungspflichten.', 'Speicherdauer: solange es für den Vertrag und gesetzliche Aufbewahrungspflichten nötig ist.', 'Deine Rechte: Auskunft, Berichtigung, Löschung, Einschränkung, Datenübertragbarkeit, Widerspruch und Beschwerde bei einer Aufsichtsbehörde.', '[Vollständigen Text bitte ergänzen und anwaltlich prüfen lassen.]'] }
 };
 
+// Wechselvollmacht – Fassung muss zu wm_mandate_version() in wechselmeister_vollmacht.sql passen. Text vor dem Start anwaltlich prüfen lassen.
+const MANDATE_VERSION = 'V1-2026-11';
+function mandateText(f = {}, prefs = {}, commodity = 'strom') {
+  const name = [f.first_name, f.last_name].filter(Boolean).join(' ') || '[Name]';
+  const adr = [f.street, [f.plz || S.plz, f.city].filter(Boolean).join(' ')].filter(Boolean).join(', ') || '[Anschrift]';
+  const sp = commodity === 'gas' ? 'Gas' : 'Strom';
+  return [
+    `Wechselvollmacht (Fassung ${MANDATE_VERSION})`,
+    `1. Vollmachtgeber: ${name}, ${adr}. Die Vollmacht gilt für die ${sp}-Lieferstelle an dieser Anschrift${f.meter_no ? ' (Zählernummer ' + f.meter_no + ')' : ''}.`,
+    '2. Bevollmächtigter: P hoch 2 Sales UG (haftungsbeschränkt), Königsallee 27, 40212 Düsseldorf („P²“).',
+    `3. Umfang: Ich bevollmächtige P², für diese Lieferstelle in meinem Namen (a) bestehende ${sp}lieferverträge zum nächstmöglichen Termin zu kündigen, (b) einen neuen Liefervertrag nach meinen Vorgaben auszuwählen und abzuschließen und (c) alle dafür nötigen Erklärungen gegenüber Energieversorgern und Netzbetreibern abzugeben und entgegenzunehmen sowie Vertrags- und Verbrauchsdaten einzuholen. Das gilt für den jetzigen und für alle folgenden Wechsel, bis ich die Vollmacht widerrufe.`,
+    `4. Meine Vorgaben: P² wählt jeweils den Tarif mit den niedrigsten voraussichtlichen Jahreskosten aus dem verfügbaren Angebot, der diese Vorgaben erfüllt: ${prefs.oeko ? 'nur Ökostrom bzw. klimaneutrales Gas' : 'Ökostrom nicht erforderlich'}; Laufzeit höchstens ${prefs.max_laufzeit || 24} Monate; Preisgarantie mindestens ${prefs.min_preisgarantie ?? 12} Monate; keine Vorauskasse und keine Kaution.`,
+    '5. Information vor jedem Wechsel: Vor jedem weiteren Wechsel informiert mich P² per E-Mail über den ausgewählten Tarif (Anbieter, Preise, Laufzeit, voraussichtliche Jahreskosten). Ich kann dem Wechsel innerhalb von 7 Tagen nach Zugang dieser E-Mail widersprechen; dann unterbleibt er. Mein gesetzliches Widerrufsrecht gegenüber dem neuen Energieversorger bleibt unberührt.',
+    '6. Kosten: Der Service ist für mich kostenlos. P² erhält vom jeweiligen Energieversorger eine Vermittlungsprovision.',
+    '7. Untervollmacht: P² darf zur Abwicklung Partnern (z. B. Stromkreis/egON, stromschalten.de) Untervollmacht erteilen.',
+    '8. Dauer und Widerruf: Die Vollmacht gilt unbefristet. Ich kann sie jederzeit ohne Angabe von Gründen widerrufen – per E-Mail an f.pfeufer@phoch2sales.de oder über den Widerrufslink in meiner Bestätigung. Bereits geschlossene Lieferverträge bleiben vom Widerruf unberührt.',
+    '9. Datenschutz: Meine Daten werden nach den Datenschutzhinweisen von P² verarbeitet. Zum Nachweis der Vollmacht werden Unterschrift, Zeitpunkt, Fassung dieses Textes, IP-Adresse und Browserkennung gespeichert.'
+  ];
+}
+const sha256 = async t => Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(t)))).map(b => b.toString(16).padStart(2, '0')).join('');
 const $ = id => document.getElementById(id);
 function h(tag, attrs, ...kids) {
   const el = document.createElement(tag);
@@ -301,6 +330,7 @@ const FAQ = [
   ['Wer kündigt meinen bisherigen Vertrag?', 'Das übernehmen wir zusammen mit deinem neuen Anbieter. Läuft dein alter Vertrag noch, startet der neue zum nächstmöglichen Termin.'],
   ['Kann während des Wechsels der Strom oder das Gas ausfallen?', 'Nein. Die Versorgung läuft ohne Unterbrechung weiter – Leitungen und Zähler bleiben gleich, es ändert sich nur der Vertrag.'],
   ['Wann werde ich erinnert?', 'Wenn du den Erinnerungsservice wählst, melden wir uns 90, 60 und 30 Tage vor deinem Vertragsende per E-Mail. Du kannst ihn jederzeit abbestellen.'],
+  ['Was ist die Wechselvollmacht?', 'Damit beauftragst du uns, künftig automatisch in den nächsten passenden Tarif zu wechseln – nach deinen Vorgaben wie Ökostrom, Laufzeit und Preisgarantie. Vor jedem Wechsel bekommst du eine E-Mail und kannst innerhalb von 7 Tagen widersprechen. Die Vollmacht ist freiwillig und jederzeit widerrufbar.'],
   ['Woher kenne ich meinen Jahresverbrauch?', 'Er steht auf deiner letzten Jahresabrechnung. Hast du sie gerade nicht zur Hand, helfen dir die Schätzwerte im Tarifcheck.'],
   ['Kann ich den Wechsel widerrufen?', 'Ja. Als Verbraucher hast du gegenüber dem Energieversorger ein 14-tägiges Widerrufsrecht. Die Details stehen in den Vertragsunterlagen.'],
   ['Was passiert mit meinen Daten?', 'Wir nutzen sie nur für deinen Wechsel und – wenn du es möchtest – für die Erinnerung. Wir verkaufen keine Daten. Mehr in den Datenschutzhinweisen.']
@@ -418,15 +448,18 @@ function step3() {
     else if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(String(f.email).trim())) S.err = 'Bitte eine gültige E-Mail-Adresse eingeben.';
     else if (!anfrage && !f.consent_order) S.err = 'Bitte bestätige den Wechselauftrag.';
     else if (!f.consent_privacy) S.err = 'Bitte bestätige die Datenschutzhinweise.';
+    else if (f.mandate && !(f.sig_ink > 120 && f.mandate_signature)) S.err = 'Bitte die Wechselvollmacht im Feld unterschreiben – oder das Häkchen bei der Vollmacht entfernen.';
     if (S.err) { renderPublic(); return; }
     S.busy = true; renderPublic();
     const payload = { commodity: S.commodity, plz: S.plz, consumption: +S.kwh, tariff_id: o ? o.id : '', website: $('website') ? $('website').value : '',
       first_name: f.first_name, last_name: f.last_name, email: f.email, phone: f.phone || '', street: f.street, city: f.city,
       prev_provider: f.prev_provider || '', meter_no: f.meter_no || '', consent_order: !!f.consent_order, consent_reminder: !!f.consent_reminder, consent_privacy: !!f.consent_privacy, channel: VM ? 'vertreter' : '' };
+    if (f.mandate) Object.assign(payload, { mandate: true, mandate_signature: f.mandate_signature, mandate_signer: `${f.first_name} ${f.last_name}`.trim(), mandate_prefs: mandPrefs(),
+      mandate_text_sha: await sha256(mandateText(f, mandPrefs(), S.commodity).join('\n')) });
     const { data, error } = await sb.rpc('wm_create_order', { p: payload });
     S.busy = false;
     if (error) { S.err = cleanErr(error); renderPublic(); return; }
-    S.done = { ref: data.ref, kind: data.kind, sel: o, prov: data.provision_eur }; S.form = {}; renderPublic(); window.scrollTo(0, 0);
+    S.done = { ref: data.ref, kind: data.kind, sel: o, prov: data.provision_eur, mandate: !!data.mandate }; S.form = {}; renderPublic(); window.scrollTo(0, 0);
   };
   const form = h('form', { class: 'card', onsubmit: submit, novalidate: true },
     h('p', { class: 'kicker' }, anfrage ? 'Persönliches Angebot' : 'Wechselauftrag'),
@@ -443,6 +476,7 @@ function step3() {
       chk('consent_reminder', 'Ich möchte den kostenlosen P² Erinnerungsservice nutzen und per E-Mail rechtzeitig vor dem nächsten Vertragsende informiert werden. (freiwillig, jederzeit widerrufbar)'),
       h('label', {}, h('input', { type: 'checkbox', id: 'consent_privacy', checked: !!S.form.consent_privacy, onchange: e => { S.form.consent_privacy = e.target.checked; } }),
         h('span', {}, 'Ich habe die ', h('a', { href: '#', onclick: e => { e.preventDefault(); showLegal('datenschutz'); } }, 'Datenschutzhinweise'), ' gelesen. Meine Daten dürfen zur Durchführung ' + (anfrage ? 'meiner Anfrage' : 'des Tarifwechsels an den ausgewählten Energieanbieter') + ' übermittelt werden.'))),
+    mandateBlock(),
     S.err ? h('p', { class: 'err', role: 'alert' }, S.err) : null,
     h('div', { class: 'actions' },
       h('button', { class: 'btn ghost', type: 'button', onclick: () => { S.step = 2; S.err = ''; renderPublic(); } }, '← Zurück'),
@@ -456,6 +490,55 @@ function step3() {
       h('li', {}, 'Kostenloser Wechselservice'), h('li', {}, 'Automatische Vertragserinnerung'), h('li', {}, 'Kündigung beim alten Anbieter übernehmen wir')));
   return h('div', { class: 'two' }, form, aside);
 }
+function mandPrefs() { const f = S.form; return { oeko: !!f.m_oeko, max_laufzeit: Number(f.m_lz || 24), min_preisgarantie: Number(f.m_pg ?? 12) }; }
+function sigPad() {
+  const c = h('canvas', { class: 'sig', width: '900', height: '300', 'aria-label': 'Unterschriftsfeld: mit Finger oder Maus unterschreiben' });
+  const ctx = c.getContext('2d'); ctx.lineWidth = 3.2; ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.strokeStyle = ctx.fillStyle = '#1d1a1a';
+  let down = false, last = null;
+  const pos = e => { const r = c.getBoundingClientRect(); return [(e.clientX - r.left) * c.width / r.width, (e.clientY - r.top) * c.height / r.height]; };
+  c.addEventListener('pointerdown', e => { down = true; last = pos(e); try { c.setPointerCapture(e.pointerId); } catch (x) {} e.preventDefault(); ctx.beginPath(); ctx.arc(last[0], last[1], 1.6, 0, 7); ctx.fill(); });
+  c.addEventListener('pointermove', e => { if (!down) return; const p = pos(e); ctx.beginPath(); ctx.moveTo(last[0], last[1]); ctx.lineTo(p[0], p[1]); ctx.stroke(); S.form.sig_ink = (S.form.sig_ink || 0) + Math.hypot(p[0] - last[0], p[1] - last[1]); last = p; });
+  const end = () => { if (!down) return; down = false; S.form.mandate_signature = c.toDataURL('image/png'); };
+  ['pointerup', 'pointercancel', 'pointerleave'].forEach(t => c.addEventListener(t, end));
+  if (S.form.mandate_signature) { const img = new Image(); img.onload = () => ctx.drawImage(img, 0, 0); img.src = S.form.mandate_signature; }
+  return c;
+}
+function mandateBlock() {
+  const f = S.form;
+  const head = h('label', { class: 'mh' }, h('input', { type: 'checkbox', id: 'mandate', checked: !!f.mandate, onchange: e => { f.mandate = e.target.checked; renderPublic(); if (f.mandate) setTimeout(() => $('mandate').scrollIntoView({ block: 'start', behavior: 'smooth' }), 50); } }),
+    h('span', {}, h('b', {}, 'Wechselservice mit Vollmacht'), h('span', { class: 'rec' }, 'empfohlen'), h('br'),
+      h('span', { class: 'muted' }, 'P² wechselt künftig rechtzeitig vor jedem Vertragsende automatisch in den nächsten passenden Tarif – bis du widerrufst. Vor jedem Wechsel bekommst du eine E-Mail und kannst widersprechen.')));
+  if (!f.mandate) return h('div', { class: 'mandate' }, head);
+  const sel = (id, label, opts, val) => h('label', { class: 'f', for: id }, label, h('select', { class: 'in-f', id, onchange: e => { f[id] = e.target.value; } }, opts.map(([v, l]) => h('option', { value: v, selected: String(val) === String(v) }, l))));
+  const pad = sigPad();
+  const clear = () => { const ctx = pad.getContext('2d'); ctx.clearRect(0, 0, pad.width, pad.height); f.mandate_signature = ''; f.sig_ink = 0; };
+  const name = `${f.first_name || ''} ${f.last_name || ''}`.trim();
+  return h('div', { class: 'mandate' }, head,
+    h('div', { class: 'body' },
+      h('b', {}, 'Deine Vorgaben für künftige Wechsel'),
+      h('div', { class: 'grid2' },
+        sel('m_lz', 'Laufzeit höchstens', [[12, '12 Monate'], [24, '24 Monate']], f.m_lz || 24),
+        sel('m_pg', 'Preisgarantie mindestens', [[0, 'egal'], [12, '12 Monate'], [24, '24 Monate']], f.m_pg ?? 12)),
+      h('label', { style: 'display:flex;gap:10px;align-items:center;font-size:.92rem' }, h('input', { type: 'checkbox', id: 'm_oeko', checked: !!f.m_oeko, onchange: e => { f.m_oeko = e.target.checked; } }), S.commodity === 'gas' ? 'Nur klimaneutrales Gas' : 'Nur Ökostrom'),
+      h('p', { class: 'muted', style: 'margin:0;font-size:.88rem' }, 'Mit deiner Unterschrift erteilst du P² die ', h('a', { href: '#', onclick: e => { e.preventDefault(); showLegal('vollmacht'); } }, 'Wechselvollmacht'), ' nach diesen Vorgaben. Freiwillig und jederzeit widerrufbar.'),
+      pad,
+      h('div', { class: 'sigrow' }, h('span', {}, '✍️ Unterschrift ' + (name ? 'von ' + name : '') + ' · ' + new Date().toLocaleDateString('de-DE')), h('button', { class: 'btn ghost small', type: 'button', onclick: clear }, 'Unterschrift löschen'))));
+}
+async function revokeView(token) {
+  const app = $('app'); app.textContent = '';
+  const card = h('div', { class: 'card done', style: 'margin-top:24px' });
+  const go = async () => {
+    btn.disabled = true; btn.textContent = 'Einen Moment …';
+    const { data, error } = sb ? await sb.rpc('wm_revoke_mandate', { p_token: token }) : { error: 'x' };
+    card.textContent = '';
+    if (!error && data && data.ok) card.append(h('p', { class: 'kicker' }, 'Widerrufen'), h('h1', {}, data.already ? 'Die Vollmacht war bereits widerrufen.' : 'Deine Wechselvollmacht ist widerrufen.'), h('div', { class: 'ref' }, 'Referenz ' + data.ref), h('p', { class: 'lead', style: 'margin:0 auto' }, 'Wir wechseln ab jetzt nicht mehr automatisch für dich. Bereits geschlossene Verträge bleiben bestehen.'));
+    else card.append(h('p', { class: 'kicker' }, 'Widerruf'), h('h1', {}, 'Der Link ist ungültig.'), h('p', { class: 'lead', style: 'margin:0 auto' }, 'Schreib uns einfach eine E-Mail an f.pfeufer@phoch2sales.de – wir kümmern uns.'));
+    history.replaceState(null, '', location.pathname);
+  };
+  const btn = h('button', { class: 'btn', type: 'button', onclick: go }, 'Ja, Vollmacht widerrufen');
+  card.append(h('p', { class: 'kicker' }, 'Wechselvollmacht'), h('h1', {}, 'Vollmacht widerrufen?'), h('p', { class: 'lead', style: 'margin:0 auto 22px' }, 'Nach dem Widerruf wechseln wir nicht mehr automatisch für dich. Bereits geschlossene Verträge bleiben bestehen.'), btn);
+  app.append(card);
+}
 function doneView() {
   const d = S.done;
   return h('div', { class: 'card done' },
@@ -465,6 +548,7 @@ function doneView() {
     h('p', { class: 'lead', style: 'margin:0 auto 22px' }, d.kind === 'anfrage'
       ? 'Wir suchen den passenden Tarif für dich heraus und melden uns innerhalb von 1–2 Werktagen per E-Mail oder Telefon.'
       : 'Wir prüfen deinen Auftrag und melden uns zur Bestätigung per E-Mail. Erst nach deiner Bestätigung wird der Wechsel beim Energieanbieter angestoßen. Die Kündigung beim bisherigen Anbieter übernehmen wir.'),
+    d.mandate ? h('p', { class: 'note', style: 'max-width:520px;margin:0 auto 16px' }, h('b', {}, '✍️ Wechselvollmacht erteilt'), h('br'), 'Ab jetzt wechseln wir rechtzeitig vor jedem Vertragsende in den nächsten passenden Tarif. Vor jedem Wechsel bekommst du eine E-Mail und kannst innerhalb von 7 Tagen widersprechen. Widerruf jederzeit per E-Mail an f.pfeufer@phoch2sales.de.') : null,
     VM && d.kind === 'auftrag' ? h('p', { class: 'note', style: 'max-width:520px;margin:0 auto 20px' }, h('b', {}, `Dir zugeordnet · Provision ${eur(d.prov, 2)}`), h('br'), 'Wird freigegeben, sobald der Vertrag aktiv ist. Den Stand siehst du unter „Meine Abschlüsse“.') : null,
     h('div', { class: 'btnrow', style: 'justify-content:center' },
       h('button', { class: 'btn ghost', type: 'button', onclick: () => { Object.assign(S, { step: 1, done: null, offers: [], sel: null, err: '', kwh: VM ? '' : S.kwh }); renderPublic(); window.scrollTo(0, 0); } }, VM ? 'Nächster Kunde' : 'Neuen Tarifcheck starten'),
@@ -481,7 +565,7 @@ async function confirmView(token) {
   history.replaceState(null, '', location.pathname);
 }
 function showLegal(k) {
-  const L = LEGAL[k]; const b = $('dlgBody'); b.textContent = '';
+  const L = k === 'vollmacht' ? { t: 'Wechselvollmacht', x: mandateText(S.form, mandPrefs(), S.commodity) } : LEGAL[k]; const b = $('dlgBody'); b.textContent = '';
   b.append(h('h2', {}, L.t), ...L.x.map(p => h('p', { style: 'white-space:pre-line' }, p)),h('button', { class: 'btn small', type: 'button', onclick: () => $('dlg').close() }, 'Schließen'));
   $('dlg').showModal();
 }
@@ -559,14 +643,15 @@ function overview() {
   const due = A.reminders.filter(x => x.due_date <= addDays(14));
   const demo = A.tariffs.filter(t => t.demo && t.active).length;
   const month = A.orders.filter(x => x.created_at.slice(0, 7) === today().slice(0, 7)).length;
+  const mand = A.orders.filter(x => x.mandate && !x.mandate_revoked_at).length;
   const kpi = (n, l, go) => h('button', { class: 'kpi', type: 'button', style: 'text-align:left;border:0;cursor:pointer', onclick: () => { A.tab = go; renderAdmin(); } }, h('b', {}, String(n)), h('span', {}, l));
   const ready = A.integ.filter(x => x.configured).length;
   return h('div', {},
     demo ? h('div', { class: 'warnbox' }, `⚠️ ${demo} Beispieltarif${demo > 1 ? 'e sind' : ' ist'} aktiv. Vor Werbung bitte echte Tarife eintragen oder per Schnittstelle laden und die Beispiele deaktivieren.`) : null,
-    h('div', { class: 'kpis' }, kpi(neu.length, 'neue Aufträge & Anfragen', 'orders'), kpi(anf.length, 'davon Anfragen ohne Tarif', 'orders'), kpi(due.length, 'Erinnerungen in den nächsten 14 Tagen', 'rem'), kpi(month, 'Eingänge in diesem Monat', 'orders'), kpi(`${ready}/2`, 'Schnittstellen eingerichtet', 'integ')),
+    h('div', { class: 'kpis' }, kpi(neu.length, 'neue Aufträge & Anfragen', 'orders'), kpi(anf.length, 'davon Anfragen ohne Tarif', 'orders'), kpi(due.length, 'Erinnerungen in den nächsten 14 Tagen', 'rem'), kpi(month, 'Eingänge in diesem Monat', 'orders'), kpi(mand, 'aktive Wechselvollmachten', 'orders'), kpi(`${ready}/2`, 'Schnittstellen eingerichtet', 'integ')),
     h('div', { class: 'card' }, h('p', { class: 'kicker' }, 'Vor dem Start'),
       h('ul', { style: 'margin:0;padding-left:18px;display:grid;gap:6px' },
-        h('li', {}, 'Impressum prüfen (Registergericht, Vertretungsberechtigte) und Datenschutztext anwaltlich prüfen lassen'),
+        h('li', {}, 'Impressum prüfen (Registergericht, Vertretungsberechtigte), Datenschutztext und Wechselvollmacht anwaltlich prüfen lassen'),
         h('li', {}, 'Provision je Tarif und Anteil der Vertreter festlegen (Reiter „Provisionen“ und „Tarife“)'),
         h('li', {}, 'Echte Tarife eintragen (Reiter „Tarife“) oder Schnittstellen einrichten (Reiter „Schnittstellen“)'),
         h('li', {}, 'E-Mail-Versand für Bestätigung und Erinnerungen einrichten (Stufe 2)'),
@@ -574,10 +659,10 @@ function overview() {
 }
 function ordersView() {
   const q = A.q.toLowerCase();
-  const list = A.orders.filter(o => (A.filter === 'alle' || (A.filter === 'anfrage' ? o.kind === 'anfrage' : A.filter === 'vertreter' ? o.channel === 'vertreter' : o.status === A.filter)) &&
+  const list = A.orders.filter(o => (A.filter === 'alle' || (A.filter === 'anfrage' ? o.kind === 'anfrage' : A.filter === 'vertreter' ? o.channel === 'vertreter' : A.filter === 'vollmacht' ? o.mandate && !o.mandate_revoked_at : o.status === A.filter)) &&
     (!q || [o.ref, o.first_name, o.last_name, o.email, o.plz, o.city, o.agent_name].join(' ').toLowerCase().includes(q)));
   const sel = h('select', { class: 'in-f', style: 'max-width:220px', 'aria-label': 'Status filtern', onchange: e => { A.filter = e.target.value; renderAdmin(); } },
-    [['alle', 'Alle'], ['anfrage', 'Nur Anfragen'], ['vertreter', 'Nur über Vertreter'], ...Object.entries(STATUS)].map(([v, l]) => h('option', { value: v, selected: A.filter === v }, l)));
+    [['alle', 'Alle'], ['anfrage', 'Nur Anfragen'], ['vertreter', 'Nur über Vertreter'], ['vollmacht', 'Nur mit Vollmacht'], ...Object.entries(STATUS)].map(([v, l]) => h('option', { value: v, selected: A.filter === v }, l)));
   const search = h('input', { class: 'in-f', style: 'max-width:280px', placeholder: 'Suchen: Name, Ref, PLZ …', value: A.q, 'aria-label': 'Suchen', oninput: e => { A.q = e.target.value; clearTimeout(search._t); search._t = setTimeout(() => { renderAdmin().then(() => { const s = document.querySelector('[aria-label="Suchen"]'); if (s) { s.focus(); s.setSelectionRange(s.value.length, s.value.length); } }); }, 300); } });
   return h('div', {}, h('div', { class: 'btnrow', style: 'margin-bottom:12px' }, sel, search),
     list.length ? h('div', { class: 'list' }, list.map(orderItem)) : h('p', { class: 'note' }, A.orders.length ? 'Keine Treffer.' : 'Noch keine Aufträge. Sobald Kunden den Tarifcheck abschicken, erscheinen sie hier.'));
@@ -586,7 +671,7 @@ function orderItem(o) {
   const open = A.open === o.id, t = o.tariff || {};
   const hd = h('button', { class: 'hd', type: 'button', 'aria-expanded': String(open), onclick: () => { A.open = open ? null : o.id; renderAdmin(); } },
     h('b', {}, `${o.first_name} ${o.last_name}`), h('span', { class: 'muted' }, `#${o.ref} · ${dtFmt(o.created_at)}`),
-    h('span', { class: 'r' }, o.channel === 'vertreter' ? h('span', { class: 'pill' }, '👤 ' + (o.agent_name || 'Vertreter')) : null, o.kind === 'anfrage' ? h('span', { class: 'pill anfrage' }, 'Anfrage') : null,
+    h('span', { class: 'r' }, o.mandate ? h('span', { class: 'pill ' + (o.mandate_revoked_at ? 'storniert' : 'vollmacht') }, o.mandate_revoked_at ? 'Vollmacht widerrufen' : '✍️ Vollmacht') : null, o.channel === 'vertreter' ? h('span', { class: 'pill' }, '👤 ' + (o.agent_name || 'Vertreter')) : null, o.kind === 'anfrage' ? h('span', { class: 'pill anfrage' }, 'Anfrage') : null,
       h('span', { class: 'pill' }, o.commodity === 'gas' ? 'Gas' : 'Strom'), h('span', { class: 'pill ' + o.status }, STATUS[o.status] || o.status)));
   const it = h('div', { class: 'item' }, hd);
   if (!open) { it.append(h('div', { class: 'muted', style: 'font-size:.88rem;margin-top:4px' }, [o.plz + ' ' + o.city, kwhFmt(o.consumption), t.name ? `${t.name} · ${eur(t.jahreskosten)}/Jahr` : 'ohne Tarif', o.contract_end ? 'Ende ' + dFmt(o.contract_end) : null].filter(Boolean).join(' · '))); return it; }
@@ -621,6 +706,7 @@ function orderItem(o) {
       kv('Adresse', `${o.street}, ${o.plz} ${o.city}`), kv('Verbrauch', kwhFmt(o.consumption)), kv('Bisheriger Anbieter', o.prev_provider), kv('Zählernummer', o.meter_no),
       kv('Tarif', t.name ? `${t.name} (${t.provider || ''})${t.demo ? ' · Beispiel' : ''}` : 'keiner – persönliches Angebot'),
       kv('Preise', t.name ? `${ct(t.arbeitspreis_ct)} · ${eur(t.grundpreis_monat, 2)}/Monat · ${eur(t.jahreskosten)}/Jahr` : '–'),
+      kv('Wechselvollmacht', !o.mandate ? 'nein' : o.mandate_revoked_at ? `widerrufen am ${dtFmt(o.mandate_revoked_at)} (${o.mandate_revoked_by || ''})` : `erteilt am ${dtFmt(o.mandate_at)} · ${o.mandate_version} · ${mPrefsText(o.mandate_prefs)}`),
       kv('Einwilligungen', [o.consent_order ? 'Auftrag ✓' : 'Auftrag –', o.consent_reminder ? 'Erinnerung ✓' : 'Erinnerung –', 'Datenschutz ✓'].join(' · ')),
       kv('Vermittelt durch', o.channel === 'vertreter' ? (o.agent_name || 'Vertreter') : 'online (direkt)'),
       hasP ? kv('Provision', `P² ${eur(o.provision_total, 2)} · Anteil ${Number(o.share_pct || 0).toLocaleString('de-DE')} % = ${eur(o.provision_eur, 2)} für ${o.agent_name || 'Vertreter'}`) : null,
@@ -632,14 +718,31 @@ function orderItem(o) {
     h('div', { class: 'btnrow' }, h('button', { class: 'btn small', type: 'button', onclick: save }, 'Speichern'),
       A.integ.map(ig => h('button', { class: 'btn ghost small', type: 'button', disabled: !canT || !ig.configured || !ig.enabled, title: !canT ? 'Nur Aufträge mit Tarif und bestätigtem Auftrag' : !ig.configured ? 'Schnittstelle noch nicht eingerichtet' : !ig.enabled ? 'Schnittstelle im Reiter „Schnittstellen“ aktivieren' : '', onclick: () => transfer(ig.id) }, `→ An ${ig.name}`)),
       h('button', { class: 'btn ghost small', type: 'button', onclick: async () => { try { await navigator.clipboard.writeText(optin); toast('Bestätigungslink kopiert.'); } catch (e) { prompt('Bestätigungslink:', optin); } } }, 'Bestätigungslink kopieren'),
+      o.mandate ? h('button', { class: 'btn ghost small', type: 'button', onclick: () => printMandate(o) }, 'Vollmacht ansehen / drucken') : null,
+      o.mandate && !o.mandate_revoked_at ? h('button', { class: 'btn ghost small', type: 'button', onclick: async () => { const l = location.origin + location.pathname + '?widerruf=' + o.mandate_token; try { await navigator.clipboard.writeText(l); toast('Widerrufslink kopiert.'); } catch (e) { prompt('Widerrufslink:', l); } } }, 'Widerrufslink kopieren') : null,
+      o.mandate && !o.mandate_revoked_at ? h('button', { class: 'btn ghost small', type: 'button', onclick: async () => { if (!confirm(`Vollmacht von ${o.first_name} ${o.last_name} als widerrufen eintragen (z. B. Widerruf per E-Mail)?`)) return;
+        const { data, error } = await sb.from('wm_orders').update({ mandate_revoked_at: new Date().toISOString(), mandate_revoked_by: 'P² (eingetragen)' }).eq('id', o.id).select().single(); if (error) { toast(cleanErr(error), true); return; } Object.assign(o, data); toast('Vollmacht als widerrufen eingetragen.'); renderAdmin(); } }, 'Widerruf eintragen') : null,
       h('button', { class: 'btn ghost small', type: 'button', style: 'color:var(--err)', onclick: del }, 'Löschen'))));
   return it;
+}
+const mPrefsText = p => p ? [p.oeko ? 'nur Öko' : 'Öko egal', `Laufzeit ≤ ${p.max_laufzeit} Mon.`, `Preisgarantie ≥ ${p.min_preisgarantie} Mon.`].join(', ') : '–';
+const esc = t => String(t ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
+function printMandate(o) {
+  const txt = mandateText({ first_name: o.first_name, last_name: o.last_name, street: o.street, plz: o.plz, city: o.city, meter_no: o.meter_no }, o.mandate_prefs || {}, o.commodity);
+  const w = window.open('', '_blank'); if (!w) { toast('Bitte Pop-ups erlauben.', true); return; }
+  const m = o.mandate_meta || {};
+  w.document.write(`<!doctype html><meta charset="utf-8"><title>Wechselvollmacht ${esc(o.ref)}</title><style>body{font:15px/1.5 Arial,sans-serif;max-width:760px;margin:30px auto;padding:0 20px;color:#222}h1{font-size:20px}img{max-width:420px;border-bottom:1px solid #333}small{color:#666}</style>
+<h1>${esc(txt[0])}</h1>${txt.slice(1).map(p => `<p>${esc(p)}</p>`).join('')}
+${o.mandate_version !== MANDATE_VERSION ? `<p><small>Hinweis: unterschrieben wurde Fassung ${esc(o.mandate_version)}; angezeigt ist der aktuelle Wortlaut.</small></p>` : ''}
+<p><img src="${esc(o.mandate_signature)}" alt="Unterschrift"><br>${esc(o.mandate_signer)} · elektronisch unterschrieben am ${esc(dtFmt(o.mandate_at))}</p>
+<p><small>Auftrag #${esc(o.ref)} · Fassung ${esc(o.mandate_version)} · Prüfsumme ${esc(m.text_sha256 || '–')} · IP ${esc(m.ip || '–')} · ${esc(m.user_agent || '')}${o.mandate_revoked_at ? ' · WIDERRUFEN am ' + esc(dtFmt(o.mandate_revoked_at)) : ''}</small></p><script>setTimeout(()=>print(),300)<\/script>`);
+  w.document.close();
 }
 function remView() {
   const om = Object.fromEntries(A.orders.map(o => [o.id, o]));
   const list = A.reminders.filter(r => om[r.order_id]);
   const done = async r => { const { error } = await sb.from('wm_reminders').update({ done_at: new Date().toISOString() }).eq('id', r.id); if (error) { toast(cleanErr(error), true); return; } A.reminders = A.reminders.filter(x => x.id !== r.id); toast('Erledigt.'); renderAdmin(); };
-  const mail = (o, r) => 'mailto:' + encodeURIComponent(o.email) + '?subject=' + encodeURIComponent('Dein Vertrag endet bald – jetzt neuen Tarif sichern') + '&body=' + encodeURIComponent(`Hallo ${o.first_name},\n\ndein ${o.commodity === 'gas' ? 'Gas' : 'Strom'}vertrag endet am ${dFmt(o.contract_end)}. Damit du nicht in einen teureren Tarif rutschst, haben wir schon einmal den Markt für dich geprüft.\n\nHier kannst du direkt vergleichen: ${location.origin + location.pathname}\n\nOder antworte einfach auf diese E-Mail, dann kümmern wir uns.\n\nViele Grüße\nDein P² Sales Team`);
+  const mail = (o, r) => (o.mandate && !o.mandate_revoked_at) ? 'mailto:' + encodeURIComponent(o.email) + '?subject=' + encodeURIComponent('Dein nächster Tarifwechsel – bitte kurz ansehen') + '&body=' + encodeURIComponent(`Hallo ${o.first_name},\n\ndein ${o.commodity === 'gas' ? 'Gas' : 'Strom'}vertrag endet am ${dFmt(o.contract_end)}. Wie mit deiner Wechselvollmacht vereinbart, wechseln wir rechtzeitig in diesen Tarif:\n\n[Tarif, Anbieter, Arbeitspreis, Grundpreis, Laufzeit, Preisgarantie, voraussichtliche Jahreskosten]\n\nDeine Vorgaben: ${mPrefsText(o.mandate_prefs)}.\n\nWenn du nicht einverstanden bist, antworte einfach innerhalb von 7 Tagen auf diese E-Mail – dann wechseln wir nicht.\nVollmacht widerrufen: ${location.origin + location.pathname}?widerruf=${o.mandate_token}\n\nViele Grüße\nDein P² Sales Team`) : 'mailto:' + encodeURIComponent(o.email) + '?subject=' + encodeURIComponent('Dein Vertrag endet bald – jetzt neuen Tarif sichern') + '&body=' + encodeURIComponent(`Hallo ${o.first_name},\n\ndein ${o.commodity === 'gas' ? 'Gas' : 'Strom'}vertrag endet am ${dFmt(o.contract_end)}. Damit du nicht in einen teureren Tarif rutschst, haben wir schon einmal den Markt für dich geprüft.\n\nHier kannst du direkt vergleichen: ${location.origin + location.pathname}\n\nOder antworte einfach auf diese E-Mail, dann kümmern wir uns.\n\nViele Grüße\nDein P² Sales Team`);
   return h('div', {}, h('p', { class: 'note' }, 'Erinnerungen entstehen automatisch, sobald bei einem Auftrag das Vertragsende eingetragen ist und der Kunde den Erinnerungsservice gewählt hat. Der automatische E-Mail-Versand folgt in Stufe 2 – bis dahin per Knopf „E-Mail schreiben“.'),
     list.length ? h('div', { class: 'list' }, list.map(r => { const o = om[r.order_id]; const over = r.due_date < today();
       return h('div', { class: 'item' }, h('div', { class: 'hd', style: 'cursor:default' }, h('b', {}, `${o.first_name} ${o.last_name}`),
@@ -771,7 +874,9 @@ function route() {
   const tok = new URLSearchParams(location.search).get('bestaetigen');
   $('trust').hidden = location.hash === '#admin' || VM;
   if (EMBED) { document.querySelector('header.top').hidden = true; document.querySelector('footer').style.display = 'none'; }
-  if (tok && /^[0-9a-f-]{36}$/i.test(tok)) confirmView(tok);
+  const wid = new URLSearchParams(location.search).get('widerruf');
+  if (wid && /^[0-9a-f-]{36}$/i.test(wid)) revokeView(wid);
+  else if (tok && /^[0-9a-f-]{36}$/i.test(tok)) confirmView(tok);
   else if (location.hash === '#admin') renderAdmin();
   else if (VM) vInit();
   else renderPublic();
