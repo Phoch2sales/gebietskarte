@@ -257,7 +257,8 @@ function progress() {
 }
 const QS = new URLSearchParams(location.search);
 const VM = QS.has('vertreter'); // Tarifrechner für Vertreter (aus dem MultiTool)
-const EMBED = VM && QS.has('embed'); // im MultiTool eingebettet: ohne Kopf und Fuß
+const EMBED = VM && QS.has('embed');
+const VM_OPEN = false; // Tarifrechner für Vertreter: erst auf Florians Signal auf true setzen (bis dahin nur Admin) // im MultiTool eingebettet: ohne Kopf und Fuß
 const V = { me: null, prov: {}, view: 'calc', mine: null };
 function renderPublic() {
   const app = $('app'); app.textContent = '';
@@ -340,8 +341,9 @@ async function vInit() {
   if (!sb) { app.textContent = ''; app.append(h('div', { class: 'card', style: 'margin-top:24px' }, 'Keine Verbindung.')); return; }
   const { data: s } = await sb.auth.getSession();
   if (!s.session) { app.textContent = ''; app.append(loginView(vInit, 'Tarifrechner', 'Mit deinem P²-Zugang anmelden – wie im MultiTool.')); return; }
-  const { data: p } = await sb.from('profiles').select('name,email,active').eq('id', s.session.user.id).maybeSingle();
+  const { data: p } = await sb.from('profiles').select('name,email,active,role').eq('id', s.session.user.id).maybeSingle();
   if (!p || !p.active) { app.textContent = ''; app.append(h('div', { class: 'card', style: 'margin-top:24px' }, h('h1', {}, 'Kein Zugriff'), h('p', { class: 'lead' }, 'Der Tarifrechner ist nur für aktive Vertriebspartner von P² Sales.'), h('a', { class: 'btn', href: '../' }, '← MultiTool'))); return; }
+  if (!VM_OPEN && p.role !== 'admin') { app.textContent = ''; app.append(h('div', { class: 'card', style: 'margin-top:24px' }, h('h1', {}, 'Bald verfügbar'), h('p', { class: 'lead' }, 'Der Tarifrechner wird gerade fertiggestellt und in Kürze freigeschaltet.'), EMBED ? null : h('a', { class: 'btn', href: '../' }, '← MultiTool'))); return; }
   V.me = p;
   const { data: pr } = await sb.rpc('wm_agent_provisions');
   V.prov = Object.fromEntries((pr || []).map(x => [x.tariff_id, Number(x.provision_eur)]));
