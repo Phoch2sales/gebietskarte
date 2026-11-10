@@ -731,7 +731,7 @@ dialog::backdrop{background:rgba(5,15,22,.55)}
     <button class="close" id="hrClose" type="button" aria-label="Personal schließen">✕</button>
   </div>
   <nav class="acad-tabs" id="hrTabs" aria-label="Personal-Bereiche">
-    <button type="button" data-v="dates">Termine</button><button type="button" data-v="staff">Mitarbeiter</button><button type="button" data-v="perf">Performance</button><button type="button" data-v="result">Ergebnis</button><button type="button" data-v="settings">Einstellungen</button>
+    <button type="button" data-v="dates">Termine</button><button type="button" data-v="staff">Mitarbeiter</button><button type="button" data-v="free">Freie Vertreter</button><button type="button" data-v="perf">Performance</button><button type="button" data-v="result">Ergebnis</button><button type="button" data-v="settings">Einstellungen</button>
   </nav>
   <p class="chat-note" id="hrNote" hidden style="padding:8px 16px 0"></p>
   <div class="acad-body hr-body" id="hrBody"></div>
@@ -758,7 +758,7 @@ dialog::backdrop{background:rgba(5,15,22,.55)}
 <script>
 (() => {
 'use strict';
-const VERSION = '2.31';
+const VERSION = '2.32';
 const WM_OPEN = false; // Wechselmeister für Vertreter: erst auf Florians Signal auf true setzen (bis dahin nur Admin)
 const APP = 'P² Gebietskarte';
 const $ = id => document.getElementById(id);
@@ -2361,7 +2361,7 @@ window.addEventListener('online', () => { if (me && LS.get('p2gk-stat-pending', 
 setInterval(() => { if (me && statsDay && statsDay !== today()) { stats = {}; statsDay = today(); statPending = false; renderDash(); loadStats(); } }, 60000);
 
 /* ===== Personal (nur Admin; Daten zusätzlich per RLS geschützt, siehe supabase/personal.sql) ===== */
-const HR_DEFAULTS = { fixed_salary: 2700, tier_limit: 30, rate_low: 30, rate_high: 50, employer_pct: 21, bg_pct: 1, revenue_per_contract: 150, targets: [15, 30, 45, 55, 60], yellow_from: 35, probation_months: 6, fixed_months: 24, lead_probation_weeks: 8, lead_month12_weeks: 8, lead_fixed_weeks: 12 };
+const HR_DEFAULTS = { fixed_salary: 2700, tier_limit: 30, rate_low: 30, rate_high: 50, employer_pct: 21, bg_pct: 1, revenue_per_contract: 150, targets: [15, 30, 45, 55, 60], yellow_from: 35, probation_months: 6, fixed_months: 24, lead_probation_weeks: 8, lead_month12_weeks: 8, lead_fixed_weeks: 12, free_commission_pct: 60, free_commission_cap: 110 };
 const hr = { emps: [], perf: [], set: { ...HR_DEFAULTS }, loaded: false, busy: false, edit: null, perfEmp: '', perfMonth: '', resMonth: '' };
 let hrOpen = false, hrView = 'dates';
 const eur = n => new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR' }).format(n || 0);
@@ -2382,6 +2382,7 @@ const hrMonthNo = (emp, key) => { const [sy, sm] = emp.start_date.split('-').map
 const hrTarget = (no, s = hr.set) => { const t = s.targets && s.targets.length ? s.targets : HR_DEFAULTS.targets; return no < 1 ? 0 : t[Math.min(no, t.length) - 1]; };
 const hrCalc = (closed, cancelled) => ({ valid: Math.max(0, closed - cancelled), quote: closed ? cancelled / closed * 100 : 0 });
 const hrLight = (valid, target, s = hr.set) => valid >= target ? 'g' : valid >= s.yellow_from ? 'y' : 'r';
+const hrActive = () => hr.emps.filter(e => e.status === 'aktiv');
 function hrMoney(valid, s = hr.set) {
   const lo = Math.min(valid, s.tier_limit), hi = Math.max(0, valid - s.tier_limit);
   const commission = lo * s.rate_low + hi * s.rate_high, gross = s.fixed_salary + commission;
@@ -2389,6 +2390,27 @@ function hrMoney(valid, s = hr.set) {
   return { commission, gross, cost, revenue, result: revenue - cost };
 }
 const hrIsFixed = e => e.contract_type !== 'frei';
+const hrIsFree = e => e.contract_type === 'frei';
+const prevMonthKey = key => { const [y, m] = key.split('-').map(Number); return m === 1 ? (y - 1) + '-12' : y + '-' + String(m - 1).padStart(2, '0'); };
+// Freie Vertreter: Provision je Vertrag = Prozentsatz vom Umsatz, höchstens Deckel. Leer = Standard aus den Einstellungen.
+const hrFreeRate = (e, s = hr.set) => {
+  const pct = e.commission_pct == null ? s.free_commission_pct : Number(e.commission_pct), cap = e.commission_cap == null ? s.free_commission_cap : Number(e.commission_cap);
+  return { pct, cap, per: Math.min(s.revenue_per_contract * pct / 100, cap) };
+};
+// Stornos eines Monats werden im Folgemonat voll zurückgerechnet (Provision und Umsatz)
+function hrMoneyFree(e, closed, cancelledPrev, s = hr.set) {
+  const r = hrFreeRate(e, s), commission = closed * r.per, clawback = cancelledPrev * r.per, payout = commission - clawback;
+  const revenue = (closed - cancelledPrev) * s.revenue_per_contract;
+  return { ...r, commission, clawback, payout, revenue, result: revenue - payout };
+}
+function hrFixedResult(key) {
+  let result = 0, revenue = 0;
+  for (const e of hrActive().filter(x => hrIsFixed(x) && hrMonthNo(x, key) >= 1)) {
+    const pf = hr.perf.find(x => x.employee_id === e.id && x.month.slice(0, 7) === key), m = hrMoney(pf ? hrCalc(pf.closed, pf.cancelled).valid : 0);
+    result += m.result; revenue += m.revenue;
+  }
+  return { result, revenue };
+}
 
 async function hrLoad() {
   if (!sb || !me || !isAdmin()) return;
@@ -2451,7 +2473,7 @@ function renderHr() {
   for (const b of $('hrTabs').querySelectorAll('button')) b.setAttribute('aria-current', b.dataset.v === hrView ? 'page' : 'false');
   const body = $('hrBody'), top = body.scrollTop; body.textContent = '';
   if (!hr.loaded && hr.busy) body.append(h('p', { class: 'hr-muted' }, 'Lade Personal …'));
-  body.append(...({ dates: hrViewDates, staff: hrViewStaff, perf: hrViewPerf, result: hrViewResult, settings: hrViewSettings })[hrView]().filter(Boolean));
+  body.append(...({ dates: hrViewDates, staff: hrViewStaff, free: hrViewFree, perf: hrViewPerf, result: hrViewResult, settings: hrViewSettings })[hrView]().filter(Boolean));
   body.scrollTop = top;
 }
 
@@ -2476,6 +2498,7 @@ function hrViewStaff() {
     out.push(h('div', { class: 'hr-card' },
       h('b', null, x.name + (x.status === 'ausgeschieden' ? ' (ausgeschieden)' : '')),
       h('span', null, `${x.contract_type} · Start ${fmtDate(x.start_date)}` + (hrIsFixed(x) ? ` · Probezeit bis ${fmtDate(x.probation_end)}` : '') + (x.contract_type === 'befristet' ? ` · befristet bis ${fmtDate(x.fixed_end)}` : '')),
+      hrIsFree(x) ? h('small', null, (r => `Provision ${String(r.pct).replace('.', ',')} % je Vertrag, höchstens ${eur(r.cap)} (${eur(r.per)} je Vertrag)` + (x.commission_pct == null && x.commission_cap == null ? ' · Standard' : ''))(hrFreeRate(x))) : null,
       x.user_id ? h('small', null, 'App-Nutzer: ' + memberName(x.user_id)) : null,
       x.notes ? h('small', null, x.notes) : null,
       hrAcadLine(x),
@@ -2500,6 +2523,9 @@ function hrEmpForm(e) {
   f.status = h('select', null, ...['aktiv', 'ausgeschieden'].map(v => h('option', { value: v, selected: e.status === v }, v)));
   f.user_id = h('select', null, h('option', { value: '' }, '– keine Verknüpfung –'), ...Object.values(team).sort((a, b) => memberName(a.id).localeCompare(memberName(b.id), 'de')).map(t => h('option', { value: t.id, selected: e.user_id === t.id }, memberName(t.id))));
   f.notes = h('textarea', { rows: 3, maxlength: 2000 }); f.notes.value = e.notes || '';
+  f.commission_pct = h('input', { type: 'text', inputmode: 'decimal', value: e.commission_pct == null ? '' : String(e.commission_pct).replace('.', ','), placeholder: 'Standard ' + String(hr.set.free_commission_pct).replace('.', ',') });
+  f.commission_cap = h('input', { type: 'text', inputmode: 'decimal', value: e.commission_cap == null ? '' : String(e.commission_cap).replace('.', ','), placeholder: 'Standard ' + String(hr.set.free_commission_cap).replace('.', ',') });
+  const freeRow = h('div', { class: 'hr-row2' }, lab('Provision (% vom Umsatz, leer = Standard)', f.commission_pct), lab('Höchstbetrag je Vertrag in € (leer = Standard)', f.commission_cap));
   const touched = { probation_end: !e._new && !!e.probation_end, fixed_end: !e._new && !!e.fixed_end };
   f.probation_end.addEventListener('input', () => { touched.probation_end = true; });
   f.fixed_end.addEventListener('input', () => { touched.fixed_end = true; });
@@ -2507,7 +2533,7 @@ function hrEmpForm(e) {
     const st = f.start_date.value, ct = f.contract_type.value;
     if (st && ct !== 'frei' && !touched.probation_end) f.probation_end.value = addMonthsIso(st, hr.set.probation_months);
     if (st && ct === 'befristet' && !touched.fixed_end) f.fixed_end.value = addMonthsIso(st, hr.set.fixed_months);
-    f.probation_end.disabled = ct === 'frei'; f.fixed_end.disabled = ct !== 'befristet';
+    f.probation_end.disabled = ct === 'frei'; f.fixed_end.disabled = ct !== 'befristet'; freeRow.hidden = ct !== 'frei';
   };
   f.start_date.addEventListener('input', auto); f.contract_type.addEventListener('change', auto); auto();
   return h('form', { class: 'hr-form', novalidate: true, onsubmit: async ev => {
@@ -2516,6 +2542,12 @@ function hrEmpForm(e) {
     const row = { name: f.name.value.trim(), contract_type: ct, start_date: f.start_date.value, probation_end: ct !== 'frei' && f.probation_end.value ? f.probation_end.value : null,
       fixed_end: ct === 'befristet' && f.fixed_end.value ? f.fixed_end.value : null, status: f.status.value, notes: f.notes.value.trim(), user_id: f.user_id.value || null };
     if (!row.name || !row.start_date) { hrNote('Name und Startdatum sind Pflicht.'); return; }
+    if (ct === 'frei' || e.commission_pct != null || e.commission_cap != null) { // Spalten kommen aus supabase/personal_freie.sql
+      const num = v => { v = v.trim(); if (!v) return null; if (!/^\d+([.,]\d+)?$/.test(v)) return NaN; return hrNum(v); };
+      const pc = ct === 'frei' ? num(f.commission_pct.value) : null, cp = ct === 'frei' ? num(f.commission_cap.value) : null;
+      if (Number.isNaN(pc) || Number.isNaN(cp) || (pc !== null && pc > 100)) { hrNote('Provision (0 bis 100 %) und Höchstbetrag müssen Zahlen sein.'); return; }
+      row.commission_pct = pc; row.commission_cap = cp;
+    }
     const r = e._new ? await sb.from('hr_employees').insert(row) : await sb.from('hr_employees').update(row).eq('id', e.id);
     if (r.error) { hrNote('Speichern fehlgeschlagen: ' + r.error.message); return; }
     hr.edit = null; await hrLoad();
@@ -2524,7 +2556,7 @@ function hrEmpForm(e) {
     lab('Name', f.name), h('div', { class: 'hr-row2' }, lab('Vertragsart', f.contract_type), lab('Status', f.status)),
     h('div', { class: 'hr-row2' }, lab('Startdatum', f.start_date), lab('App-Nutzer (optional)', f.user_id)),
     h('div', { class: 'hr-row2' }, lab('Probezeitende (Start + 6 Mon.)', f.probation_end), lab('Befristungsende (Start + 24 Mon.)', f.fixed_end)),
-    lab('Notizen', f.notes),
+    freeRow, lab('Notizen', f.notes),
     h('div', { class: 'hr-act' }, h('button', { class: 'btn primary', type: 'submit' }, 'Speichern'), h('button', { class: 'btn', type: 'button', onclick: () => { hr.edit = null; renderHr(); } }, 'Abbrechen')));
 }
 async function hrDeleteEmp(x) {
@@ -2534,7 +2566,6 @@ async function hrDeleteEmp(x) {
   await hrLoad();
 }
 
-const hrActive = () => hr.emps.filter(e => e.status === 'aktiv');
 function hrViewPerf() {
   const emps = hrActive();
   if (!emps.length) return [h('p', { class: 'hr-muted' }, 'Lege zuerst einen aktiven Mitarbeiter an.')];
@@ -2584,8 +2615,33 @@ function hrViewResult() {
     h('p', { class: 'hr-muted' }, `Brutto = ${eur(s.fixed_salary)} Fixgehalt + Provision (je ${eur(s.rate_low)} bis Vertrag ${s.tier_limit}, danach je ${eur(s.rate_high)}). Kosten = Brutto × ${(1 + (s.employer_pct + s.bg_pct) / 100).toFixed(2).replace('.', ',')} (Arbeitgeber ${s.employer_pct} % + BG ${s.bg_pct} %). Umsatz P² = gültige Verträge × ${eur(s.revenue_per_contract)} netto. Ergebnis = Umsatz − Kosten.`)];
 }
 
+function hrViewFree() {
+  if (!hr.freeMonth) hr.freeMonth = monthKey();
+  const key = hr.freeMonth, prev = prevMonthKey(key), s = hr.set;
+  const mon = h('input', { class: 'hr-sel', type: 'month', value: key, onchange: ev => { if (ev.target.value) { hr.freeMonth = ev.target.value; renderHr(); } } });
+  const perfOf = (id, k) => hr.perf.find(x => x.employee_id === id && x.month.slice(0, 7) === k);
+  const emps = hr.emps.filter(e => hrIsFree(e) && hrMonthNo(e, key) >= 1 && (e.status === 'aktiv' || perfOf(e.id, key) || perfOf(e.id, prev))).sort((a, b) => a.name.localeCompare(b.name, 'de'));
+  const sum = { closed: 0, commission: 0, clawback: 0, payout: 0, revenue: 0, result: 0 };
+  const rows = emps.map(e => {
+    const p = perfOf(e.id, key), pp = perfOf(e.id, prev), closed = p ? p.closed : 0, canc = p ? p.cancelled : 0, cancPrev = pp ? pp.cancelled : 0;
+    const v = hrCalc(closed, canc).valid, t = hrTarget(hrMonthNo(e, key)), m = hrMoneyFree(e, closed, cancPrev);
+    for (const k of Object.keys(sum)) sum[k] += k === 'closed' ? closed : m[k];
+    return h('tr', null, h('td', null, e.name + (e.status === 'ausgeschieden' ? ' (ausgeschieden)' : '') + (p ? '' : ' (keine Eingabe)')), h('td', null, closed), h('td', null, canc),
+      h('td', null, h('span', { class: 'hr-dot ' + hrLight(v, t) }), v), h('td', null, eur(m.commission)), h('td', null, cancPrev ? '−' + eur(m.clawback) + ' (' + cancPrev + ')' : '–'),
+      h('td', { class: m.payout >= 0 ? '' : 'hr-neg' }, eur(m.payout)), h('td', null, eur(m.revenue)), h('td', { class: m.result >= 0 ? 'hr-pos' : 'hr-neg' }, eur(m.result)));
+  });
+  const fixed = hrFixedResult(key), total = sum.result + fixed.result;
+  const card = (t, v, extra) => h('div', { class: 'hr-card' }, h('small', null, t), h('b', { class: v >= 0 ? 'hr-pos' : 'hr-neg' }, eur(v)), extra ? h('small', null, extra) : null);
+  return [h('label', { class: 'hr-form' }, 'Monat', mon), h('h3', null, 'Freie Handelsvertreter'),
+    rows.length ? h('div', { class: 'hr-tblwrap' }, h('table', { class: 'hr-tbl' }, h('thead', null, h('tr', null, ...['Name', 'Abg.', 'Storno', 'Gültig', 'Provision', 'Storno Vormonat', 'Auszahlung', 'Umsatz P²', 'Ergebnis'].map(t => h('th', null, t)))),
+      h('tbody', null, rows), h('tfoot', null, h('tr', null, h('td', null, h('b', null, 'Summe')), h('td', null, sum.closed), h('td'), h('td'), h('td', null, eur(sum.commission)), h('td', null, sum.clawback ? '−' + eur(sum.clawback) : '–'), h('td', null, eur(sum.payout)), h('td', null, eur(sum.revenue)), h('td', { class: sum.result >= 0 ? 'hr-pos' : 'hr-neg' }, eur(sum.result)))))) : h('p', { class: 'hr-muted' }, 'Keine freien Vertreter in diesem Monat. Lege sie unter „Mitarbeiter“ mit der Vertragsart „frei“ an und trage die Zahlen unter „Performance“ ein.'),
+    h('h3', null, 'Gesamtübersicht ' + fmtMonth(key)), card('Freie Vertreter: Ergebnis', sum.result), card('Festangestellte: Ergebnis', fixed.result), card('Gesamt', total, `Umsatz P² gesamt ${eur(sum.revenue + fixed.revenue)}`),
+    emps.length ? h('h3', null, 'Academy-Stand') : null, ...emps.map(e => h('div', { class: 'hr-card' }, h('b', null, e.name), hrAcadLine(e))),
+    h('p', { class: 'hr-muted' }, `Provision je Vertrag = Prozentsatz × ${eur(s.revenue_per_contract)} Umsatz, höchstens der Höchstbetrag (Standard ${String(s.free_commission_pct).replace('.', ',')} % und ${eur(s.free_commission_cap)}; je Vertreter unter „Mitarbeiter“ änderbar). Stornos eines Monats werden im Folgemonat voll zurückgerechnet (Provision und Umsatz). Ampel: gültige Verträge im Monat gegen das Monatsziel. Eine negative Auszahlung wird nur angezeigt, nicht in spätere Monate übertragen.`)];
+}
+
 function hrViewSettings() {
-  const fields = [['fixed_salary', 'Fixgehalt brutto (€)'], ['tier_limit', 'Provisionsstaffel: bis Vertrag Nr.'], ['rate_low', 'Provision je Vertrag bis dahin (€)'], ['rate_high', 'Provision je Vertrag danach (€)'], ['employer_pct', 'Arbeitgeberanteil (%)'], ['bg_pct', 'Berufsgenossenschaft (%)'], ['revenue_per_contract', 'Umsatz P² je Vertrag netto (€)'],
+  const fields = [['fixed_salary', 'Fixgehalt brutto (€)'], ['tier_limit', 'Provisionsstaffel: bis Vertrag Nr.'], ['rate_low', 'Provision je Vertrag bis dahin (€)'], ['rate_high', 'Provision je Vertrag danach (€)'], ['employer_pct', 'Arbeitgeberanteil (%)'], ['bg_pct', 'Berufsgenossenschaft (%)'], ['revenue_per_contract', 'Umsatz P² je Vertrag netto (€)'], ['free_commission_pct', 'Freie Vertreter: Standard-Provision (% vom Umsatz)'], ['free_commission_cap', 'Freie Vertreter: Standard-Höchstbetrag je Vertrag (€)'],
     ['yellow_from', 'Ampel gelb ab (gültige Verträge)'], ['probation_months', 'Probezeit (Monate)'], ['fixed_months', 'Befristung (Monate)'], ['lead_probation_weeks', 'Hinweis vor Probezeitende (Wochen)'], ['lead_month12_weeks', 'Hinweis vor Monat 12 (Wochen)'], ['lead_fixed_weeks', 'Hinweis vor Befristungsende (Wochen)']];
   const els = {}, rows = [];
   for (const [k, t] of fields) { els[k] = h('input', { type: 'text', inputmode: 'decimal', value: String(hr.set[k]).replace('.', ',') }); rows.push(h('label', null, t, els[k])); }
