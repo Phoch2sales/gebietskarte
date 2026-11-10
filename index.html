@@ -772,7 +772,7 @@ dialog::backdrop{background:rgba(5,15,22,.55)}
 <script>
 (() => {
 'use strict';
-const VERSION = '2.33';
+const VERSION = '2.34';
 const WM_OPEN = false; // Wechselmeister für Vertreter: erst auf Florians Signal auf true setzen (bis dahin nur Admin)
 const APP = 'P² Gebietskarte';
 const $ = id => document.getElementById(id);
@@ -2441,7 +2441,7 @@ function maForm(uid, row, opts = {}) {
       // Hinweistext ist ein Entwurf und sollte rechtlich geprüft werden
       h('details', { class: 'hr-muted' }, h('summary', null, 'Datenschutzhinweis lesen'), h('p', null, 'Deine Angaben werden nur zur Abwicklung deiner Tätigkeit für P² Sales verwendet: Vertrag, Provisionsabrechnung sowie steuerliche und gesetzliche Meldungen. Sie sind nur für dich und die Geschäftsleitung sichtbar, andere Vertreter sehen sie nicht. Du kannst sie jederzeit ansehen und ändern. Auf Wunsch werden sie gelöscht, soweit keine gesetzliche Aufbewahrungspflicht besteht.')),
       check('privacy_ack', 'Ich habe den Datenschutzhinweis gelesen und bin mit der Speicherung meiner Angaben einverstanden. *'),
-      check('location_sharing', 'Live-Standort mit P² Sales teilen (freiwillig, jederzeit widerrufbar). Ohne Häkchen wird dein Standort nicht verfolgt.', h('small', { class: 'hr-muted' }, ' Die Standortfunktion wird erst in einem späteren Schritt freigeschaltet, das Häkchen speichert nur deine Entscheidung.')),
+      check('location_sharing', 'Live-Standort mit P² Sales während der Nutzung des MultiTools teilen (freiwillig, jederzeit widerrufbar). Das passiert nicht dauerhaft, sondern nur, solange ich im MultiTool angemeldet bin. Ohne Häkchen wird dein Standort nicht verfolgt.', h('small', { class: 'hr-muted' }, ' Die Standortfunktion wird erst in einem späteren Schritt freigeschaltet, das Häkchen speichert nur deine Entscheidung.')),
       msg, h('div', { class: 'hr-act' }, h('button', { class: 'btn primary', type: 'submit' }, 'Speichern'), opts.onCancel ? h('button', { class: 'btn', type: 'button', onclick: opts.onCancel }, 'Zurück') : null));
     form.textContent = ''; form.append(...parts); status();
   }
