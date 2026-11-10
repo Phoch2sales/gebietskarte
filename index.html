@@ -734,6 +734,7 @@ dialog::backdrop{background:rgba(5,15,22,.55)}
     <h2 id="maTitle">Mitarbeiterbereich<small>Stammdaten</small></h2>
     <button class="close" id="maClose" type="button" aria-label="Mitarbeiterbereich schließen">✕</button>
   </div>
+  <nav class="acad-tabs" id="maTabs" aria-label="Mitarbeiterbereich"><button type="button" data-v="data">Stammdaten</button><button type="button" data-v="start">Dein Einstieg</button></nav>
   <p class="chat-note" id="maNote" hidden style="padding:8px 16px 0"></p>
   <div class="acad-body hr-body" id="maBody"></div>
 </section>
@@ -772,7 +773,7 @@ dialog::backdrop{background:rgba(5,15,22,.55)}
 <script>
 (() => {
 'use strict';
-const VERSION = '2.34';
+const VERSION = '2.35';
 const WM_OPEN = false; // Wechselmeister für Vertreter: erst auf Florians Signal auf true setzen (bis dahin nur Admin)
 const APP = 'P² Gebietskarte';
 const $ = id => document.getElementById(id);
@@ -1861,7 +1862,7 @@ function applyRole() {
   if (!me) { closeWm(); $('wmBody').textContent = ''; }
   if (!me && acadOpen) closeAcad();
   if (!me && dashOpen) closeDash();
-  if (!me) { if (maOpen) closeMa(); ma.row = null; ma.loaded = false; $('maBody').textContent = ''; } // Stammdaten nie im Speicher lassen, wenn abgemeldet
+  if (!me) { if (maOpen) closeMa(); ma.row = null; ma.done = {}; ma.loaded = false; $('maBody').textContent = ''; } // Stammdaten nie im Speicher lassen, wenn abgemeldet
   if (hrOpen && !isAdmin()) closeHr();
   if (!isAdmin()) { hr.emps = []; hr.perf = []; hr.loaded = false; $('hrBar').hidden = true; } // Personal-Daten nie im Speicher behalten, wenn kein Admin
   if (!me && chatOpen) closeChat();
@@ -2376,8 +2377,8 @@ window.addEventListener('online', () => { if (me && LS.get('p2gk-stat-pending', 
 setInterval(() => { if (me && statsDay && statsDay !== today()) { stats = {}; statsDay = today(); statPending = false; renderDash(); loadStats(); } }, 60000);
 
 /* ===== Mitarbeiterbereich: Stammdatenblatt (supabase/mitarbeiterbereich.sql). Jeder sieht nur sein eigenes Blatt, Admins alle (RLS). ===== */
-const ma = { row: null, loaded: false, busy: false };
-let maOpen = false;
+const ma = { row: null, done: {}, chkErr: false, loaded: false, busy: false };
+let maOpen = false, maView = 'data';
 function ibanOk(v) {
   v = String(v).replace(/\s+/g, '').toUpperCase();
   if (!/^[A-Z]{2}[0-9]{2}[A-Z0-9]{11,30}$/.test(v)) return false;
@@ -2470,8 +2471,9 @@ function maForm(uid, row, opts = {}) {
 async function maLoad() {
   if (!sb || !me) return;
   ma.busy = true; renderMa();
-  const r = await sb.from('member_profiles').select('*').eq('user_id', me.id).maybeSingle();
+  const [r, ck] = await Promise.all([sb.from('member_profiles').select('*').eq('user_id', me.id).maybeSingle(), sb.from('member_checklist').select('item_key').eq('user_id', me.id)]);
   ma.busy = false;
+  ma.chkErr = !!ck.error; ma.done = {}; if (!ck.error) for (const x of ck.data) ma.done[x.item_key] = true;
   if (r.error) { maNote(/does not exist|schema cache/i.test(r.error.message || '') ? 'Der Mitarbeiterbereich ist auf dem Server noch nicht eingerichtet.' : 'Stammdaten konnten nicht geladen werden. Bitte später erneut versuchen.'); renderMa(); return; }
   maNote(''); ma.row = r.data; ma.loaded = true; renderMa();
 }
@@ -2487,17 +2489,112 @@ $('mMa').addEventListener('click', () => { $('dlgMore').close(); openMa(); });
 $('maClose').addEventListener('click', closeMa);
 function renderMa() {
   if (!maOpen) return;
-  const body = $('maBody'); body.textContent = '';
+  for (const b of $('maTabs').querySelectorAll('button')) b.setAttribute('aria-current', b.dataset.v === maView ? 'page' : 'false');
+  const body = $('maBody'), top = body.scrollTop; body.textContent = '';
   if (!ma.loaded) { body.append(h('p', { class: 'hr-muted' }, ma.busy ? 'Lade …' : '')); return; }
-  const st = maStatus(ma.row);
-  body.append(h('p', { class: 'hr-muted' }, 'Trage hier deine Stammdaten ein. Sie sind nur für dich und P² Sales sichtbar. Felder mit * sind Pflicht.'),
-    h('p', null, 'Stand: ', h('b', { class: st.cls }, st.txt)),
-    maForm(me.id, ma.row, { onSaved: row => { ma.row = { ...row }; renderMa(); } }));
+  if (maView === 'start') body.append(...maViewStart());
+  else {
+    const st = maStatus(ma.row);
+    body.append(h('p', { class: 'hr-muted' }, 'Trage hier deine Stammdaten ein. Sie sind nur für dich und P² Sales sichtbar. Felder mit * sind Pflicht.'),
+      h('p', null, 'Stand: ', h('b', { class: st.cls }, st.txt)),
+      maForm(me.id, ma.row, { onSaved: row => { ma.row = { ...row }; renderMa(); } }));
+  }
+  body.scrollTop = top;
 }
+$('maTabs').addEventListener('click', ev => { const b = ev.target.closest('button[data-v]'); if (b) { maView = b.dataset.v; renderMa(); $('maBody').scrollTop = 0; } });
+
+/* ===== Dein Einstieg: Checkliste (supabase/mitarbeiterbereich_einstieg.sql). Orientierung, keine Rechts- oder Steuerberatung. ===== */
+// must = Pflicht vor dem ersten Einsatz, info = nur Hinweis ohne Haken, auto = wird aus dem Stammdatenblatt berechnet, act = Knopf
+const MA_CHECK = {
+  frei: [
+    { g: 'Selbstständigkeit gründen', k: 'gewerbe', t: 'Gewerbe anmelden', must: true,
+      what: 'Als selbstständiger Handelsvertreter brauchst du ein angemeldetes Gewerbe.',
+      how: ['Anmelden beim Gewerbeamt deiner Stadt oder Gemeinde (oft auch online).', 'Mitbringen: Personalausweis. Tätigkeit: Handelsvertretung bzw. Vermittlung von Energielieferverträgen.', 'Kosten: meist etwa 20 bis 60 €, je nach Kommune.', 'Du bekommst eine Gewerbeanmeldung. Das Datum trägst du in dein Stammdatenblatt ein.'] },
+    { g: 'Selbstständigkeit gründen', k: 'reisegewerbe', t: 'Reisegewerbekarte beantragen', must: true,
+      what: 'Für den Verkauf an der Haustür (außerhalb fester Geschäftsräume) brauchst du in der Regel eine Reisegewerbekarte. Ohne sie gehst du nicht an die Türen.',
+      how: ['Beantragen beim Gewerbe- oder Ordnungsamt deines Wohnorts.', 'Meist nötig: Personalausweis, Führungszeugnis zur Vorlage bei einer Behörde, Auszug aus dem Gewerbezentralregister, teils eine Auskunft aus dem Schuldnerverzeichnis.', 'Das dauert oft mehrere Wochen, die Gebühr hängt von der Kommune ab. Plane das früh ein.', 'Nach Erhalt: Nummer und Ablaufdatum ins Stammdatenblatt eintragen. Du musst die Karte bei der Arbeit dabeihaben.'] },
+    { g: 'Selbstständigkeit gründen', k: 'finanzamt', t: 'Finanzamt: Fragebogen zur steuerlichen Erfassung', must: true,
+      what: 'Das Finanzamt vergibt deine Steuernummer. Ohne sie kannst du keine ordentlichen Rechnungen stellen.',
+      how: ['Online über ELSTER (mein.elster.de) ausfüllen. Die Registrierung dauert ein paar Tage.', 'Hier entscheidest du auch, ob du die Kleinunternehmerregelung (§ 19 UStG) nutzt. Im Zweifel mit einem Steuerberater klären.', 'Die Steuernummer trägst du ins Stammdatenblatt ein.'] },
+    { g: 'Absichern', k: 'kv', t: 'Krankenversicherung klären', must: true,
+      what: 'Krankenversicherung ist Pflicht. Als Selbstständiger kümmerst du dich meist selbst darum.',
+      how: ['Meldest du deine Selbstständigkeit bei deiner bisherigen Krankenkasse, klärt sie dein Versicherungsverhältnis und den Beitrag.', 'Bewahre den Versicherungsnachweis auf. Den Namen der Kasse trägst du ins Stammdatenblatt ein.'] },
+    { g: 'Absichern', k: 'haftpflicht', t: 'Berufshaftpflicht prüfen',
+      what: 'Eine Berufshaftpflichtversicherung ist für die Arbeit beim Kunden sinnvoll und wird empfohlen.',
+      how: ['Angebote vergleichen oder uns nach einer Empfehlung fragen.'] },
+    { g: 'Absichern', k: 'vorsorge', t: 'Altersvorsorge und Absicherung planen',
+      what: 'Selbstständige sind meist nicht automatisch rentenversichert. Auch Berufsunfähigkeit und Unfall solltest du bedenken.',
+      how: ['Lass dich neutral beraten, z. B. von einer Verbraucherzentrale oder einem Versicherungsberater.', 'Kläre, ob für dein Gewerbe eine Anmeldung bei einer Berufsgenossenschaft nötig ist. Frag dazu das Gewerbeamt oder die IHK.'] },
+    { g: 'Absichern', k: 'ihk', t: 'IHK-Mitgliedschaft einordnen',
+      what: 'Mit der Gewerbeanmeldung wirst du meist automatisch Mitglied der IHK.',
+      how: ['Du bekommst Post von der IHK. Gründer sind in den ersten Jahren oft vom Beitrag befreit oder zahlen weniger. Lies das Schreiben und handle fristgerecht.'] },
+    { g: 'Arbeiten als Selbstständiger', k: 'buchhaltung', t: 'Buchhaltung und Rücklagen einrichten', must: true,
+      what: 'Du bist selbst für deine Steuern verantwortlich. Dein Verdienst ist brutto, davon gehen Steuern und Versicherungen ab.',
+      how: ['Meist reicht eine Einnahmen-Überschuss-Rechnung. Ein Steuerberater erledigt das gegen Honorar.', 'Belege geordnet aufbewahren und jeden Monat einen Teil des Verdienstes für Steuer und Krankenversicherung zurücklegen.'] },
+    { g: 'Arbeiten als Selbstständiger', k: 'rechnung', t: 'Abrechnung mit P² Sales verstehen',
+      what: 'Deine Provision rechnest du über eine Rechnung oder Gutschrift ab.',
+      how: ['Pflichtangaben: Name und Anschrift, Steuernummer, Datum, fortlaufende Nummer, Leistung, Betrag, Umsatzsteuer oder Hinweis auf die Kleinunternehmerregelung.', 'Wie wir konkret abrechnen, klären wir mit dir persönlich. Frag nach, bis du es verstanden hast.', 'Stornos werden mit der Provision verrechnet: schon vor der Auszahlung bekannte sofort, später gemeldete im Folgemonat.'] },
+    { g: 'Zusammenarbeit mit P² Sales', k: 'vertrag', t: 'Handelsvertretervertrag lesen und unterschreiben', must: true,
+      what: 'Der Vertrag regelt Provision, Storno, Gebiet und Pflichten.',
+      how: ['Lies ihn in Ruhe, frag bei Unklarheiten nach und lass ihn bei Bedarf prüfen, bevor du unterschreibst.'] },
+    { g: 'Zusammenarbeit mit P² Sales', k: 'stammdaten', t: 'Stammdatenblatt vollständig ausgefüllt', must: true, auto: true,
+      what: 'Wir brauchen deine Angaben für Vertrag und Abrechnung.', how: ['Dieser Punkt hakt sich von selbst ab, sobald alle Pflichtfelder im Reiter „Stammdaten“ ausgefüllt sind.'] },
+    { g: 'Zusammenarbeit mit P² Sales', k: 'academy', t: 'Academy Stufe 1 und Prüfung abschließen', must: true, act: 'academy',
+      what: 'Vor der ersten Tür lernst du Werte, Gesprächsablauf, Pitch und Einwände.', how: ['Schließe die Lektionen von Stufe 1 und die Prüfung in der Academy ab.'] }
+  ],
+  fest: [
+    { g: 'Start bei P² Sales', k: 'vertrag', t: 'Arbeitsvertrag unterschrieben', must: true,
+      what: 'Der Vertrag regelt Gehalt, Probezeit und Pflichten.', how: ['Lies ihn in Ruhe und frag bei Unklarheiten nach, bevor du unterschreibst.'] },
+    { g: 'Start bei P² Sales', k: 'stammdaten', t: 'Stammdatenblatt vollständig ausgefüllt', must: true, auto: true,
+      what: 'Wir brauchen deine Angaben für Lohn und Anmeldung (Steuer-ID, Sozialversicherungsnummer, Krankenkasse, Bank).', how: ['Dieser Punkt hakt sich von selbst ab, sobald alle Pflichtfelder im Reiter „Stammdaten“ ausgefüllt sind.'] },
+    { g: 'Start bei P² Sales', k: 'reisegewerbe', t: 'Reisegewerbekarte', info: true,
+      what: 'Die Reisegewerbekarte stellt dir die UG. Du musst dich nicht darum kümmern, aber du musst sie bei der Arbeit dabeihaben.', how: [] },
+    { g: 'Start bei P² Sales', k: 'datenschutz', t: 'Datenschutz und Verschwiegenheit belehrt', must: true,
+      what: 'Du arbeitest mit Kundendaten und Verbrauchsdaten. Die gehen niemanden etwas an.', how: ['Lass dir erklären, wie du mit Kundendaten, Fotos und Verträgen umgehst.'] },
+    { g: 'Start bei P² Sales', k: 'ausstattung', t: 'Zugang und Arbeitsmaterial erhalten',
+      what: 'MultiTool-Zugang, Arbeitsmaterial und Ausweis liegen bereit.', how: ['Melde dich, wenn dir etwas fehlt.'] },
+    { g: 'Start bei P² Sales', k: 'academy', t: 'Academy Stufe 1 und Prüfung abschließen', must: true, act: 'academy',
+      what: 'Vor der ersten Tür lernst du Werte, Gesprächsablauf, Pitch und Einwände.', how: ['Schließe die Lektionen von Stufe 1 und die Prüfung in der Academy ab.'] }
+  ]
+};
+const maChecks = type => MA_CHECK[type] || MA_CHECK.frei;
+// erledigt: manuell abgehakt oder automatisch (Stammdatenblatt vollständig). done = { item_key: ... }
+const maItemDone = (it, done, row) => !!done[it.k] || (it.auto && it.k === 'stammdaten' && !!row && maStatus(row).txt === 'Vollständig');
+function maProgress(type, done, row) {
+  const items = maChecks(type).filter(i => !i.info), open = items.filter(i => !maItemDone(i, done, row));
+  return { total: items.length, done: items.length - open.length, open };
+}
+async function maToggle(key, on) {
+  const r = on ? await sb.from('member_checklist').upsert({ user_id: me.id, item_key: key }, { onConflict: 'user_id,item_key' }) : await sb.from('member_checklist').delete().eq('user_id', me.id).eq('item_key', key);
+  if (r.error) { say('Speichern fehlgeschlagen: ' + r.error.message, true); return; }
+  if (on) ma.done[key] = true; else delete ma.done[key];
+  renderMa();
+}
+function maViewStart() {
+  if (ma.chkErr) return [h('p', { class: 'hr-neg' }, 'Die Checkliste ist auf dem Server noch nicht eingerichtet.')];
+  const type = (ma.row && ma.row.member_type) || 'frei', items = maChecks(type), pr = maProgress(type, ma.done, ma.row);
+  const out = [h('p', { class: 'hr-muted' }, type === 'fest' ? 'Das erwartet dich als Mitarbeiter bei P² Sales.' : 'Das alles gehört zu deiner Selbstständigkeit als Handelsvertreter. Hake ab, was du erledigt hast.'),
+    h('p', null, h('b', null, `${pr.done} von ${pr.total} erledigt`)), h('div', { class: 'a-bar' + (pr.done >= pr.total ? ' full' : '') }, h('i', { style: `width:${pr.total ? pr.done / pr.total * 100 : 0}%` }))];
+  if (!ma.row) out.push(h('p', { class: 'hr-muted' }, 'Tipp: Wähle im Reiter „Stammdaten“ aus, ob du Handelsvertreter oder Festangestellter bist. Bis dahin zeigen wir die Liste für freie Handelsvertreter.'));
+  let group = '';
+  for (const it of items) {
+    if (it.g !== group) { group = it.g; out.push(h('h3', null, group)); }
+    const done = maItemDone(it, ma.done, ma.row), cb = h('input', { type: 'checkbox', disabled: !!it.info || !!it.auto });
+    cb.checked = done; cb.addEventListener('change', () => maToggle(it.k, cb.checked));
+    out.push(h('div', { class: 'hr-card' },
+      h('label', { class: 'ma-check' }, it.info ? h('span', null, 'ℹ️') : cb, h('span', null, h('b', null, it.t), it.must ? h('small', { class: 'hr-neg' }, ' · Pflicht vor dem ersten Einsatz') : null, it.auto ? h('small', { class: 'hr-muted' }, ' · automatisch') : null)),
+      h('small', null, it.what),
+      it.how.length ? h('details', { class: 'hr-muted' }, h('summary', null, 'So geht es'), h('ul', null, ...it.how.map(x => h('li', null, x)))) : null,
+      it.act === 'academy' ? h('div', { class: 'hr-act' }, h('button', { class: 'btn', type: 'button', onclick: () => { closeMa(); openAcad('lessons'); } }, 'Zur Academy')) : null));
+  }
+  out.push(h('p', { class: 'hr-muted' }, 'Das ist eine Orientierung und keine Rechts- oder Steuerberatung. Genaue Regeln und Kosten klärst du bei Gewerbeamt, Finanzamt oder einem Steuerberater. Gesetze und Gebühren können sich ändern.'));
+  return out;
+}
+
 
 /* ===== Personal (nur Admin; Daten zusätzlich per RLS geschützt, siehe supabase/personal.sql) ===== */
 const HR_DEFAULTS = { fixed_salary: 2700, tier_limit: 30, rate_low: 30, rate_high: 50, employer_pct: 21, bg_pct: 1, revenue_per_contract: 150, targets: [15, 30, 45, 55, 60], yellow_from: 35, probation_months: 6, fixed_months: 24, lead_probation_weeks: 8, lead_month12_weeks: 8, lead_fixed_weeks: 12, free_commission_pct: 60, free_commission_cap: 110 };
-const hr = { emps: [], perf: [], set: { ...HR_DEFAULTS }, loaded: false, busy: false, edit: null, maEdit: null, members: [], membersErr: false, perfEmp: '', perfMonth: '', resMonth: '' };
+const hr = { emps: [], perf: [], set: { ...HR_DEFAULTS }, loaded: false, busy: false, edit: null, maEdit: null, members: [], membersErr: false, checks: [], perfEmp: '', perfMonth: '', resMonth: '' };
 let hrOpen = false, hrView = 'dates';
 const eur = n => new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR' }).format(n || 0);
 const monthKey = (d = new Date()) => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
@@ -2589,6 +2686,7 @@ async function hrLoad() {
   hrNote('');
   hr.emps = e.data; hr.perf = p.data; hr.set = { ...HR_DEFAULTS, ...((s.data && s.data.data) || {}) }; hr.loaded = true;
   const mp = await sb.from('member_profiles').select('*'); hr.members = mp.error ? [] : mp.data; hr.membersErr = !!mp.error;
+  const ck = await sb.from('member_checklist').select('user_id,item_key'); hr.checks = ck.error ? [] : ck.data;
   hrBanner(); if (hrOpen) renderHr();
 }
 function hrNote(t) { const n = $('hrNote'); n.textContent = t; n.hidden = !t; }
@@ -2822,6 +2920,7 @@ function hrViewMembers() {
     const row = hr.members.find(m => m.user_id === t.id), st = maStatus(row);
     out.push(h('div', { class: 'hr-card' }, h('b', null, memberName(t.id)),
       h('span', null, h('b', { class: st.cls }, st.txt), row ? ' · ' + (row.member_type === 'fest' ? 'Festangestellter' : 'Freier Handelsvertreter') : ''),
+      (() => { const done = {}; for (const c of hr.checks) if (c.user_id === t.id) done[c.item_key] = true; const pr = maProgress((row && row.member_type) || 'frei', done, row); return h('small', null, `Einstieg: ${pr.done} von ${pr.total} erledigt` + (pr.open.length ? ' · offen: ' + pr.open.map(i => i.t).join(', ') : '')); })(),
       h('small', null, row && row.location_sharing ? 'Live-Standort freigegeben seit ' + fmtDate((row.location_consent_at || '').slice(0, 10)) : 'Live-Standort nicht freigegeben'),
       h('div', { class: 'hr-act' }, h('button', { class: 'btn', type: 'button', onclick: () => { hr.maEdit = t.id; renderHr(); $('hrBody').scrollTop = 0; } }, row ? 'Ansehen / Bearbeiten' : 'Für ihn ausfüllen'))));
   }
