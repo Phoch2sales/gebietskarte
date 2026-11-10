@@ -2401,8 +2401,9 @@ const hrFreeRate = (e, s = hr.set) => {
 // Übersteigt die Rückrechnung die Provision, ist die Auszahlung 0 und der Rest (carryOut) wird im Folgemonat abgezogen.
 function hrMoneyFree(e, closed, cancelledPrev, carryIn = 0, s = hr.set) {
   const r = hrFreeRate(e, s), commission = closed * r.per, clawback = cancelledPrev * r.per, raw = commission - clawback - carryIn;
-  const payout = Math.max(0, raw), carryOut = Math.max(0, -raw), revenue = (closed - cancelledPrev) * s.revenue_per_contract;
-  return { ...r, commission, clawback, carryIn, payout, carryOut, revenue, result: revenue - payout };
+  const payout = Math.max(0, raw), carryOut = Math.max(0, -raw);
+  const revenueGross = closed * s.revenue_per_contract, revenueStorno = cancelledPrev * s.revenue_per_contract, revenue = revenueGross - revenueStorno; // Umsatz P²: Storno bucht im Folgemonat zurück
+  return { ...r, commission, clawback, carryIn, payout, carryOut, revenueGross, revenueStorno, revenue, result: revenue - payout };
 }
 const hrPerfOf = (id, k) => hr.perf.find(x => x.employee_id === id && x.month.slice(0, 7) === k);
 function hrFreeMonth(e, key) { // läuft ab dem Startmonat bis key, damit ein offener Rest (Vortrag) mitgenommen wird
@@ -2632,7 +2633,7 @@ function hrViewFree() {
   const mon = h('input', { class: 'hr-sel', type: 'month', value: key, onchange: ev => { if (ev.target.value) { hr.freeMonth = ev.target.value; renderHr(); } } });
   const perfOf = (id, k) => hr.perf.find(x => x.employee_id === id && x.month.slice(0, 7) === k);
   const emps = hr.emps.filter(e => hrIsFree(e) && hrMonthNo(e, key) >= 1 && (e.status === 'aktiv' || perfOf(e.id, key) || perfOf(e.id, prev))).sort((a, b) => a.name.localeCompare(b.name, 'de'));
-  const sum = { closed: 0, commission: 0, clawback: 0, carryIn: 0, carryOut: 0, payout: 0, revenue: 0, result: 0 };
+  const sum = { closed: 0, commission: 0, clawback: 0, carryIn: 0, carryOut: 0, payout: 0, revenueGross: 0, revenueStorno: 0, revenue: 0, result: 0 };
   const rows = emps.map(e => {
     const m = hrFreeMonth(e, key), p = m.p, closed = p ? p.closed : 0, canc = p ? p.cancelled : 0, cancPrev = m.pp ? m.pp.cancelled : 0;
     const v = hrCalc(closed, canc).valid, t = hrTarget(hrMonthNo(e, key));
@@ -2641,12 +2642,22 @@ function hrViewFree() {
       h('td', null, h('span', { class: 'hr-dot ' + hrLight(v, t) }), v), h('td', null, eur(m.commission)), h('td', null, cancPrev ? '−' + eur(m.clawback) + ' (' + cancPrev + ')' : '–'), h('td', null, m.carryIn ? '−' + eur(m.carryIn) : '–'),
       h('td', null, eur(m.payout), m.carryOut ? h('small', { class: 'hr-neg' }, ' Rest offen ' + eur(m.carryOut)) : null), h('td', null, eur(m.revenue)), h('td', { class: m.result >= 0 ? 'hr-pos' : 'hr-neg' }, eur(m.result)));
   });
+  let cancPrevSum = 0;
+  const uRows = emps.map(e => {
+    const m = hrFreeMonth(e, key), cp = m.pp ? m.pp.cancelled : 0; cancPrevSum += cp;
+    return h('tr', null, h('td', null, e.name), h('td', null, m.p ? m.p.closed : 0), h('td', null, eur(m.revenueGross)), h('td', null, cp), h('td', { class: m.revenueStorno ? 'hr-neg' : '' }, m.revenueStorno ? '−' + eur(m.revenueStorno) : '–'), h('td', { class: m.revenue >= 0 ? '' : 'hr-neg' }, h('b', null, eur(m.revenue))));
+  });
+  const uSection = emps.length ? [h('h3', null, 'Umsatz P² ' + fmtMonth(key) + ' (Nachweis)'),
+    h('div', { class: 'hr-tblwrap' }, h('table', { class: 'hr-tbl' }, h('thead', null, h('tr', null, ...['Name', 'Abschlüsse', 'Umsatz Abschlüsse', 'Stornos aus ' + fmtMonth(prev), 'Umsatz zurück', 'Netto-Umsatz'].map(t => h('th', null, t)))),
+      h('tbody', null, uRows), h('tfoot', null, h('tr', null, h('td', null, h('b', null, 'Summe')), h('td', null, sum.closed), h('td', null, eur(sum.revenueGross)), h('td', null, cancPrevSum), h('td', null, sum.revenueStorno ? '−' + eur(sum.revenueStorno) : '–'), h('td', { class: sum.revenue >= 0 ? '' : 'hr-neg' }, h('b', null, eur(sum.revenue))))))),
+    h('p', { class: 'hr-muted' }, `Netto-Umsatz = Abschlüsse dieses Monats × ${eur(s.revenue_per_contract)} minus Stornos aus dem Vormonat × ${eur(s.revenue_per_contract)}. Die Rückbuchung mindert den Umsatz des Monats, in dem sie erfolgt; der Monat der Abschlüsse bleibt unverändert.`)] : [];
   const fixed = hrFixedResult(key), total = sum.result + fixed.result;
   const card = (t, v, extra) => h('div', { class: 'hr-card' }, h('small', null, t), h('b', { class: v >= 0 ? 'hr-pos' : 'hr-neg' }, eur(v)), extra ? h('small', null, extra) : null);
   return [h('label', { class: 'hr-form' }, 'Monat', mon), h('h3', null, 'Freie Handelsvertreter'),
-    rows.length ? h('div', { class: 'hr-tblwrap' }, h('table', { class: 'hr-tbl' }, h('thead', null, h('tr', null, ...['Name', 'Abg.', 'Storno', 'Gültig', 'Provision', 'Storno Vormonat', 'Vortrag', 'Auszahlung', 'Umsatz P²', 'Ergebnis'].map(t => h('th', null, t)))),
+    rows.length ? h('div', { class: 'hr-tblwrap' }, h('table', { class: 'hr-tbl' }, h('thead', null, h('tr', null, ...['Name', 'Abg.', 'Storno', 'Gültig', 'Provision', 'Storno Vormonat', 'Vortrag', 'Auszahlung', 'Umsatz P² netto', 'Ergebnis'].map(t => h('th', null, t)))),
       h('tbody', null, rows), h('tfoot', null, h('tr', null, h('td', null, h('b', null, 'Summe')), h('td', null, sum.closed), h('td'), h('td'), h('td', null, eur(sum.commission)), h('td', null, sum.clawback ? '−' + eur(sum.clawback) : '–'), h('td', null, sum.carryIn ? '−' + eur(sum.carryIn) : '–'), h('td', null, eur(sum.payout), sum.carryOut ? h('small', { class: 'hr-neg' }, ' Rest offen ' + eur(sum.carryOut)) : null), h('td', null, eur(sum.revenue)), h('td', { class: sum.result >= 0 ? 'hr-pos' : 'hr-neg' }, eur(sum.result)))))) : h('p', { class: 'hr-muted' }, 'Keine freien Vertreter in diesem Monat. Lege sie unter „Mitarbeiter“ mit der Vertragsart „frei“ an und trage die Zahlen unter „Performance“ ein.'),
-    h('h3', null, 'Gesamtübersicht ' + fmtMonth(key)), card('Freie Vertreter: Ergebnis', sum.result), card('Festangestellte: Ergebnis', fixed.result), card('Gesamt', total, `Umsatz P² gesamt ${eur(sum.revenue + fixed.revenue)}`),
+    ...uSection,
+    h('h3', null, 'Gesamtübersicht ' + fmtMonth(key)), card('Freie Vertreter: Ergebnis', sum.result), card('Festangestellte: Ergebnis', fixed.result), card('Gesamt', total, `Umsatz P² netto gesamt ${eur(sum.revenue + fixed.revenue)}`),
     emps.length ? h('h3', null, 'Academy-Stand') : null, ...emps.map(e => h('div', { class: 'hr-card' }, h('b', null, e.name), hrAcadLine(e))),
     h('p', { class: 'hr-muted' }, `Provision je Vertrag = Prozentsatz × ${eur(s.revenue_per_contract)} Umsatz, höchstens der Höchstbetrag (Standard ${String(s.free_commission_pct).replace('.', ',')} % und ${eur(s.free_commission_cap)}; je Vertreter unter „Mitarbeiter“ änderbar). Stornos eines Monats werden im Folgemonat voll zurückgerechnet (Provision und Umsatz). Ampel: gültige Verträge im Monat gegen das Monatsziel. Übersteigt die Rückrechnung die Provision, ist die Auszahlung 0 € und der Rest wird als Vortrag von den Folgemonaten abgezogen, bis er ausgeglichen ist. Das Ergebnis rechnet mit der tatsächlichen Auszahlung. Die Berechnung läuft ab dem Startmonat des Vertreters.`)];
 }
