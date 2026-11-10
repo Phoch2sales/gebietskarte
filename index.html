@@ -279,6 +279,9 @@ dialog::backdrop{background:rgba(5,15,22,.55)}
 .hr-form input,.hr-form select,.hr-form textarea,.hr-sel{width:100%;min-width:0;border:1px solid var(--line);background:var(--panel);color:var(--fg);border-radius:10px;padding:9px 11px;font-size:16px;font-weight:400}
 .hr-row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .hr-row3{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
+.hr-form .ma-check{display:flex;gap:10px;align-items:flex-start;font-weight:400;color:var(--fg);font-size:.95em}
+.hr-form input[type=checkbox]{width:22px;height:22px;flex:0 0 auto;margin-top:1px}
+.hr-form details{font-size:.9em}
 .hr-card{border:1px solid var(--line);border-radius:12px;padding:10px 12px;background:var(--field);display:grid;gap:4px}
 .hr-card small,.hr-muted{color:var(--muted)}
 .hr-act{display:flex;gap:8px;flex-wrap:wrap;margin-top:4px}
@@ -565,7 +568,7 @@ dialog::backdrop{background:rgba(5,15,22,.55)}
     <h3>Konto</h3>
     <p id="mMe"></p>
     <p id="mSync"></p>
-    <div class="row-wrap"><button class="btn" type="button" id="mPass">Passwort ändern</button><button class="btn" type="button" id="mLogout">Abmelden</button></div>
+    <div class="row-wrap"><button class="btn" type="button" id="mMa">Mitarbeiterbereich</button><button class="btn" type="button" id="mPass">Passwort ändern</button><button class="btn" type="button" id="mLogout">Abmelden</button></div>
     <div class="stack admin-only" hidden>
       <h3>Team</h3>
       <p>Gesperrte Zugänge sehen nichts mehr. Ihre App löscht die Kundendaten auf dem Handy, sobald es online ist.</p>
@@ -725,6 +728,16 @@ dialog::backdrop{background:rgba(5,15,22,.55)}
   </div>
 </section>
 
+<!-- Mitarbeiterbereich -->
+<section class="chat acad ma" id="ma" hidden aria-labelledby="maTitle">
+  <div class="chat-head">
+    <h2 id="maTitle">Mitarbeiterbereich<small>Stammdaten</small></h2>
+    <button class="close" id="maClose" type="button" aria-label="Mitarbeiterbereich schließen">✕</button>
+  </div>
+  <p class="chat-note" id="maNote" hidden style="padding:8px 16px 0"></p>
+  <div class="acad-body hr-body" id="maBody"></div>
+</section>
+
 <!-- Personal (nur Admin) -->
 <section class="chat acad hr" id="hr" hidden aria-labelledby="hrTitle">
   <div class="chat-head">
@@ -732,7 +745,7 @@ dialog::backdrop{background:rgba(5,15,22,.55)}
     <button class="close" id="hrClose" type="button" aria-label="Personal schließen">✕</button>
   </div>
   <nav class="acad-tabs" id="hrTabs" aria-label="Personal-Bereiche">
-    <button type="button" data-v="dates">Termine</button><button type="button" data-v="staff">Mitarbeiter</button><button type="button" data-v="free">Freie Vertreter</button><button type="button" data-v="perf">Performance</button><button type="button" data-v="result">Ergebnis</button><button type="button" data-v="settings">Einstellungen</button>
+    <button type="button" data-v="dates">Termine</button><button type="button" data-v="staff">Mitarbeiter</button><button type="button" data-v="members">Stammdaten</button><button type="button" data-v="free">Freie Vertreter</button><button type="button" data-v="perf">Performance</button><button type="button" data-v="result">Ergebnis</button><button type="button" data-v="settings">Einstellungen</button>
   </nav>
   <p class="chat-note" id="hrNote" hidden style="padding:8px 16px 0"></p>
   <div class="acad-body hr-body" id="hrBody"></div>
@@ -759,7 +772,7 @@ dialog::backdrop{background:rgba(5,15,22,.55)}
 <script>
 (() => {
 'use strict';
-const VERSION = '2.32';
+const VERSION = '2.33';
 const WM_OPEN = false; // Wechselmeister für Vertreter: erst auf Florians Signal auf true setzen (bis dahin nur Admin)
 const APP = 'P² Gebietskarte';
 const $ = id => document.getElementById(id);
@@ -1217,7 +1230,7 @@ function touch(id) {
 }
 function openSheet(id) {
   const prev = current; current = id; if (prev) restyle(prev); restyle(id);
-  if (chatOpen) closeChat(); if (dashOpen) closeDash(); if (acadOpen) closeAcad(); if (hrOpen) closeHr();
+  if (chatOpen) closeChat(); if (dashOpen) closeDash(); if (acadOpen) closeAcad(); if (hrOpen) closeHr(); if (maOpen) closeMa();
   sheet.hidden = false; renderSheet();
 }
 function closeSheet() { const prev = current; current = null; sheet.hidden = true; if (prev) restyle(prev); }
@@ -1229,7 +1242,7 @@ map.on('click', e => {
   if (map.getZoom() < 15) say('Zum Markieren näher heranzoomen, bis die einzelnen Häuser zu sehen sind.');
   else if (!loadedTiles[lon2x(e.latlng.lng) + '/' + lat2y(e.latlng.lat)]) say(loading ? 'Die Häuser hier werden gerade geladen …' : 'Hier sind noch keine Häuser geladen. Erst „Häuser finden“ tippen, dann ein Haus anklicken.');
 });
-document.addEventListener('keydown', e => { if (e.key !== 'Escape') return; if (wmOpen) closeWm(); else if (hrOpen) closeHr(); else if (acadOpen) closeAcad(); else if (dashOpen) closeDash(); else if (chatOpen) closeChat(); else if (current) closeSheet(); });
+document.addEventListener('keydown', e => { if (e.key !== 'Escape') return; if (wmOpen) closeWm(); else if (maOpen) closeMa(); else if (hrOpen) closeHr(); else if (acadOpen) closeAcad(); else if (dashOpen) closeDash(); else if (chatOpen) closeChat(); else if (current) closeSheet(); });
 
 function infoFor(r, unit) {
   const x = unit || r;
@@ -1844,10 +1857,11 @@ async function startSession(session) {
 }
 function applyRole() {
   for (const x of document.querySelectorAll('.admin-only')) x.hidden = !isAdmin();
-  $('btnChat').hidden = !me; $('shShare').hidden = !me; $('btnDash').hidden = !me; $('btnAcad').hidden = !me; $('btnWm').hidden = !me || !(WM_OPEN || isAdmin());
+  $('btnChat').hidden = !me; $('mMa').hidden = !me; $('shShare').hidden = !me; $('btnDash').hidden = !me; $('btnAcad').hidden = !me; $('btnWm').hidden = !me || !(WM_OPEN || isAdmin());
   if (!me) { closeWm(); $('wmBody').textContent = ''; }
   if (!me && acadOpen) closeAcad();
   if (!me && dashOpen) closeDash();
+  if (!me) { if (maOpen) closeMa(); ma.row = null; ma.loaded = false; $('maBody').textContent = ''; } // Stammdaten nie im Speicher lassen, wenn abgemeldet
   if (hrOpen && !isAdmin()) closeHr();
   if (!isAdmin()) { hr.emps = []; hr.perf = []; hr.loaded = false; $('hrBar').hidden = true; } // Personal-Daten nie im Speicher behalten, wenn kein Admin
   if (!me && chatOpen) closeChat();
@@ -2127,7 +2141,7 @@ function renderAttach() {
 function openChat() {
   if (!me) return;
   chatOpen = true; $('chat').hidden = false;
-  if (current) closeSheet(); if (dashOpen) closeDash(); if (acadOpen) closeAcad(); if (wmOpen) closeWm(); if (hrOpen) closeHr();
+  if (current) closeSheet(); if (dashOpen) closeDash(); if (acadOpen) closeAcad(); if (wmOpen) closeWm(); if (hrOpen) closeHr(); if (maOpen) closeMa();
   renderAttach(); renderChat(true); markChatSeen();
   if (!chatLoaded) loadChat();
   if (!isTouch) setTimeout(() => $('chatIn').focus(), 50);
@@ -2346,7 +2360,7 @@ function renderDash() {
 function openDash() {
   if (!me) return;
   dashOpen = true; $('dash').hidden = false;
-  if (current) closeSheet(); if (chatOpen) closeChat(); if (acadOpen) closeAcad(); if (wmOpen) closeWm(); if (hrOpen) closeHr();
+  if (current) closeSheet(); if (chatOpen) closeChat(); if (acadOpen) closeAcad(); if (wmOpen) closeWm(); if (hrOpen) closeHr(); if (maOpen) closeMa();
   if (statsDay !== today()) { stats = {}; statsDay = today(); loadPendingStat(); }
   updateTally(); renderDash(); loadStats();
 }
@@ -2361,9 +2375,129 @@ document.addEventListener('visibilitychange', () => { if (document.visibilitySta
 window.addEventListener('online', () => { if (me && LS.get('p2gk-stat-pending', null)) saveStat(); });
 setInterval(() => { if (me && statsDay && statsDay !== today()) { stats = {}; statsDay = today(); statPending = false; renderDash(); loadStats(); } }, 60000);
 
+/* ===== Mitarbeiterbereich: Stammdatenblatt (supabase/mitarbeiterbereich.sql). Jeder sieht nur sein eigenes Blatt, Admins alle (RLS). ===== */
+const ma = { row: null, loaded: false, busy: false };
+let maOpen = false;
+function ibanOk(v) {
+  v = String(v).replace(/\s+/g, '').toUpperCase();
+  if (!/^[A-Z]{2}[0-9]{2}[A-Z0-9]{11,30}$/.test(v)) return false;
+  let n = ''; for (const c of v.slice(4) + v.slice(0, 4)) n += /[A-Z]/.test(c) ? String(c.charCodeAt(0) - 55) : c;
+  let rem = 0; for (const d of n) rem = (rem * 10 + Number(d)) % 97;
+  return rem === 1;
+}
+// only = nur für diese Art sichtbar, req = Pflicht für 'all' oder die genannte Art, t = date | check, pat/fn = Formatprüfung
+const MA_FIELDS = [
+  { s: 'Person', k: 'first_name', l: 'Vorname', req: 'all' }, { k: 'last_name', l: 'Nachname', req: 'all' }, { k: 'birth_date', l: 'Geburtsdatum', t: 'date', req: 'all' },
+  { s: 'Anschrift', k: 'street', l: 'Straße und Hausnummer', req: 'all' }, { k: 'zip', l: 'PLZ', req: 'all', im: 'numeric', pat: /^\d{5}$/, msg: 'PLZ (5 Ziffern)' }, { k: 'city', l: 'Ort', req: 'all' }, { k: 'phone', l: 'Telefon / Handy', req: 'all', im: 'tel' },
+  { s: 'Selbstständigkeit', only: 'frei', k: 'company_name', l: 'Name des Gewerbes (falls abweichend)' }, { only: 'frei', k: 'gewerbe_since', l: 'Gewerbeanmeldung vom', t: 'date', req: 'frei' },
+  { only: 'frei', k: 'reisegewerbekarte_no', l: 'Reisegewerbekarte Nr.', req: 'frei' }, { only: 'frei', k: 'reisegewerbekarte_until', l: 'Reisegewerbekarte gültig bis', t: 'date', req: 'frei' }, { only: 'frei', k: 'small_business', l: 'Ich nutze die Kleinunternehmerregelung (§ 19 UStG)', t: 'check' },
+  { s: 'Steuer', k: 'tax_id', l: 'Steuer-ID (11 Ziffern)', req: 'all', im: 'numeric', pat: /^[1-9]\d{10}$/, msg: 'Steuer-ID (11 Ziffern)' }, { only: 'frei', k: 'tax_number', l: 'Steuernummer (vom Finanzamt)', req: 'frei' }, { only: 'frei', k: 'vat_id', l: 'USt-IdNr. (falls vorhanden)' },
+  { s: 'Sozialversicherung', k: 'health_insurance', l: 'Krankenkasse / Krankenversicherung', req: 'all' }, { only: 'fest', k: 'sv_number', l: 'Sozialversicherungsnummer', req: 'fest' },
+  { s: 'Bankverbindung', k: 'account_holder', l: 'Kontoinhaber', req: 'all' }, { k: 'iban', l: 'IBAN', req: 'all', fn: ibanOk, msg: 'IBAN ungültig' }, { k: 'bic', l: 'BIC (optional)' },
+  { s: 'Notfallkontakt', k: 'emergency_name', l: 'Name', req: 'all' }, { k: 'emergency_phone', l: 'Telefon', req: 'all', im: 'tel' }
+];
+const maApplies = (f, type) => !f.only || f.only === type;
+const maText = v => (v === null || v === undefined ? '' : String(v)).trim();
+function maProblems(st) { // fehlende Pflichtangaben und fehlerhafte Formate
+  const type = st.member_type || 'frei', missing = [], bad = [];
+  for (const f of MA_FIELDS) {
+    if (!maApplies(f, type) || f.t === 'check') continue;
+    const v = maText(st[f.k]);
+    if (!v) { if (f.req === 'all' || f.req === type) missing.push(f.l); continue; }
+    if ((f.pat && !f.pat.test(v)) || (f.fn && !f.fn(v))) bad.push(f.msg || f.l);
+  }
+  if (!st.privacy_ack && !st.privacy_ack_at) missing.push('Datenschutzhinweis bestätigen');
+  return { missing, bad };
+}
+function maStatus(row) {
+  if (!row) return { cls: 'hr-neg', txt: 'Noch nicht ausgefüllt' };
+  const p = maProblems(row);
+  return p.bad.length || p.missing.length ? { cls: 'hr-neg', txt: `Unvollständig (${p.missing.length + p.bad.length} offen)` } : { cls: 'hr-pos', txt: 'Vollständig' };
+}
+function maForm(uid, row, opts = {}) {
+  const st = { member_type: 'frei', small_business: false, location_sharing: false, ...(row || {}) };
+  st.privacy_ack = !!st.privacy_ack_at;
+  const form = h('form', { class: 'hr-form', novalidate: true, onsubmit: ev => { ev.preventDefault(); save(); } });
+  const msg = h('p', { class: 'hr-muted' });
+  const status = () => {
+    const p = maProblems(st);
+    msg.className = p.bad.length ? 'hr-neg' : 'hr-muted';
+    msg.textContent = p.bad.length ? 'Bitte prüfen: ' + p.bad.join(', ') : p.missing.length ? `Noch offen (${p.missing.length}): ` + p.missing.join(', ') : 'Alle Pflichtangaben sind ausgefüllt.';
+  };
+  const check = (key, label, extra) => { const cb = h('input', { type: 'checkbox' }); cb.checked = !!st[key]; cb.addEventListener('change', () => { st[key] = cb.checked; status(); }); return h('label', { class: 'ma-check' }, cb, h('span', null, label, extra)); };
+  function build() {
+    const type = st.member_type, parts = [h('b', null, opts.title || 'Mein Stammdatenblatt')];
+    parts.push(h('label', null, 'Ich bin', h('select', { onchange: ev => { st.member_type = ev.target.value; build(); } },
+      h('option', { value: 'frei', selected: type === 'frei' }, 'Freier Handelsvertreter (selbstständig)'), h('option', { value: 'fest', selected: type === 'fest' }, 'Festangestellter'))));
+    for (const f of MA_FIELDS) {
+      if (!maApplies(f, type)) continue;
+      if (f.s) parts.push(h('h3', null, f.s));
+      if (f.t === 'check') { parts.push(check(f.k, f.l)); continue; }
+      const inp = h('input', { type: f.t || 'text', value: maText(st[f.k]), inputmode: f.im, autocomplete: 'off', maxlength: 120 });
+      inp.addEventListener('input', () => { st[f.k] = inp.value; status(); });
+      parts.push(h('label', null, f.l + (f.req === 'all' || f.req === type ? ' *' : ''), inp));
+    }
+    parts.push(h('h3', null, 'Einwilligungen'),
+      // Hinweistext ist ein Entwurf und sollte rechtlich geprüft werden
+      h('details', { class: 'hr-muted' }, h('summary', null, 'Datenschutzhinweis lesen'), h('p', null, 'Deine Angaben werden nur zur Abwicklung deiner Tätigkeit für P² Sales verwendet: Vertrag, Provisionsabrechnung sowie steuerliche und gesetzliche Meldungen. Sie sind nur für dich und die Geschäftsleitung sichtbar, andere Vertreter sehen sie nicht. Du kannst sie jederzeit ansehen und ändern. Auf Wunsch werden sie gelöscht, soweit keine gesetzliche Aufbewahrungspflicht besteht.')),
+      check('privacy_ack', 'Ich habe den Datenschutzhinweis gelesen und bin mit der Speicherung meiner Angaben einverstanden. *'),
+      check('location_sharing', 'Live-Standort mit P² Sales teilen (freiwillig, jederzeit widerrufbar). Ohne Häkchen wird dein Standort nicht verfolgt.', h('small', { class: 'hr-muted' }, ' Die Standortfunktion wird erst in einem späteren Schritt freigeschaltet, das Häkchen speichert nur deine Entscheidung.')),
+      msg, h('div', { class: 'hr-act' }, h('button', { class: 'btn primary', type: 'submit' }, 'Speichern'), opts.onCancel ? h('button', { class: 'btn', type: 'button', onclick: opts.onCancel }, 'Zurück') : null));
+    form.textContent = ''; form.append(...parts); status();
+  }
+  async function save() {
+    const p = maProblems(st);
+    if (p.bad.length) { status(); say('Bitte prüfen: ' + p.bad.join(', '), true); return; }
+    const now = new Date().toISOString(), type = st.member_type;
+    const out = { user_id: uid, member_type: type, small_business: type === 'frei' && !!st.small_business, updated_at: now,
+      privacy_ack_at: st.privacy_ack ? (row && row.privacy_ack_at) || now : null,
+      location_sharing: !!st.location_sharing, location_consent_at: st.location_sharing ? (row && row.location_sharing && row.location_consent_at) || now : null };
+    for (const f of MA_FIELDS) {
+      if (f.t === 'check') continue;
+      let v = maApplies(f, type) ? maText(st[f.k]) : '';
+      if (f.k === 'iban') v = v.replace(/\s+/g, '').toUpperCase();
+      out[f.k] = v || null;
+    }
+    const r = await sb.from('member_profiles').upsert(out, { onConflict: 'user_id' });
+    if (r.error) { say('Speichern fehlgeschlagen: ' + r.error.message, true); return; }
+    say('Stammdaten gespeichert.');
+    if (opts.onSaved) opts.onSaved(out);
+  }
+  build();
+  return form;
+}
+
+async function maLoad() {
+  if (!sb || !me) return;
+  ma.busy = true; renderMa();
+  const r = await sb.from('member_profiles').select('*').eq('user_id', me.id).maybeSingle();
+  ma.busy = false;
+  if (r.error) { maNote(/does not exist|schema cache/i.test(r.error.message || '') ? 'Der Mitarbeiterbereich ist auf dem Server noch nicht eingerichtet.' : 'Stammdaten konnten nicht geladen werden. Bitte später erneut versuchen.'); renderMa(); return; }
+  maNote(''); ma.row = r.data; ma.loaded = true; renderMa();
+}
+function maNote(t) { const n = $('maNote'); n.textContent = t; n.hidden = !t; }
+function openMa() {
+  if (!me) return;
+  maOpen = true; $('ma').hidden = false;
+  if (current) closeSheet(); if (chatOpen) closeChat(); if (dashOpen) closeDash(); if (acadOpen) closeAcad(); if (wmOpen) closeWm(); if (hrOpen) closeHr();
+  renderMa(); maLoad();
+}
+function closeMa() { maOpen = false; $('ma').hidden = true; }
+$('mMa').addEventListener('click', () => { $('dlgMore').close(); openMa(); });
+$('maClose').addEventListener('click', closeMa);
+function renderMa() {
+  if (!maOpen) return;
+  const body = $('maBody'); body.textContent = '';
+  if (!ma.loaded) { body.append(h('p', { class: 'hr-muted' }, ma.busy ? 'Lade …' : '')); return; }
+  const st = maStatus(ma.row);
+  body.append(h('p', { class: 'hr-muted' }, 'Trage hier deine Stammdaten ein. Sie sind nur für dich und P² Sales sichtbar. Felder mit * sind Pflicht.'),
+    h('p', null, 'Stand: ', h('b', { class: st.cls }, st.txt)),
+    maForm(me.id, ma.row, { onSaved: row => { ma.row = { ...row }; renderMa(); } }));
+}
+
 /* ===== Personal (nur Admin; Daten zusätzlich per RLS geschützt, siehe supabase/personal.sql) ===== */
 const HR_DEFAULTS = { fixed_salary: 2700, tier_limit: 30, rate_low: 30, rate_high: 50, employer_pct: 21, bg_pct: 1, revenue_per_contract: 150, targets: [15, 30, 45, 55, 60], yellow_from: 35, probation_months: 6, fixed_months: 24, lead_probation_weeks: 8, lead_month12_weeks: 8, lead_fixed_weeks: 12, free_commission_pct: 60, free_commission_cap: 110 };
-const hr = { emps: [], perf: [], set: { ...HR_DEFAULTS }, loaded: false, busy: false, edit: null, perfEmp: '', perfMonth: '', resMonth: '' };
+const hr = { emps: [], perf: [], set: { ...HR_DEFAULTS }, loaded: false, busy: false, edit: null, maEdit: null, members: [], membersErr: false, perfEmp: '', perfMonth: '', resMonth: '' };
 let hrOpen = false, hrView = 'dates';
 const eur = n => new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR' }).format(n || 0);
 const monthKey = (d = new Date()) => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
@@ -2454,6 +2588,7 @@ async function hrLoad() {
   if (err) { hrNote(/does not exist|schema cache/i.test(err.error.message || '') ? 'Der Personal-Bereich ist auf dem Server noch nicht eingerichtet (supabase/personal.sql ausführen).' : 'Personal-Daten konnten nicht geladen werden.'); return; }
   hrNote('');
   hr.emps = e.data; hr.perf = p.data; hr.set = { ...HR_DEFAULTS, ...((s.data && s.data.data) || {}) }; hr.loaded = true;
+  const mp = await sb.from('member_profiles').select('*'); hr.members = mp.error ? [] : mp.data; hr.membersErr = !!mp.error;
   hrBanner(); if (hrOpen) renderHr();
 }
 function hrNote(t) { const n = $('hrNote'); n.textContent = t; n.hidden = !t; }
@@ -2485,7 +2620,7 @@ function hrBanner() {
 function openHr(view) {
   if (!me || !isAdmin()) return;
   hrOpen = true; $('hr').hidden = false;
-  if (current) closeSheet(); if (chatOpen) closeChat(); if (dashOpen) closeDash(); if (acadOpen) closeAcad(); if (wmOpen) closeWm();
+  if (current) closeSheet(); if (chatOpen) closeChat(); if (dashOpen) closeDash(); if (acadOpen) closeAcad(); if (wmOpen) closeWm(); if (maOpen) closeMa();
   if (view) hrView = view;
   renderHr(); hrLoad(); if (!acadLoaded) loadAcad();
 }
@@ -2494,7 +2629,7 @@ $('btnHr').addEventListener('click', () => hrOpen ? closeHr() : openHr());
 $('hrClose').addEventListener('click', closeHr);
 $('hrBarOpen').addEventListener('click', () => { $('hrBar').hidden = true; openHr('dates'); });
 $('hrBarX').addEventListener('click', () => { LS.set('p2gk-hr-dismiss', $('hrBar').dataset.sig || ''); $('hrBar').hidden = true; });
-$('hrTabs').addEventListener('click', ev => { const b = ev.target.closest('button[data-v]'); if (b) { hrView = b.dataset.v; hr.edit = null; renderHr(); $('hrBody').scrollTop = 0; } });
+$('hrTabs').addEventListener('click', ev => { const b = ev.target.closest('button[data-v]'); if (b) { hrView = b.dataset.v; hr.edit = null; hr.maEdit = null; renderHr(); $('hrBody').scrollTop = 0; } });
 
 function renderHr() {
   if (!hrOpen) return;
@@ -2502,7 +2637,7 @@ function renderHr() {
   for (const b of $('hrTabs').querySelectorAll('button')) b.setAttribute('aria-current', b.dataset.v === hrView ? 'page' : 'false');
   const body = $('hrBody'), top = body.scrollTop; body.textContent = '';
   if (!hr.loaded && hr.busy) body.append(h('p', { class: 'hr-muted' }, 'Lade Personal …'));
-  body.append(...({ dates: hrViewDates, staff: hrViewStaff, free: hrViewFree, perf: hrViewPerf, result: hrViewResult, settings: hrViewSettings })[hrView]().filter(Boolean));
+  body.append(...({ dates: hrViewDates, staff: hrViewStaff, members: hrViewMembers, free: hrViewFree, perf: hrViewPerf, result: hrViewResult, settings: hrViewSettings })[hrView]().filter(Boolean));
   body.scrollTop = top;
 }
 
@@ -2674,6 +2809,26 @@ function hrViewFree() {
     h('p', { class: 'hr-muted' }, `Provision je Vertrag = Prozentsatz × ${eur(s.revenue_per_contract)} Umsatz, höchstens der Höchstbetrag (Standard ${String(s.free_commission_pct).replace('.', ',')} % und ${eur(s.free_commission_cap)}; je Vertreter unter „Mitarbeiter“ änderbar). Sofort-Stornos (schon vor der Auszahlung klar) werden im selben Monat abgezogen, Folge-Stornos im Folgemonat, jeweils in voller Höhe mit Provision und Umsatz. Ampel: gültige Verträge im Monat gegen das Monatsziel. Übersteigt die Rückrechnung die Provision, ist die Auszahlung 0 € und der Rest wird als Vortrag von den Folgemonaten abgezogen, bis er ausgeglichen ist. Das Ergebnis rechnet mit der tatsächlichen Auszahlung. Die Berechnung läuft ab dem Startmonat des Vertreters.`)];
 }
 
+function hrViewMembers() {
+  if (hr.maEdit) {
+    const uid = hr.maEdit;
+    return [maForm(uid, hr.members.find(m => m.user_id === uid), { title: 'Stammdaten von ' + memberName(uid), onCancel: () => { hr.maEdit = null; renderHr(); }, onSaved: async () => { hr.maEdit = null; await hrLoad(); } })];
+  }
+  const out = [h('h3', null, 'Stammdaten der Zugänge')];
+  if (hr.membersErr) out.push(h('p', { class: 'hr-neg' }, 'Die Stammdaten-Tabelle fehlt noch auf dem Server (supabase/mitarbeiterbereich.sql ausführen).'));
+  const people = Object.values(team).filter(t => t.active).sort((a, b) => memberName(a.id).localeCompare(memberName(b.id), 'de'));
+  if (!people.length) out.push(h('p', { class: 'hr-muted' }, 'Keine aktiven Zugänge.'));
+  for (const t of people) {
+    const row = hr.members.find(m => m.user_id === t.id), st = maStatus(row);
+    out.push(h('div', { class: 'hr-card' }, h('b', null, memberName(t.id)),
+      h('span', null, h('b', { class: st.cls }, st.txt), row ? ' · ' + (row.member_type === 'fest' ? 'Festangestellter' : 'Freier Handelsvertreter') : ''),
+      h('small', null, row && row.location_sharing ? 'Live-Standort freigegeben seit ' + fmtDate((row.location_consent_at || '').slice(0, 10)) : 'Live-Standort nicht freigegeben'),
+      h('div', { class: 'hr-act' }, h('button', { class: 'btn', type: 'button', onclick: () => { hr.maEdit = t.id; renderHr(); $('hrBody').scrollTop = 0; } }, row ? 'Ansehen / Bearbeiten' : 'Für ihn ausfüllen'))));
+  }
+  out.push(h('p', { class: 'hr-muted' }, 'Vertreter sehen nur ihr eigenes Blatt. Die Daten sind personenbezogen (Steuer-ID, IBAN): nicht weitergeben oder per Chat teilen.'));
+  return out;
+}
+
 function hrViewSettings() {
   const fields = [['fixed_salary', 'Fixgehalt brutto (€)'], ['tier_limit', 'Provisionsstaffel: bis Vertrag Nr.'], ['rate_low', 'Provision je Vertrag bis dahin (€)'], ['rate_high', 'Provision je Vertrag danach (€)'], ['employer_pct', 'Arbeitgeberanteil (%)'], ['bg_pct', 'Berufsgenossenschaft (%)'], ['revenue_per_contract', 'Umsatz P² je Vertrag netto (€)'], ['free_commission_pct', 'Freie Vertreter: Standard-Provision (% vom Umsatz)'], ['free_commission_cap', 'Freie Vertreter: Standard-Höchstbetrag je Vertrag (€)'],
     ['yellow_from', 'Ampel gelb ab (gültige Verträge)'], ['probation_months', 'Probezeit (Monate)'], ['fixed_months', 'Befristung (Monate)'], ['lead_probation_weeks', 'Hinweis vor Probezeitende (Wochen)'], ['lead_month12_weeks', 'Hinweis vor Monat 12 (Wochen)'], ['lead_fixed_weeks', 'Hinweis vor Befristungsende (Wochen)']];
@@ -2812,7 +2967,7 @@ function acadNote(t) { const n = $('acadNote'); n.textContent = t; n.hidden = !t
 function openAcad(view) {
   if (!me) return;
   acadOpen = true; $('acad').hidden = false;
-  if (current) closeSheet(); if (chatOpen) closeChat(); if (dashOpen) closeDash(); if (wmOpen) closeWm(); if (hrOpen) closeHr();
+  if (current) closeSheet(); if (chatOpen) closeChat(); if (dashOpen) closeDash(); if (wmOpen) closeWm(); if (hrOpen) closeHr(); if (maOpen) closeMa();
   if (view) acadView = view;
   renderAcad(); loadAcad();
 }
@@ -3199,7 +3354,7 @@ $('acadClose').addEventListener('click', closeAcad);
 function openWm() {
   if (!me || !(WM_OPEN || isAdmin())) return;
   wmOpen = true; $('wm').hidden = false;
-  if (current) closeSheet(); if (chatOpen) closeChat(); if (dashOpen) closeDash(); if (acadOpen) closeAcad(); if (hrOpen) closeHr();
+  if (current) closeSheet(); if (chatOpen) closeChat(); if (dashOpen) closeDash(); if (acadOpen) closeAcad(); if (hrOpen) closeHr(); if (maOpen) closeMa();
   if (!$('wmBody').firstChild) $('wmBody').append(h('iframe', { src: './wechselmeister/?vertreter=1&embed=1', title: 'Wechselmeister Tarifrechner', allow: 'clipboard-write' }));
 }
 function closeWm() { wmOpen = false; $('wm').hidden = true; }
