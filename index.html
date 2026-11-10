@@ -278,6 +278,7 @@ dialog::backdrop{background:rgba(5,15,22,.55)}
 .hr-form label{display:grid;gap:4px;font-size:.85em;font-weight:700;color:var(--muted)}
 .hr-form input,.hr-form select,.hr-form textarea,.hr-sel{width:100%;min-width:0;border:1px solid var(--line);background:var(--panel);color:var(--fg);border-radius:10px;padding:9px 11px;font-size:16px;font-weight:400}
 .hr-row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.hr-row3{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
 .hr-card{border:1px solid var(--line);border-radius:12px;padding:10px 12px;background:var(--field);display:grid;gap:4px}
 .hr-card small,.hr-muted{color:var(--muted)}
 .hr-act{display:flex;gap:8px;flex-wrap:wrap;margin-top:4px}
@@ -2380,7 +2381,8 @@ const pct1 = n => n.toFixed(1).replace('.', ',') + ' %';
 // Monat 1 = Startmonat
 const hrMonthNo = (emp, key) => { const [sy, sm] = emp.start_date.split('-').map(Number), [y, m] = key.split('-').map(Number); return (y - sy) * 12 + (m - sm) + 1; };
 const hrTarget = (no, s = hr.set) => { const t = s.targets && s.targets.length ? s.targets : HR_DEFAULTS.targets; return no < 1 ? 0 : t[Math.min(no, t.length) - 1]; };
-const hrCalc = (closed, cancelled) => ({ valid: Math.max(0, closed - cancelled), quote: closed ? cancelled / closed * 100 : 0 });
+// cancelled = Folge-Stornos, instant = Sofort-Stornos (schon vor der Auszahlung klar)
+const hrCalc = (closed, cancelled, instant = 0) => ({ valid: Math.max(0, closed - cancelled - instant), quote: closed ? (cancelled + instant) / closed * 100 : 0 });
 const hrLight = (valid, target, s = hr.set) => valid >= target ? 'g' : valid >= s.yellow_from ? 'y' : 'r';
 const hrActive = () => hr.emps.filter(e => e.status === 'aktiv');
 function hrMoney(valid, s = hr.set) {
@@ -2398,42 +2400,45 @@ const hrFreeRate = (e, s = hr.set) => {
   return { pct, cap, per: Math.min(s.revenue_per_contract * pct / 100, cap) };
 };
 // Stornos eines Monats werden im Folgemonat voll zurückgerechnet (Provision und Umsatz)
-// Übersteigt die Rückrechnung die Provision, ist die Auszahlung 0 und der Rest (carryOut) wird im Folgemonat abgezogen.
-function hrMoneyFree(e, closed, cancelledPrev, carryIn = 0, s = hr.set) {
-  const r = hrFreeRate(e, s), commission = closed * r.per, clawback = cancelledPrev * r.per, raw = commission - clawback - carryIn;
+// Sofort-Stornos (schon vor der Auszahlung klar) werden im selben Monat abgezogen, Folge-Stornos im Folgemonat.
+// Übersteigt der Abzug die Provision, ist die Auszahlung 0 und der Rest (carryOut) wird im Folgemonat abgezogen.
+function hrMoneyFree(e, closed, cancelledPrev, carryIn = 0, instant = 0, s = hr.set) {
+  const r = hrFreeRate(e, s), commission = closed * r.per, instantClaw = instant * r.per, clawback = cancelledPrev * r.per, raw = commission - instantClaw - clawback - carryIn;
   const payout = Math.max(0, raw), carryOut = Math.max(0, -raw);
-  const revenueGross = closed * s.revenue_per_contract, revenueStorno = cancelledPrev * s.revenue_per_contract, revenue = revenueGross - revenueStorno; // Umsatz P²: Storno bucht im Folgemonat zurück
-  return { ...r, commission, clawback, carryIn, payout, carryOut, revenueGross, revenueStorno, revenue, result: revenue - payout };
+  const rev = s.revenue_per_contract, revenueGross = closed * rev, revenueInstant = instant * rev, revenueStorno = cancelledPrev * rev, revenue = revenueGross - revenueInstant - revenueStorno;
+  return { ...r, commission, instantClaw, clawback, carryIn, payout, carryOut, revenueGross, revenueInstant, revenueStorno, revenue, result: revenue - payout };
 }
 const hrPerfOf = (id, k) => hr.perf.find(x => x.employee_id === id && x.month.slice(0, 7) === k);
 function hrFreeMonth(e, key) { // läuft ab dem Startmonat bis key, damit ein offener Rest (Vortrag) mitgenommen wird
   let k = e.start_date.slice(0, 7), carry = 0, m = null;
   for (let i = 0; i < 600 && k <= key; i++) {
     const p = hrPerfOf(e.id, k), pp = hrPerfOf(e.id, prevMonthKey(k));
-    m = { ...hrMoneyFree(e, p ? p.closed : 0, pp ? pp.cancelled : 0, carry), p, pp };
+    const ins = p ? p.cancelled_instant || 0 : 0;
+    m = { ...hrMoneyFree(e, p ? p.closed : 0, pp ? pp.cancelled : 0, carry, ins), p, pp, instant: ins };
     carry = m.carryOut; const [y, mo] = k.split('-').map(Number); k = mo === 12 ? (y + 1) + '-01' : y + '-' + String(mo + 1).padStart(2, '0');
   }
   return m;
 }
-// Festangestellte: Stornos eines Monats werden im Folgemonat zurückgerechnet (wie bei freien Vertretern)
+// Festangestellte: wie freie Vertreter. Sofort-Stornos im selben Monat, Folge-Stornos im Folgemonat.
 function hrFixedMonth(e, key) {
-  const p = hrPerfOf(e.id, key), pp = hrPerfOf(e.id, prevMonthKey(key)), closed = p ? p.closed : 0, cancPrev = pp ? pp.cancelled : 0, rev = hr.set.revenue_per_contract, net = closed - cancPrev;
-  return { p, closed, cancPrev, net, revGross: closed * rev, revStorno: cancPrev * rev, ...hrMoney(net) };
+  const p = hrPerfOf(e.id, key), pp = hrPerfOf(e.id, prevMonthKey(key)), closed = p ? p.closed : 0, instant = p ? p.cancelled_instant || 0 : 0, cancPrev = pp ? pp.cancelled : 0, rev = hr.set.revenue_per_contract, net = closed - instant - cancPrev;
+  return { p, closed, instant, cancPrev, net, revGross: closed * rev, revInstant: instant * rev, revStorno: cancPrev * rev, ...hrMoney(net) };
 }
 function hrFixedResult(key) {
   let result = 0, revenue = 0;
   for (const e of hrActive().filter(x => hrIsFixed(x) && hrMonthNo(x, key) >= 1)) { const m = hrFixedMonth(e, key); result += m.result; revenue += m.revenue; }
   return { result, revenue };
 }
-// Umsatz-Nachweis (für den Steuerberater): Abschlussumsatz, Rückbuchung der Vormonats-Stornos, Netto
+// Umsatz-Nachweis (für den Steuerberater): Abschlussumsatz, Rückbuchung (Sofort-Stornos und Stornos aus dem Vormonat), Netto
 function hrRevenueProof(key, items) {
   if (!items.length) return [];
-  const prev = prevMonthKey(key), s = hr.set, t = items.reduce((a, i) => ({ closed: a.closed + i.closed, cancPrev: a.cancPrev + i.cancPrev, revGross: a.revGross + i.revGross, revStorno: a.revStorno + i.revStorno, net: a.net + i.net }), { closed: 0, cancPrev: 0, revGross: 0, revStorno: 0, net: 0 });
-  const rows = items.map(i => h('tr', null, h('td', null, i.name), h('td', null, i.closed), h('td', null, eur(i.revGross)), h('td', null, i.cancPrev), h('td', { class: i.revStorno ? 'hr-neg' : '' }, i.revStorno ? '−' + eur(i.revStorno) : '–'), h('td', { class: i.net >= 0 ? '' : 'hr-neg' }, h('b', null, eur(i.net)))));
+  const prev = prevMonthKey(key), s = hr.set, t = items.reduce((a, i) => ({ closed: a.closed + i.closed, instant: a.instant + i.instant, cancPrev: a.cancPrev + i.cancPrev, revGross: a.revGross + i.revGross, back: a.back + i.revInstant + i.revStorno }), { closed: 0, instant: 0, cancPrev: 0, revGross: 0, back: 0 });
+  const rows = items.map(i => { const back = i.revInstant + i.revStorno; return h('tr', null, h('td', null, i.name), h('td', null, i.closed), h('td', null, eur(i.revGross)), h('td', null, i.instant), h('td', null, i.cancPrev), h('td', { class: back ? 'hr-neg' : '' }, back ? '−' + eur(back) : '–'), h('td', { class: i.net >= 0 ? '' : 'hr-neg' }, h('b', null, eur(i.net)))); });
+  const net = t.revGross - t.back;
   return [h('h3', null, 'Umsatz P² ' + fmtMonth(key) + ' (Nachweis)'),
-    h('div', { class: 'hr-tblwrap' }, h('table', { class: 'hr-tbl' }, h('thead', null, h('tr', null, ...['Name', 'Abschlüsse', 'Umsatz Abschlüsse', 'Stornos aus ' + fmtMonth(prev), 'Umsatz zurück', 'Netto-Umsatz'].map(x => h('th', null, x)))),
-      h('tbody', null, rows), h('tfoot', null, h('tr', null, h('td', null, h('b', null, 'Summe')), h('td', null, t.closed), h('td', null, eur(t.revGross)), h('td', null, t.cancPrev), h('td', null, t.revStorno ? '−' + eur(t.revStorno) : '–'), h('td', { class: t.net >= 0 ? '' : 'hr-neg' }, h('b', null, eur(t.revGross - t.revStorno))))))),
-    h('p', { class: 'hr-muted' }, `Netto-Umsatz = Abschlüsse dieses Monats × ${eur(s.revenue_per_contract)} minus Stornos aus dem Vormonat × ${eur(s.revenue_per_contract)}. Die Rückbuchung mindert den Umsatz des Monats, in dem sie erfolgt; der Monat der Abschlüsse bleibt unverändert.`)];
+    h('div', { class: 'hr-tblwrap' }, h('table', { class: 'hr-tbl' }, h('thead', null, h('tr', null, ...['Name', 'Abschlüsse', 'Umsatz Abschlüsse', 'Sofort-Stornos', 'Stornos aus ' + fmtMonth(prev), 'Umsatz zurück', 'Netto-Umsatz'].map(x => h('th', null, x)))),
+      h('tbody', null, rows), h('tfoot', null, h('tr', null, h('td', null, h('b', null, 'Summe')), h('td', null, t.closed), h('td', null, eur(t.revGross)), h('td', null, t.instant), h('td', null, t.cancPrev), h('td', null, t.back ? '−' + eur(t.back) : '–'), h('td', { class: net >= 0 ? '' : 'hr-neg' }, h('b', null, eur(net))))))),
+    h('p', { class: 'hr-muted' }, `Netto-Umsatz = Abschlüsse dieses Monats × ${eur(s.revenue_per_contract)} minus Sofort-Stornos dieses Monats × ${eur(s.revenue_per_contract)} minus Stornos aus dem Vormonat × ${eur(s.revenue_per_contract)}. Sofort-Stornos (vor der Auszahlung geklärt) mindern den Umsatz im selben Monat, Folge-Stornos im Monat nach dem Storno; der Monat der Abschlüsse bleibt dabei unverändert.`)];
 }
 
 async function hrLoad() {
@@ -2598,28 +2603,29 @@ function hrViewPerf() {
   const emp = emps.find(e => e.id === hr.perfEmp), cur = hr.perf.find(p => p.employee_id === emp.id && p.month.slice(0, 7) === hr.perfMonth);
   const sel = h('select', { class: 'hr-sel', onchange: ev => { hr.perfEmp = ev.target.value; renderHr(); } }, ...emps.map(e => h('option', { value: e.id, selected: e.id === emp.id }, e.name)));
   const mon = h('input', { class: 'hr-sel', type: 'month', value: hr.perfMonth, onchange: ev => { if (ev.target.value) { hr.perfMonth = ev.target.value; renderHr(); } } });
-  const cl = h('input', { type: 'number', min: 0, step: 1, inputmode: 'numeric', value: cur ? cur.closed : 0 }), ca = h('input', { type: 'number', min: 0, step: 1, inputmode: 'numeric', value: cur ? cur.cancelled : 0 });
+  const num = v => h('input', { type: 'number', min: 0, step: 1, inputmode: 'numeric', value: v || 0 });
+  const cl = num(cur && cur.closed), ci = num(cur && cur.cancelled_instant), ca = num(cur && cur.cancelled);
   const live = h('p', { class: 'hr-muted' });
-  const vals = () => [Math.max(0, Math.floor(hrNum(cl.value))), Math.max(0, Math.floor(hrNum(ca.value)))];
+  const vals = () => [cl, ci, ca].map(x => Math.max(0, Math.floor(hrNum(x.value))));
   const upd = () => {
-    const [c, s] = vals(), r = hrCalc(c, s), no = hrMonthNo(emp, hr.perfMonth), t = hrTarget(no);
-    live.textContent = ''; live.append(h('span', { class: 'hr-dot ' + hrLight(r.valid, t) }), `Gültig: ${r.valid} · Stornoquote ${pct1(r.quote)} · Ziel` + (no >= 1 ? ` Monat ${no}: ${t}` : ': Monat liegt vor dem Start') + (s > c ? ' · Achtung: mehr Stornos als Abschlüsse' : ''));
+    const [c, i, s] = vals(), r = hrCalc(c, s, i), no = hrMonthNo(emp, hr.perfMonth), t = hrTarget(no);
+    live.textContent = ''; live.append(h('span', { class: 'hr-dot ' + hrLight(r.valid, t) }), `Gültig: ${r.valid} · Stornoquote ${pct1(r.quote)} · Ziel` + (no >= 1 ? ` Monat ${no}: ${t}` : ': Monat liegt vor dem Start') + (s + i > c ? ' · Achtung: mehr Stornos als Abschlüsse' : ''));
   };
-  cl.addEventListener('input', upd); ca.addEventListener('input', upd); upd();
+  for (const x of [cl, ci, ca]) x.addEventListener('input', upd); upd();
   const form = h('form', { class: 'hr-form', onsubmit: async ev => {
     ev.preventDefault();
-    const [c, s] = vals();
-    const r = await sb.from('hr_performance').upsert({ employee_id: emp.id, month: hr.perfMonth + '-01', closed: c, cancelled: s, updated_at: new Date().toISOString() }, { onConflict: 'employee_id,month' });
+    const [c, i, s] = vals();
+    const r = await sb.from('hr_performance').upsert({ employee_id: emp.id, month: hr.perfMonth + '-01', closed: c, cancelled_instant: i, cancelled: s, updated_at: new Date().toISOString() }, { onConflict: 'employee_id,month' });
     if (r.error) { hrNote('Speichern fehlgeschlagen: ' + r.error.message); return; }
     hrNote(''); await hrLoad();
   } }, h('div', { class: 'hr-row2' }, h('label', null, 'Mitarbeiter', sel), h('label', null, 'Monat', mon)),
-    h('div', { class: 'hr-row2' }, h('label', null, 'Abgeschlossene Verträge', cl), h('label', null, 'Stornierte Verträge', ca)), live,
+    h('div', { class: 'hr-row3' }, h('label', null, 'Abgeschlossene Verträge', cl), h('label', null, 'Sofort-Stornos (schon vor der Auszahlung klar, z. B. Bonität; Abzug im selben Monat)', ci), h('label', null, 'Folge-Stornos (kommen später; Abzug im Folgemonat)', ca)), live,
     h('button', { class: 'btn primary', type: 'submit' }, 'Speichern'));
   const rows = hr.perf.filter(p => p.employee_id === emp.id).sort((a, b) => b.month.localeCompare(a.month)).map(p => {
-    const k = p.month.slice(0, 7), r = hrCalc(p.closed, p.cancelled), no = hrMonthNo(emp, k), t = hrTarget(no);
-    return h('tr', null, h('td', null, fmtMonth(k)), h('td', null, p.closed), h('td', null, p.cancelled), h('td', null, r.valid), h('td', null, pct1(r.quote)), h('td', null, no >= 1 ? t : '–'), h('td', null, h('span', { class: 'hr-dot ' + hrLight(r.valid, t) }), r.valid >= t ? 'Ziel' : r.valid >= hr.set.yellow_from ? 'knapp' : 'unter'));
+    const k = p.month.slice(0, 7), ins = p.cancelled_instant || 0, r = hrCalc(p.closed, p.cancelled, ins), no = hrMonthNo(emp, k), t = hrTarget(no);
+    return h('tr', null, h('td', null, fmtMonth(k)), h('td', null, p.closed), h('td', null, ins), h('td', null, p.cancelled), h('td', null, r.valid), h('td', null, pct1(r.quote)), h('td', null, no >= 1 ? t : '–'), h('td', null, h('span', { class: 'hr-dot ' + hrLight(r.valid, t) }), r.valid >= t ? 'Ziel' : r.valid >= hr.set.yellow_from ? 'knapp' : 'unter'));
   });
-  return [form, h('h3', null, 'Verlauf ' + emp.name), rows.length ? h('div', { class: 'hr-tblwrap' }, h('table', { class: 'hr-tbl' }, h('thead', null, h('tr', null, ...['Monat', 'Abg.', 'Storno', 'Gültig', 'Quote', 'Ziel', 'Ampel'].map(t => h('th', null, t)))), h('tbody', null, rows))) : h('p', { class: 'hr-muted' }, 'Noch keine Einträge.')];
+  return [form, h('h3', null, 'Verlauf ' + emp.name), rows.length ? h('div', { class: 'hr-tblwrap' }, h('table', { class: 'hr-tbl' }, h('thead', null, h('tr', null, ...['Monat', 'Abg.', 'Sofort', 'Folge', 'Gültig', 'Quote', 'Ziel', 'Ampel'].map(t => h('th', null, t)))), h('tbody', null, rows))) : h('p', { class: 'hr-muted' }, 'Noch keine Einträge.')];
 }
 
 function hrViewResult() {
@@ -2630,15 +2636,15 @@ function hrViewResult() {
   const rows = emps.map(e => {
     const m = hrFixedMonth(e, key);
     for (const k of Object.keys(sum)) sum[k] += m[k];
-    items.push({ name: e.name, closed: m.closed, cancPrev: m.cancPrev, revGross: m.revGross, revStorno: m.revStorno, net: m.revenue });
-    return h('tr', null, h('td', null, e.name + (m.p ? '' : ' (keine Eingabe)')), h('td', null, m.closed), h('td', null, m.cancPrev), h('td', { class: m.net >= 0 ? '' : 'hr-neg' }, m.net), h('td', null, eur(m.commission)), h('td', null, eur(m.gross)), h('td', null, eur(m.cost)), h('td', { class: m.revenue >= 0 ? '' : 'hr-neg' }, eur(m.revenue)), h('td', { class: m.result >= 0 ? 'hr-pos' : 'hr-neg' }, eur(m.result)));
+    items.push({ name: e.name, closed: m.closed, instant: m.instant, cancPrev: m.cancPrev, revGross: m.revGross, revInstant: m.revInstant, revStorno: m.revStorno, net: m.revenue });
+    return h('tr', null, h('td', null, e.name + (m.p ? '' : ' (keine Eingabe)')), h('td', null, m.closed), h('td', null, m.instant), h('td', null, m.cancPrev), h('td', { class: m.net >= 0 ? '' : 'hr-neg' }, m.net), h('td', null, eur(m.commission)), h('td', null, eur(m.gross)), h('td', null, eur(m.cost)), h('td', { class: m.revenue >= 0 ? '' : 'hr-neg' }, eur(m.revenue)), h('td', { class: m.result >= 0 ? 'hr-pos' : 'hr-neg' }, eur(m.result)));
   });
   const s = hr.set;
   return [h('label', { class: 'hr-form' }, 'Monat', mon), h('h3', null, 'Ergebnisrechnung Festangestellte'),
-    rows.length ? h('div', { class: 'hr-tblwrap' }, h('table', { class: 'hr-tbl' }, h('thead', null, h('tr', null, ...['Name', 'Abg.', 'Storno Vormonat', 'Netto-Verträge', 'Provision', 'Brutto', 'Kosten', 'Umsatz P² netto', 'Ergebnis'].map(t => h('th', null, t)))),
-      h('tbody', null, rows), h('tfoot', null, h('tr', null, h('td', null, h('b', null, 'Summe')), h('td'), h('td'), h('td'), h('td'), h('td', null, eur(sum.gross)), h('td', null, eur(sum.cost)), h('td', null, eur(sum.revenue)), h('td', { class: sum.result >= 0 ? 'hr-pos' : 'hr-neg' }, eur(sum.result)))))) : h('p', { class: 'hr-muted' }, 'Keine aktiven Festangestellten in diesem Monat.'),
+    rows.length ? h('div', { class: 'hr-tblwrap' }, h('table', { class: 'hr-tbl' }, h('thead', null, h('tr', null, ...['Name', 'Abg.', 'Sofort-Storno', 'Storno Vormonat', 'Netto-Verträge', 'Provision', 'Brutto', 'Kosten', 'Umsatz P² netto', 'Ergebnis'].map(t => h('th', null, t)))),
+      h('tbody', null, rows), h('tfoot', null, h('tr', null, h('td', null, h('b', null, 'Summe')), h('td'), h('td'), h('td'), h('td'), h('td'), h('td', null, eur(sum.gross)), h('td', null, eur(sum.cost)), h('td', null, eur(sum.revenue)), h('td', { class: sum.result >= 0 ? 'hr-pos' : 'hr-neg' }, eur(sum.result)))))) : h('p', { class: 'hr-muted' }, 'Keine aktiven Festangestellten in diesem Monat.'),
     ...hrRevenueProof(key, items),
-    h('p', { class: 'hr-muted' }, `Netto-Verträge = Abschlüsse dieses Monats minus Stornos aus dem Vormonat (Rückrechnung im Folgemonat). Brutto = ${eur(s.fixed_salary)} Fixgehalt + Provision auf die Netto-Verträge (je ${eur(s.rate_low)} bis Vertrag ${s.tier_limit}, danach je ${eur(s.rate_high)}; bei Netto-Verträgen unter 1 keine Provision). Kosten = Brutto × ${(1 + (s.employer_pct + s.bg_pct) / 100).toFixed(2).replace('.', ',')} (Arbeitgeber ${s.employer_pct} % + BG ${s.bg_pct} %). Umsatz P² netto = Netto-Verträge × ${eur(s.revenue_per_contract)}. Ergebnis = Umsatz − Kosten.`)];
+    h('p', { class: 'hr-muted' }, `Netto-Verträge = Abschlüsse dieses Monats minus Sofort-Stornos (schon vor der Auszahlung klar, gleicher Monat) minus Folge-Stornos aus dem Vormonat. Brutto = ${eur(s.fixed_salary)} Fixgehalt + Provision auf die Netto-Verträge (je ${eur(s.rate_low)} bis Vertrag ${s.tier_limit}, danach je ${eur(s.rate_high)}; bei Netto-Verträgen unter 1 keine Provision). Kosten = Brutto × ${(1 + (s.employer_pct + s.bg_pct) / 100).toFixed(2).replace('.', ',')} (Arbeitgeber ${s.employer_pct} % + BG ${s.bg_pct} %). Umsatz P² netto = Netto-Verträge × ${eur(s.revenue_per_contract)}. Ergebnis = Umsatz − Kosten.`)];
 }
 
 function hrViewFree() {
@@ -2647,25 +2653,25 @@ function hrViewFree() {
   const mon = h('input', { class: 'hr-sel', type: 'month', value: key, onchange: ev => { if (ev.target.value) { hr.freeMonth = ev.target.value; renderHr(); } } });
   const perfOf = (id, k) => hr.perf.find(x => x.employee_id === id && x.month.slice(0, 7) === k);
   const emps = hr.emps.filter(e => hrIsFree(e) && hrMonthNo(e, key) >= 1 && (e.status === 'aktiv' || perfOf(e.id, key) || perfOf(e.id, prev))).sort((a, b) => a.name.localeCompare(b.name, 'de'));
-  const sum = { closed: 0, commission: 0, clawback: 0, carryIn: 0, carryOut: 0, payout: 0, revenueGross: 0, revenueStorno: 0, revenue: 0, result: 0 };
+  const sum = { closed: 0, instant: 0, later: 0, commission: 0, instantClaw: 0, clawback: 0, carryIn: 0, carryOut: 0, payout: 0, revenueGross: 0, revenueInstant: 0, revenueStorno: 0, revenue: 0, result: 0 };
   const rows = emps.map(e => {
-    const m = hrFreeMonth(e, key), p = m.p, closed = p ? p.closed : 0, canc = p ? p.cancelled : 0, cancPrev = m.pp ? m.pp.cancelled : 0;
-    const v = hrCalc(closed, canc).valid, t = hrTarget(hrMonthNo(e, key));
-    for (const k of Object.keys(sum)) sum[k] += k === 'closed' ? closed : m[k];
-    return h('tr', null, h('td', null, e.name + (e.status === 'ausgeschieden' ? ' (ausgeschieden)' : '') + (p ? '' : ' (keine Eingabe)')), h('td', null, closed), h('td', null, canc),
-      h('td', null, h('span', { class: 'hr-dot ' + hrLight(v, t) }), v), h('td', null, eur(m.commission)), h('td', null, cancPrev ? '−' + eur(m.clawback) + ' (' + cancPrev + ')' : '–'), h('td', null, m.carryIn ? '−' + eur(m.carryIn) : '–'),
+    const m = hrFreeMonth(e, key), p = m.p, closed = p ? p.closed : 0, later = p ? p.cancelled : 0, cancPrev = m.pp ? m.pp.cancelled : 0;
+    const v = hrCalc(closed, later, m.instant).valid, t = hrTarget(hrMonthNo(e, key));
+    for (const k of Object.keys(sum)) sum[k] += k === 'closed' ? closed : k === 'later' ? later : m[k];
+    return h('tr', null, h('td', null, e.name + (e.status === 'ausgeschieden' ? ' (ausgeschieden)' : '') + (p ? '' : ' (keine Eingabe)')), h('td', null, closed), h('td', null, m.instant + ' / ' + later),
+      h('td', null, h('span', { class: 'hr-dot ' + hrLight(v, t) }), v), h('td', null, eur(m.commission)), h('td', null, m.instantClaw ? '−' + eur(m.instantClaw) : '–'), h('td', null, cancPrev ? '−' + eur(m.clawback) + ' (' + cancPrev + ')' : '–'), h('td', null, m.carryIn ? '−' + eur(m.carryIn) : '–'),
       h('td', null, eur(m.payout), m.carryOut ? h('small', { class: 'hr-neg' }, ' Rest offen ' + eur(m.carryOut)) : null), h('td', null, eur(m.revenue)), h('td', { class: m.result >= 0 ? 'hr-pos' : 'hr-neg' }, eur(m.result)));
   });
-  const uSection = hrRevenueProof(key, emps.map(e => { const m = hrFreeMonth(e, key); return { name: e.name, closed: m.p ? m.p.closed : 0, cancPrev: m.pp ? m.pp.cancelled : 0, revGross: m.revenueGross, revStorno: m.revenueStorno, net: m.revenue }; }));
+  const uSection = hrRevenueProof(key, emps.map(e => { const m = hrFreeMonth(e, key); return { name: e.name, closed: m.p ? m.p.closed : 0, instant: m.instant, cancPrev: m.pp ? m.pp.cancelled : 0, revGross: m.revenueGross, revInstant: m.revenueInstant, revStorno: m.revenueStorno, net: m.revenue }; }));
   const fixed = hrFixedResult(key), total = sum.result + fixed.result;
   const card = (t, v, extra) => h('div', { class: 'hr-card' }, h('small', null, t), h('b', { class: v >= 0 ? 'hr-pos' : 'hr-neg' }, eur(v)), extra ? h('small', null, extra) : null);
   return [h('label', { class: 'hr-form' }, 'Monat', mon), h('h3', null, 'Freie Handelsvertreter'),
-    rows.length ? h('div', { class: 'hr-tblwrap' }, h('table', { class: 'hr-tbl' }, h('thead', null, h('tr', null, ...['Name', 'Abg.', 'Storno', 'Gültig', 'Provision', 'Storno Vormonat', 'Vortrag', 'Auszahlung', 'Umsatz P² netto', 'Ergebnis'].map(t => h('th', null, t)))),
-      h('tbody', null, rows), h('tfoot', null, h('tr', null, h('td', null, h('b', null, 'Summe')), h('td', null, sum.closed), h('td'), h('td'), h('td', null, eur(sum.commission)), h('td', null, sum.clawback ? '−' + eur(sum.clawback) : '–'), h('td', null, sum.carryIn ? '−' + eur(sum.carryIn) : '–'), h('td', null, eur(sum.payout), sum.carryOut ? h('small', { class: 'hr-neg' }, ' Rest offen ' + eur(sum.carryOut)) : null), h('td', null, eur(sum.revenue)), h('td', { class: sum.result >= 0 ? 'hr-pos' : 'hr-neg' }, eur(sum.result)))))) : h('p', { class: 'hr-muted' }, 'Keine freien Vertreter in diesem Monat. Lege sie unter „Mitarbeiter“ mit der Vertragsart „frei“ an und trage die Zahlen unter „Performance“ ein.'),
+    rows.length ? h('div', { class: 'hr-tblwrap' }, h('table', { class: 'hr-tbl' }, h('thead', null, h('tr', null, ...['Name', 'Abg.', 'Storno sofort / später', 'Gültig', 'Provision', 'Sofort-Abzug', 'Storno Vormonat', 'Vortrag', 'Auszahlung', 'Umsatz P² netto', 'Ergebnis'].map(t => h('th', null, t)))),
+      h('tbody', null, rows), h('tfoot', null, h('tr', null, h('td', null, h('b', null, 'Summe')), h('td', null, sum.closed), h('td', null, sum.instant + ' / ' + sum.later), h('td'), h('td', null, eur(sum.commission)), h('td', null, sum.instantClaw ? '−' + eur(sum.instantClaw) : '–'), h('td', null, sum.clawback ? '−' + eur(sum.clawback) : '–'), h('td', null, sum.carryIn ? '−' + eur(sum.carryIn) : '–'), h('td', null, eur(sum.payout), sum.carryOut ? h('small', { class: 'hr-neg' }, ' Rest offen ' + eur(sum.carryOut)) : null), h('td', null, eur(sum.revenue)), h('td', { class: sum.result >= 0 ? 'hr-pos' : 'hr-neg' }, eur(sum.result)))))) : h('p', { class: 'hr-muted' }, 'Keine freien Vertreter in diesem Monat. Lege sie unter „Mitarbeiter“ mit der Vertragsart „frei“ an und trage die Zahlen unter „Performance“ ein.'),
     ...uSection,
     h('h3', null, 'Gesamtübersicht ' + fmtMonth(key)), card('Freie Vertreter: Ergebnis', sum.result), card('Festangestellte: Ergebnis', fixed.result), card('Gesamt', total, `Umsatz P² netto gesamt ${eur(sum.revenue + fixed.revenue)}`),
     emps.length ? h('h3', null, 'Academy-Stand') : null, ...emps.map(e => h('div', { class: 'hr-card' }, h('b', null, e.name), hrAcadLine(e))),
-    h('p', { class: 'hr-muted' }, `Provision je Vertrag = Prozentsatz × ${eur(s.revenue_per_contract)} Umsatz, höchstens der Höchstbetrag (Standard ${String(s.free_commission_pct).replace('.', ',')} % und ${eur(s.free_commission_cap)}; je Vertreter unter „Mitarbeiter“ änderbar). Stornos eines Monats werden im Folgemonat voll zurückgerechnet (Provision und Umsatz). Ampel: gültige Verträge im Monat gegen das Monatsziel. Übersteigt die Rückrechnung die Provision, ist die Auszahlung 0 € und der Rest wird als Vortrag von den Folgemonaten abgezogen, bis er ausgeglichen ist. Das Ergebnis rechnet mit der tatsächlichen Auszahlung. Die Berechnung läuft ab dem Startmonat des Vertreters.`)];
+    h('p', { class: 'hr-muted' }, `Provision je Vertrag = Prozentsatz × ${eur(s.revenue_per_contract)} Umsatz, höchstens der Höchstbetrag (Standard ${String(s.free_commission_pct).replace('.', ',')} % und ${eur(s.free_commission_cap)}; je Vertreter unter „Mitarbeiter“ änderbar). Sofort-Stornos (schon vor der Auszahlung klar) werden im selben Monat abgezogen, Folge-Stornos im Folgemonat, jeweils in voller Höhe mit Provision und Umsatz. Ampel: gültige Verträge im Monat gegen das Monatsziel. Übersteigt die Rückrechnung die Provision, ist die Auszahlung 0 € und der Rest wird als Vortrag von den Folgemonaten abgezogen, bis er ausgeglichen ist. Das Ergebnis rechnet mit der tatsächlichen Auszahlung. Die Berechnung läuft ab dem Startmonat des Vertreters.`)];
 }
 
 function hrViewSettings() {
