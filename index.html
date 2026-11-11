@@ -283,6 +283,8 @@ dialog::backdrop{background:rgba(5,15,22,.55)}
 .hr-form input[type=checkbox]{width:22px;height:22px;flex:0 0 auto;margin-top:1px}
 .hr-form details{font-size:.9em}
 .hr-card{border:1px solid var(--line);border-radius:12px;padding:10px 12px;background:var(--field);display:grid;gap:4px}
+.tx-split{display:grid;gap:14px;align-items:start}.tx-prev{border:1px solid var(--line);border-radius:12px;overflow:hidden;background:var(--field);height:60vh}.tx-prev iframe,.tx-prev img{width:100%;height:100%;border:0;display:block;object-fit:contain}
+@media (min-width:900px){#tx:has(.tx-split){left:12px;right:12px}.tx-split{grid-template-columns:minmax(380px,1fr) minmax(0,1.2fr)}.tx-split .tx-prev{position:sticky;top:0;height:calc(100vh - 200px)}}
 .hr-drop{border:2px dashed var(--line);border-radius:12px;padding:16px;text-align:center;cursor:pointer;background:var(--field)}.hr-drop.over{border-style:solid}.hr-card small,.hr-muted{color:var(--muted)}
 .hr-act{display:flex;gap:8px;flex-wrap:wrap;margin-top:4px}
 .hr-tbl{width:100%;border-collapse:collapse;font-size:.88em;font-variant-numeric:tabular-nums}
@@ -789,7 +791,7 @@ dialog::backdrop{background:rgba(5,15,22,.55)}
 <script>
 (() => {
 'use strict';
-const VERSION = '2.37';
+const VERSION = '2.38';
 const WM_OPEN = false; // Wechselmeister für Vertreter: erst auf Florians Signal auf true setzen (bis dahin nur Admin)
 const APP = 'P² Gebietskarte';
 const $ = id => document.getElementById(id);
@@ -1881,7 +1883,7 @@ function applyRole() {
   if (!me) { if (maOpen) closeMa(); ma.row = null; ma.done = {}; ma.loaded = false; $('maBody').textContent = ''; } // Stammdaten nie im Speicher lassen, wenn abgemeldet
   if (hrOpen && !isAdmin()) closeHr();
   if (txOpen && !isAdmin()) closeTx();
-  if (!isAdmin()) { tx.notes = []; tx.docs = []; tx.queue = []; tx.loaded = false; $('txBody').textContent = ''; } // Steuer-Daten nie im Speicher behalten, wenn kein Admin
+  if (!isAdmin()) { tx.notes = []; tx.docs = []; tx.queue = []; txPrevClear(); tx.loaded = false; $('txBody').textContent = ''; } // Steuer-Daten nie im Speicher behalten, wenn kein Admin
   if (!isAdmin()) { hr.emps = []; hr.perf = []; hr.loaded = false; $('hrBar').hidden = true; } // Personal-Daten nie im Speicher behalten, wenn kein Admin
   if (!me && chatOpen) closeChat();
 }
@@ -3232,6 +3234,13 @@ function txDrop(files) {
   if (!tx.edit) tx.edit = txNextQueued();
   renderTx(); $('txBody').scrollTop = 0;
 }
+/* Vorschau des abgelegten Originals neben dem Formular (nur lokal im Browser, nichts wird hochgeladen) */
+function txPrevClear() { if (tx.prev) { URL.revokeObjectURL(tx.prev.url); tx.prev = null; } }
+function txPreview(file) {
+  if (!tx.prev || tx.prev.file !== file) { txPrevClear(); tx.prev = { file, url: URL.createObjectURL(file) }; }
+  const url = tx.prev.url, img = /\.(jpe?g|png|webp)$/i.test(file.name);
+  return h('div', { class: 'tx-prev' }, img ? h('img', { src: url, alt: 'Vorschau ' + file.name }) : h('iframe', { src: url, title: 'Vorschau ' + file.name }));
+}
 function txDropZone() {
   const inp = h('input', { type: 'file', multiple: true, hidden: true, accept: '.pdf,.xml,.jpg,.jpeg,.png,.webp', onchange: () => { txDrop(inp.files); inp.value = ''; } });
   const z = h('div', { class: 'hr-drop', role: 'button', tabindex: '0', onclick: () => inp.click(), onkeydown: ev => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); inp.click(); } } },
@@ -3268,8 +3277,9 @@ async function txDeleteDoc(d) {
 }
 function txViewDocs() {
   const key = tx.month, out = [txMonthInput(), txDropZone()];
-  if (tx.edit) out.push(txDocForm(tx.edit));
-  else out.push(h('button', { class: 'btn primary', type: 'button', onclick: () => { tx.edit = { _new: true, direction: 'ein', doc_date: key === monthKey() ? today() : key + '-01', vat_case: 'normal', vat_rate: 19, category: 'sonstiges' }; renderTx(); } }, '+ Beleg erfassen'));
+  if (tx.edit && tx.edit._file) out.push(h('div', { class: 'tx-split' }, txDocForm(tx.edit), txPreview(tx.edit._file)));
+  else if (tx.edit) { txPrevClear(); out.push(txDocForm(tx.edit)); }
+  else { txPrevClear(); out.push(h('button', { class: 'btn primary', type: 'button', onclick: () => { tx.edit = { _new: true, direction: 'ein', doc_date: key === monthKey() ? today() : key + '-01', vat_case: 'normal', vat_rate: 19, category: 'sonstiges' }; renderTx(); } }, '+ Beleg erfassen')); }
   const list = tx.docs.filter(d => txInMonth(d.doc_date, key));
   out.push(h('h3', null, 'Belege ' + fmtMonth(key)));
   if (!list.length) out.push(h('p', { class: 'hr-muted' }, 'Keine Belege in diesem Monat.'));
