@@ -283,7 +283,7 @@ dialog::backdrop{background:rgba(5,15,22,.55)}
 .hr-form input[type=checkbox]{width:22px;height:22px;flex:0 0 auto;margin-top:1px}
 .hr-form details{font-size:.9em}
 .hr-card{border:1px solid var(--line);border-radius:12px;padding:10px 12px;background:var(--field);display:grid;gap:4px}
-.hr-card small,.hr-muted{color:var(--muted)}
+.hr-drop{border:2px dashed var(--line);border-radius:12px;padding:16px;text-align:center;cursor:pointer;background:var(--field)}.hr-drop.over{border-style:solid}.hr-card small,.hr-muted{color:var(--muted)}
 .hr-act{display:flex;gap:8px;flex-wrap:wrap;margin-top:4px}
 .hr-tbl{width:100%;border-collapse:collapse;font-size:.88em;font-variant-numeric:tabular-nums}
 .hr-tbl th,.hr-tbl td{padding:7px 6px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap}
@@ -789,7 +789,7 @@ dialog::backdrop{background:rgba(5,15,22,.55)}
 <script>
 (() => {
 'use strict';
-const VERSION = '2.36';
+const VERSION = '2.37';
 const WM_OPEN = false; // Wechselmeister für Vertreter: erst auf Florians Signal auf true setzen (bis dahin nur Admin)
 const APP = 'P² Gebietskarte';
 const $ = id => document.getElementById(id);
@@ -1881,7 +1881,7 @@ function applyRole() {
   if (!me) { if (maOpen) closeMa(); ma.row = null; ma.done = {}; ma.loaded = false; $('maBody').textContent = ''; } // Stammdaten nie im Speicher lassen, wenn abgemeldet
   if (hrOpen && !isAdmin()) closeHr();
   if (txOpen && !isAdmin()) closeTx();
-  if (!isAdmin()) { tx.notes = []; tx.docs = []; tx.loaded = false; $('txBody').textContent = ''; } // Steuer-Daten nie im Speicher behalten, wenn kein Admin
+  if (!isAdmin()) { tx.notes = []; tx.docs = []; tx.queue = []; tx.loaded = false; $('txBody').textContent = ''; } // Steuer-Daten nie im Speicher behalten, wenn kein Admin
   if (!isAdmin()) { hr.emps = []; hr.perf = []; hr.loaded = false; $('hrBar').hidden = true; } // Personal-Daten nie im Speicher behalten, wenn kein Admin
   if (!me && chatOpen) closeChat();
 }
@@ -2972,7 +2972,7 @@ const TX_CATS = [['erloes', 'Provisionserlöse', '8400', '4400', 'aus'], ['erloe
   ['versicherung', 'Versicherungen', '4360', '6400', 'ein'], ['beitraege', 'Beiträge und Gebühren', '4380', '6420', 'ein'], ['fortbildung', 'Fortbildung', '4945', '6821', 'ein'], ['bank', 'Kontoführung', '4970', '6855', 'ein'],
   ['fremd', 'Fremdleistungen', '3100', '5900', 'ein'], ['sonstiges', 'Sonstiges', '4900', '6300', 'ein']];
 const TX_VAT_CASES = [['normal', 'Mit Umsatzsteuer (Regelfall)'], ['13b_eu', 'Reverse Charge: Leistung aus dem EU-Ausland (z. B. Meta, § 13b)'], ['13b_sonst', 'Reverse Charge: sonstige Fälle (§ 13b)'], ['ku', 'Rechnung eines Kleinunternehmers (ohne Umsatzsteuer)'], ['frei', 'Steuerfrei oder nicht steuerbar']];
-const tx = { set: { ...TX_DEFAULTS }, notes: [], docs: [], loaded: false, busy: false, month: '', edit: null };
+const tx = { set: { ...TX_DEFAULTS }, notes: [], docs: [], loaded: false, busy: false, month: '', edit: null, queue: [] };
 let txOpen = false, txView = 'overview';
 const r2 = n => Math.round((Number(n) + Number.EPSILON) * 100) / 100;
 const txCat = k => TX_CATS.find(c => c[0] === k) || TX_CATS[TX_CATS.length - 1];
@@ -3008,7 +3008,7 @@ function openTx(view) {
 function closeTx() { txOpen = false; $('tx').hidden = true; }
 $('btnTx').addEventListener('click', () => txOpen ? closeTx() : openTx());
 $('txClose').addEventListener('click', closeTx);
-$('txTabs').addEventListener('click', ev => { const b = ev.target.closest('button[data-v]'); if (b) { txView = b.dataset.v; tx.edit = null; renderTx(); $('txBody').scrollTop = 0; } });
+$('txTabs').addEventListener('click', ev => { const b = ev.target.closest('button[data-v]'); if (b) { txView = b.dataset.v; tx.edit = null; tx.queue = []; renderTx(); $('txBody').scrollTop = 0; } });
 function renderTx() {
   if (!txOpen) return;
   if (!isAdmin()) { closeTx(); return; }
@@ -3018,7 +3018,7 @@ function renderTx() {
   body.append(...({ overview: txViewOverview, notes: txViewNotes, docs: txViewDocs, export: txViewExport, settings: txViewSettings })[txView]().filter(Boolean));
   body.scrollTop = top;
 }
-const txMonthInput = () => h('label', { class: 'hr-form' }, 'Monat', h('input', { class: 'hr-sel', type: 'month', value: tx.month, onchange: ev => { if (ev.target.value) { tx.month = ev.target.value; tx.edit = null; renderTx(); } } }));
+const txMonthInput = () => h('label', { class: 'hr-form' }, 'Monat', h('input', { class: 'hr-sel', type: 'month', value: tx.month, onchange: ev => { if (ev.target.value) { tx.month = ev.target.value; tx.edit = null; tx.queue = []; renderTx(); } } }));
 
 /* --- Monatszahlen (Soll-Versteuerung: nach Belegdatum) --- */
 function txMonthFigures(key) {
@@ -3174,6 +3174,7 @@ function txDocForm(d) {
   f.vat = h('input', { type: 'text', inputmode: 'decimal', value: dec(d.vat) });
   f.paid_at = h('input', { type: 'date', value: d.paid_at || '' });
   f.file = h('input', { type: 'file', accept: '.pdf,.xml,.jpg,.jpeg,.png,.webp' });
+  if (d._file) { try { const dt = new DataTransfer(); dt.items.add(d._file); f.file.files = dt.files; } catch (e) { /* Browser ohne DataTransfer: Datei bitte von Hand wählen */ } }
   let accTouched = !d._new && !!d.account;
   f.account.addEventListener('input', () => { accTouched = true; });
   const cats = () => { const dir = f.direction.value, cur = f.category.value || d.category; f.category.textContent = ''; for (const c of TX_CATS.filter(c => c[4] === dir)) f.category.append(h('option', { value: c[0], selected: c[0] === cur }, c[1])); if (!accTouched) f.account.value = txAccount(f.category.value); };
@@ -3203,9 +3204,10 @@ function txDocForm(d) {
     const r = d._new ? await sb.from('tx_documents').insert(row) : await sb.from('tx_documents').update(row).eq('id', d.id);
     if (r.error) { txNote('Speichern fehlgeschlagen: ' + r.error.message); return; }
     if (file && d.file_path) await sb.storage.from('belege').remove([d.file_path]);
-    tx.edit = null; txNote(''); await txLoad();
+    tx.edit = txNextQueued(); txNote(''); await txLoad();
   } },
     h('b', null, d._new ? 'Neuer Beleg' : 'Beleg bearbeiten'),
+    d._file ? h('small', { class: 'hr-muted' }, `Datei „${d._file.name}“${tx.queue.length ? ` · danach noch ${tx.queue.length} weitere` : ''}. Bitte alle Angaben mit dem Beleg abgleichen: Betrag, Datum, Geschäftspartner und Steuersatz sind nicht automatisch geprüft.`) : null,
     h('div', { class: 'hr-row2' }, lab('Art', f.direction), lab('Belegdatum', f.doc_date)),
     h('div', { class: 'hr-row2' }, lab('Geschäftspartner', f.partner), lab('Belegnummer', f.doc_number)),
     lab('Beschreibung', f.description),
@@ -3213,7 +3215,31 @@ function txDocForm(d) {
     h('div', { class: 'hr-row2' }, lab('Umsatzsteuer-Fall', f.vat_case), lab('Steuersatz', f.vat_rate)),
     h('div', { class: 'hr-row3' }, lab('Brutto (€)', f.gross), lab('Netto (€)', f.net), lab('Umsatzsteuer (€)', f.vat)),
     h('div', { class: 'hr-row2' }, lab('Bezahlt am (leer = offen)', f.paid_at), lab(d.file_name ? 'Datei ersetzen (aktuell: ' + d.file_name + ')' : 'Datei (PDF, XML, Bild)', f.file)),
-    h('div', { class: 'hr-act' }, h('button', { class: 'btn primary', type: 'submit' }, 'Speichern'), h('button', { class: 'btn', type: 'button', onclick: () => { tx.edit = null; renderTx(); } }, 'Abbrechen')));
+    h('div', { class: 'hr-act' }, h('button', { class: 'btn primary', type: 'submit' }, 'Speichern'), tx.queue.length ? h('button', { class: 'btn', type: 'button', onclick: () => { tx.edit = txNextQueued(); renderTx(); } }, 'Überspringen') : null, h('button', { class: 'btn', type: 'button', onclick: () => { tx.edit = null; tx.queue = []; renderTx(); } }, 'Abbrechen')));
+}
+/* Drag-and-Drop: Dateien landen in einer Warteschlange (nur im Speicher). Für jede öffnet sich das Formular mit angehängter Datei zum Prüfen. */
+const TX_FILE_RE = /\.(pdf|xml|jpe?g|png|webp)$/i;
+function txNextQueued() {
+  const f = tx.queue.shift();
+  if (!f) return null;
+  return { _new: true, _file: f, direction: 'ein', doc_date: tx.month === monthKey() ? today() : tx.month + '-01', vat_case: 'normal', vat_rate: 19, category: 'sonstiges', description: f.name.replace(/\.[^.]+$/, '').replace(/[_]+/g, ' ').slice(0, 200) };
+}
+function txDrop(files) {
+  const ok = [...files].filter(f => TX_FILE_RE.test(f.name)), bad = files.length - ok.length;
+  if (!ok.length) { txNote('Nur PDF, XML, JPG, PNG und WebP werden angenommen.'); return; }
+  tx.queue.push(...ok);
+  txNote(bad ? `${bad} Datei(en) mit nicht unterstütztem Format wurden ignoriert.` : '');
+  if (!tx.edit) tx.edit = txNextQueued();
+  renderTx(); $('txBody').scrollTop = 0;
+}
+function txDropZone() {
+  const inp = h('input', { type: 'file', multiple: true, hidden: true, accept: '.pdf,.xml,.jpg,.jpeg,.png,.webp', onchange: () => { txDrop(inp.files); inp.value = ''; } });
+  const z = h('div', { class: 'hr-drop', role: 'button', tabindex: '0', onclick: () => inp.click(), onkeydown: ev => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); inp.click(); } } },
+    h('b', null, 'Belege hierher ziehen'), h('div', { class: 'hr-muted' }, 'oder tippen, um Dateien zu wählen (PDF, XML, Foto; mehrere möglich). Zu jeder Datei öffnet sich ein Formular zum Prüfen.'), inp);
+  z.addEventListener('dragover', ev => { ev.preventDefault(); z.classList.add('over'); });
+  z.addEventListener('dragleave', () => z.classList.remove('over'));
+  z.addEventListener('drop', ev => { ev.preventDefault(); z.classList.remove('over'); if (ev.dataTransfer && ev.dataTransfer.files.length) txDrop(ev.dataTransfer.files); });
+  return z;
 }
 async function txOpenFile(d) {
   const r = await sb.storage.from('belege').createSignedUrl(d.file_path, 300);
@@ -3241,7 +3267,7 @@ async function txDeleteDoc(d) {
   await txLoad();
 }
 function txViewDocs() {
-  const key = tx.month, out = [txMonthInput()];
+  const key = tx.month, out = [txMonthInput(), txDropZone()];
   if (tx.edit) out.push(txDocForm(tx.edit));
   else out.push(h('button', { class: 'btn primary', type: 'button', onclick: () => { tx.edit = { _new: true, direction: 'ein', doc_date: key === monthKey() ? today() : key + '-01', vat_case: 'normal', vat_rate: 19, category: 'sonstiges' }; renderTx(); } }, '+ Beleg erfassen'));
   const list = tx.docs.filter(d => txInMonth(d.doc_date, key));
