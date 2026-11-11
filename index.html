@@ -445,6 +445,9 @@ dialog::backdrop{background:rgba(5,15,22,.55)}
     <button class="iconbtn admin-only" id="btnHr" aria-label="Personal (Admin)" title="Personal" hidden>
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c0-3.6 2.9-6 6.5-6s6.5 2.4 6.5 6"/><path d="M17 5.5a3.2 3.2 0 0 1 0 6M18.5 14.2c2.1.7 3.5 2.6 3.5 5.8"/></svg>
     </button>
+    <button class="iconbtn admin-only" id="btnTx" aria-label="Steuer (Admin)" title="Steuer" hidden>
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2.5h9l4 4V21.5H6z"/><path d="M15 2.5v4h4"/><path d="M9.5 16.5l5-5"/><circle cx="10" cy="12" r=".9"/><circle cx="14" cy="16" r=".9"/></svg>
+    </button>
     <button class="iconbtn" id="btnAcad" aria-label="Academy" hidden>
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linejoin="round" stroke-linecap="round"><path d="M2 9.5L12 4.5l10 5-10 5z"/><path d="M6 11.5v4.5c0 1.4 2.7 3 6 3s6-1.6 6-3v-4.5"/><path d="M22 9.5v6"/></svg>
     </button>
@@ -752,6 +755,19 @@ dialog::backdrop{background:rgba(5,15,22,.55)}
   <div class="acad-body hr-body" id="hrBody"></div>
 </section>
 
+<!-- Steuer (nur Admin) -->
+<section class="chat acad hr" id="tx" hidden aria-labelledby="txTitle">
+  <div class="chat-head">
+    <h2 id="txTitle">Steuer<small>Nur für Admins · Vorbereitung für den Steuerberater</small></h2>
+    <button class="close" id="txClose" type="button" aria-label="Steuer schließen">✕</button>
+  </div>
+  <nav class="acad-tabs" id="txTabs" aria-label="Steuer-Bereiche">
+    <button type="button" data-v="overview">Übersicht</button><button type="button" data-v="notes">Gutschriften</button><button type="button" data-v="docs">Belege</button><button type="button" data-v="export">Export</button><button type="button" data-v="settings">Einstellungen</button>
+  </nav>
+  <p class="chat-note" id="txNote" hidden style="padding:8px 16px 0"></p>
+  <div class="acad-body hr-body" id="txBody"></div>
+</section>
+
 <!-- Anmeldung -->
 <section class="auth" id="auth" hidden>
   <form class="auth-card" id="authForm" novalidate>
@@ -773,7 +789,7 @@ dialog::backdrop{background:rgba(5,15,22,.55)}
 <script>
 (() => {
 'use strict';
-const VERSION = '2.35';
+const VERSION = '2.36';
 const WM_OPEN = false; // Wechselmeister für Vertreter: erst auf Florians Signal auf true setzen (bis dahin nur Admin)
 const APP = 'P² Gebietskarte';
 const $ = id => document.getElementById(id);
@@ -1231,7 +1247,7 @@ function touch(id) {
 }
 function openSheet(id) {
   const prev = current; current = id; if (prev) restyle(prev); restyle(id);
-  if (chatOpen) closeChat(); if (dashOpen) closeDash(); if (acadOpen) closeAcad(); if (hrOpen) closeHr(); if (maOpen) closeMa();
+  if (chatOpen) closeChat(); if (dashOpen) closeDash(); if (acadOpen) closeAcad(); if (hrOpen) closeHr(); if (txOpen) closeTx(); if (maOpen) closeMa();
   sheet.hidden = false; renderSheet();
 }
 function closeSheet() { const prev = current; current = null; sheet.hidden = true; if (prev) restyle(prev); }
@@ -1243,7 +1259,7 @@ map.on('click', e => {
   if (map.getZoom() < 15) say('Zum Markieren näher heranzoomen, bis die einzelnen Häuser zu sehen sind.');
   else if (!loadedTiles[lon2x(e.latlng.lng) + '/' + lat2y(e.latlng.lat)]) say(loading ? 'Die Häuser hier werden gerade geladen …' : 'Hier sind noch keine Häuser geladen. Erst „Häuser finden“ tippen, dann ein Haus anklicken.');
 });
-document.addEventListener('keydown', e => { if (e.key !== 'Escape') return; if (wmOpen) closeWm(); else if (maOpen) closeMa(); else if (hrOpen) closeHr(); else if (acadOpen) closeAcad(); else if (dashOpen) closeDash(); else if (chatOpen) closeChat(); else if (current) closeSheet(); });
+document.addEventListener('keydown', e => { if (e.key !== 'Escape') return; if (wmOpen) closeWm(); else if (maOpen) closeMa(); else if (txOpen) closeTx(); else if (hrOpen) closeHr(); else if (acadOpen) closeAcad(); else if (dashOpen) closeDash(); else if (chatOpen) closeChat(); else if (current) closeSheet(); });
 
 function infoFor(r, unit) {
   const x = unit || r;
@@ -1864,6 +1880,8 @@ function applyRole() {
   if (!me && dashOpen) closeDash();
   if (!me) { if (maOpen) closeMa(); ma.row = null; ma.done = {}; ma.loaded = false; $('maBody').textContent = ''; } // Stammdaten nie im Speicher lassen, wenn abgemeldet
   if (hrOpen && !isAdmin()) closeHr();
+  if (txOpen && !isAdmin()) closeTx();
+  if (!isAdmin()) { tx.notes = []; tx.docs = []; tx.loaded = false; $('txBody').textContent = ''; } // Steuer-Daten nie im Speicher behalten, wenn kein Admin
   if (!isAdmin()) { hr.emps = []; hr.perf = []; hr.loaded = false; $('hrBar').hidden = true; } // Personal-Daten nie im Speicher behalten, wenn kein Admin
   if (!me && chatOpen) closeChat();
 }
@@ -2142,7 +2160,7 @@ function renderAttach() {
 function openChat() {
   if (!me) return;
   chatOpen = true; $('chat').hidden = false;
-  if (current) closeSheet(); if (dashOpen) closeDash(); if (acadOpen) closeAcad(); if (wmOpen) closeWm(); if (hrOpen) closeHr(); if (maOpen) closeMa();
+  if (current) closeSheet(); if (dashOpen) closeDash(); if (acadOpen) closeAcad(); if (wmOpen) closeWm(); if (hrOpen) closeHr(); if (txOpen) closeTx(); if (maOpen) closeMa();
   renderAttach(); renderChat(true); markChatSeen();
   if (!chatLoaded) loadChat();
   if (!isTouch) setTimeout(() => $('chatIn').focus(), 50);
@@ -2361,7 +2379,7 @@ function renderDash() {
 function openDash() {
   if (!me) return;
   dashOpen = true; $('dash').hidden = false;
-  if (current) closeSheet(); if (chatOpen) closeChat(); if (acadOpen) closeAcad(); if (wmOpen) closeWm(); if (hrOpen) closeHr(); if (maOpen) closeMa();
+  if (current) closeSheet(); if (chatOpen) closeChat(); if (acadOpen) closeAcad(); if (wmOpen) closeWm(); if (hrOpen) closeHr(); if (txOpen) closeTx(); if (maOpen) closeMa();
   if (statsDay !== today()) { stats = {}; statsDay = today(); loadPendingStat(); }
   updateTally(); renderDash(); loadStats();
 }
@@ -2481,7 +2499,7 @@ function maNote(t) { const n = $('maNote'); n.textContent = t; n.hidden = !t; }
 function openMa() {
   if (!me) return;
   maOpen = true; $('ma').hidden = false;
-  if (current) closeSheet(); if (chatOpen) closeChat(); if (dashOpen) closeDash(); if (acadOpen) closeAcad(); if (wmOpen) closeWm(); if (hrOpen) closeHr();
+  if (current) closeSheet(); if (chatOpen) closeChat(); if (dashOpen) closeDash(); if (acadOpen) closeAcad(); if (wmOpen) closeWm(); if (hrOpen) closeHr(); if (txOpen) closeTx();
   renderMa(); maLoad();
 }
 function closeMa() { maOpen = false; $('ma').hidden = true; }
@@ -2718,7 +2736,7 @@ function hrBanner() {
 function openHr(view) {
   if (!me || !isAdmin()) return;
   hrOpen = true; $('hr').hidden = false;
-  if (current) closeSheet(); if (chatOpen) closeChat(); if (dashOpen) closeDash(); if (acadOpen) closeAcad(); if (wmOpen) closeWm(); if (maOpen) closeMa();
+  if (current) closeSheet(); if (chatOpen) closeChat(); if (dashOpen) closeDash(); if (acadOpen) closeAcad(); if (wmOpen) closeWm(); if (maOpen) closeMa(); if (txOpen) closeTx();
   if (view) hrView = view;
   renderHr(); hrLoad(); if (!acadLoaded) loadAcad();
 }
@@ -2944,6 +2962,366 @@ function hrViewSettings() {
   } }, ...rows, h('label', null, 'Monatsziele Monat 1, 2, 3 … (letzter Wert gilt für alle weiteren Monate)', targets), h('button', { class: 'btn primary', type: 'submit' }, 'Speichern'))];
 }
 
+/* ===== Steuer (nur Admin; Vorsystem für den Steuerberater, siehe supabase/steuer.sql). Keine Steuerberatung: Konten und Kennzahlen sind Vorschläge zur Prüfung. ===== */
+const TX_DEFAULTS = { name: '', street: '', zip: '', city: '', tax_number: '', vat_id: '', register: '', ceo: '', iban: '', bank: '', email: '', skr: '03', vat_rate: 19, pay_days: 14, datev_berater: '', datev_mandant: '', service_text: 'Provision für die Vermittlung von Energielieferverträgen' };
+// [Schlüssel, Bezeichnung, Konto SKR03, Konto SKR04, Richtung]
+const TX_CATS = [['erloes', 'Provisionserlöse', '8400', '4400', 'aus'], ['erloes_sonst', 'Sonstige Erlöse', '8400', '4400', 'aus'],
+  ['provision', 'Provisionen an Vertreter', '4760', '6770', 'ein'], ['miete', 'Miete und Nebenkosten', '4210', '6310', 'ein'], ['lizenz', 'Franchise- und Lizenzgebühren', '4964', '6837', 'ein'], ['werbung', 'Werbung', '4600', '6600', 'ein'],
+  ['software', 'Software und EDV', '4806', '6495', 'ein'], ['telefon', 'Telefon und Internet', '4920', '6805', 'ein'], ['buero', 'Bürobedarf', '4930', '6815', 'ein'], ['porto', 'Porto', '4910', '6800', 'ein'],
+  ['kfz', 'Fahrzeugkosten', '4500', '6500', 'ein'], ['reise', 'Reisekosten', '4660', '6650', 'ein'], ['beratung', 'Rechts- und Beratungskosten', '4950', '6825', 'ein'], ['buchfuehrung', 'Buchführung und Abschluss', '4955', '6830', 'ein'],
+  ['versicherung', 'Versicherungen', '4360', '6400', 'ein'], ['beitraege', 'Beiträge und Gebühren', '4380', '6420', 'ein'], ['fortbildung', 'Fortbildung', '4945', '6821', 'ein'], ['bank', 'Kontoführung', '4970', '6855', 'ein'],
+  ['fremd', 'Fremdleistungen', '3100', '5900', 'ein'], ['sonstiges', 'Sonstiges', '4900', '6300', 'ein']];
+const TX_VAT_CASES = [['normal', 'Mit Umsatzsteuer (Regelfall)'], ['13b_eu', 'Reverse Charge: Leistung aus dem EU-Ausland (z. B. Meta, § 13b)'], ['13b_sonst', 'Reverse Charge: sonstige Fälle (§ 13b)'], ['ku', 'Rechnung eines Kleinunternehmers (ohne Umsatzsteuer)'], ['frei', 'Steuerfrei oder nicht steuerbar']];
+const tx = { set: { ...TX_DEFAULTS }, notes: [], docs: [], loaded: false, busy: false, month: '', edit: null };
+let txOpen = false, txView = 'overview';
+const r2 = n => Math.round((Number(n) + Number.EPSILON) * 100) / 100;
+const txCat = k => TX_CATS.find(c => c[0] === k) || TX_CATS[TX_CATS.length - 1];
+const txAccount = (k, s = tx.set) => txCat(k)[s.skr === '04' ? 3 : 2];
+const txAcc = (s = tx.set) => s.skr === '04' ? { debitor: '1200', kreditor: '3300' } : { debitor: '1400', kreditor: '1600' };
+const txInMonth = (iso, key) => (iso || '').slice(0, 7) === key;
+function txNote(t) { const n = $('txNote'); n.textContent = t; n.hidden = !t; }
+
+async function txLoad() {
+  if (!sb || !me || !isAdmin()) return;
+  tx.busy = true;
+  if (!hr.loaded) await hrLoad();
+  const [s, n, d] = await Promise.all([
+    sb.from('tx_settings').select('data').eq('id', 1).maybeSingle(),
+    sb.from('tx_credit_notes').select('*').order('number', { ascending: false }),
+    sb.from('tx_documents').select('*').order('doc_date', { ascending: false })
+  ]);
+  tx.busy = false;
+  const err = [s, n, d].find(x => x.error);
+  if (err) { txNote(/does not exist|schema cache/i.test(err.error.message || '') ? 'Der Steuer-Bereich ist auf dem Server noch nicht eingerichtet (supabase/steuer.sql ausführen).' : 'Steuer-Daten konnten nicht geladen werden.'); if (txOpen) renderTx(); return; }
+  txNote('');
+  tx.set = { ...TX_DEFAULTS, ...((s.data && s.data.data) || {}) }; tx.notes = n.data; tx.docs = d.data; tx.loaded = true;
+  if (txOpen) renderTx();
+}
+function openTx(view) {
+  if (!me || !isAdmin()) return;
+  txOpen = true; $('tx').hidden = false;
+  if (current) closeSheet(); if (chatOpen) closeChat(); if (dashOpen) closeDash(); if (acadOpen) closeAcad(); if (wmOpen) closeWm(); if (maOpen) closeMa(); if (hrOpen) closeHr();
+  if (view) txView = view;
+  if (!tx.month) tx.month = monthKey();
+  renderTx(); txLoad();
+}
+function closeTx() { txOpen = false; $('tx').hidden = true; }
+$('btnTx').addEventListener('click', () => txOpen ? closeTx() : openTx());
+$('txClose').addEventListener('click', closeTx);
+$('txTabs').addEventListener('click', ev => { const b = ev.target.closest('button[data-v]'); if (b) { txView = b.dataset.v; tx.edit = null; renderTx(); $('txBody').scrollTop = 0; } });
+function renderTx() {
+  if (!txOpen) return;
+  if (!isAdmin()) { closeTx(); return; }
+  for (const b of $('txTabs').querySelectorAll('button')) b.setAttribute('aria-current', b.dataset.v === txView ? 'page' : 'false');
+  const body = $('txBody'), top = body.scrollTop; body.textContent = '';
+  if (!tx.loaded) { body.append(h('p', { class: 'hr-muted' }, tx.busy ? 'Lade Steuer-Daten …' : 'Noch keine Daten.')); return; }
+  body.append(...({ overview: txViewOverview, notes: txViewNotes, docs: txViewDocs, export: txViewExport, settings: txViewSettings })[txView]().filter(Boolean));
+  body.scrollTop = top;
+}
+const txMonthInput = () => h('label', { class: 'hr-form' }, 'Monat', h('input', { class: 'hr-sel', type: 'month', value: tx.month, onchange: ev => { if (ev.target.value) { tx.month = ev.target.value; tx.edit = null; renderTx(); } } }));
+
+/* --- Monatszahlen (Soll-Versteuerung: nach Belegdatum) --- */
+function txMonthFigures(key) {
+  const f = { income: 0, expense: 0, k81: 0, k86: 0, ust: 0, k46: 0, k47: 0, k84: 0, k85: 0, k66: 0, k67: 0, openIn: 0, openOut: 0, count: 0 };
+  for (const d of tx.docs) {
+    if (!txInMonth(d.doc_date, key)) continue;
+    f.count++;
+    const net = Number(d.net), vat = Number(d.vat);
+    if (d.direction === 'aus') {
+      f.income += net; if (!d.paid_at) f.openIn += Number(d.gross);
+      if (d.vat_case === 'normal') { if (Number(d.vat_rate) === 7) f.k86 += net; else if (Number(d.vat_rate) > 0) f.k81 += net; f.ust += vat; }
+    } else {
+      f.expense += net; if (!d.paid_at) f.openOut += Number(d.gross);
+      if (d.vat_case === 'normal') f.k66 += vat;
+      else if (d.vat_case === '13b_eu') { f.k46 += net; f.k47 += r2(net * tx.set.vat_rate / 100); }
+      else if (d.vat_case === '13b_sonst') { f.k84 += net; f.k85 += r2(net * tx.set.vat_rate / 100); }
+    }
+  }
+  for (const n of tx.notes) {
+    if (n.cancelled_at || !txInMonth(n.issue_date, key)) continue;
+    f.count++; f.expense += Number(n.net); f.k66 += Number(n.vat); if (!n.paid_at) f.openOut += Number(n.gross);
+  }
+  f.k67 = f.k47 + f.k85;
+  f.due = r2(f.ust + f.k47 + f.k85 - f.k66 - f.k67);
+  for (const k of Object.keys(f)) f[k] = r2(f[k]);
+  return f;
+}
+function txViewOverview() {
+  const key = tx.month, f = txMonthFigures(key);
+  const card = (t, v, extra, cls) => h('div', { class: 'hr-card' }, h('small', null, t), h('b', { class: cls || '' }, eur(v)), extra ? h('small', null, extra) : null);
+  const row = (kz, t, v) => h('tr', null, h('td', null, t), h('td', null, kz), h('td', null, eur(v)));
+  const missing = ['name', 'street', 'zip', 'city'].filter(k => !tx.set[k]).length || !(tx.set.tax_number || tx.set.vat_id);
+  return [txMonthInput(),
+    missing ? h('p', { class: 'hr-neg' }, 'Die Firmendaten sind unvollständig. Ohne sie lassen sich keine Gutschriften ausstellen (Reiter „Einstellungen“).') : null,
+    h('h3', null, 'Übersicht ' + fmtMonth(key)),
+    card('Einnahmen netto', f.income), card('Ausgaben netto (Belege und Gutschriften)', f.expense), card('Ergebnis vor Steuern (nur erfasste Belege)', f.income - f.expense, `${f.count} Belege im Monat`, f.income - f.expense >= 0 ? 'hr-pos' : 'hr-neg'),
+    card('Offene Forderungen', f.openIn, 'Einnahmen ohne Zahldatum'), card('Offene Verbindlichkeiten', f.openOut, 'Ausgaben und Gutschriften ohne Zahldatum'),
+    h('h3', null, 'Umsatzsteuer-Voranmeldung ' + fmtMonth(key) + ' (Vorbereitung)'),
+    h('div', { class: 'hr-tblwrap' }, h('table', { class: 'hr-tbl' }, h('thead', null, h('tr', null, h('th', null, 'Position'), h('th', null, 'Kennzahl'), h('th', null, 'Betrag'))),
+      h('tbody', null, row('81', 'Umsätze zu 19 % (Bemessungsgrundlage)', f.k81), row('86', 'Umsätze zu 7 % (Bemessungsgrundlage)', f.k86), row('', 'Umsatzsteuer aus den Umsätzen', f.ust),
+        row('46', 'Leistungen aus dem EU-Ausland, § 13b (Bemessungsgrundlage)', f.k46), row('47', 'Steuer darauf', f.k47), row('84', 'Andere Leistungen, § 13b (Bemessungsgrundlage)', f.k84), row('85', 'Steuer darauf', f.k85),
+        row('66', 'Vorsteuer aus Rechnungen und Gutschriften', f.k66), row('67', 'Vorsteuer aus § 13b', f.k67)),
+      h('tfoot', null, h('tr', null, h('td', null, h('b', null, f.due >= 0 ? 'Voraussichtliche Zahllast' : 'Voraussichtliche Erstattung')), h('td', null, '83'), h('td', { class: f.due > 0 ? 'hr-neg' : 'hr-pos' }, h('b', null, eur(Math.abs(f.due)))))))),
+    h('p', { class: 'hr-muted' }, 'Gerechnet wird nach dem Belegdatum (Soll-Versteuerung). Die Zahlen sind eine Vorbereitung aus den hier erfassten Belegen und ersetzen nicht die Voranmeldung: Dein Steuerberater prüft sie und übermittelt sie über ELSTER. Ob du monatlich oder vierteljährlich meldest, legt das Finanzamt fest. Stornierte Gutschriften zählen nicht mit; liegt das Storno in einem späteren Monat als die Gutschrift, klärt der Steuerberater die Korrektur.')];
+}
+
+/* --- Provisionsgutschriften an freie Vertreter (bauen auf der Abrechnung im Personal-Bereich auf) --- */
+function txRecipient(e) {
+  const m = e.user_id ? hr.members.find(x => x.user_id === e.user_id) : null, miss = [];
+  if (!m) return { m: null, miss: ['Stammdatenblatt (Vertreter ist mit keinem App-Zugang verknüpft oder hat es nicht ausgefüllt)'] };
+  const name = [m.first_name, m.last_name].filter(Boolean).join(' ');
+  if (!name && !m.company_name) miss.push('Name');
+  if (!m.street || !m.zip || !m.city) miss.push('Anschrift');
+  if (!m.tax_number && !m.vat_id) miss.push('Steuernummer oder USt-IdNr.');
+  return { m, miss, data: { name: m.company_name || name, person: m.company_name ? name : '', street: m.street, zip: m.zip, city: m.city, tax_number: m.tax_number || '', vat_id: m.vat_id || '', small_business: !!m.small_business, iban: m.iban || '', account_holder: m.account_holder || '' } };
+}
+function txNoteDraft(e, key) {
+  const m = hrFreeMonth(e, key), closed = m.p ? m.p.closed : 0, cancPrev = m.pp ? m.pp.cancelled : 0, lines = [];
+  lines.push({ text: `${tx.set.service_text}, ${fmtMonth(key)}`, qty: closed, unit: r2(m.per), total: r2(m.commission) });
+  if (m.instant) lines.push({ text: 'Abzug Sofort-Stornos ' + fmtMonth(key), qty: m.instant, unit: -r2(m.per), total: -r2(m.instantClaw) });
+  if (cancPrev) lines.push({ text: 'Rückrechnung Stornos aus ' + fmtMonth(prevMonthKey(key)), qty: cancPrev, unit: -r2(m.per), total: -r2(m.clawback) });
+  if (m.carryIn) lines.push({ text: 'Vortrag aus Vormonaten', qty: 1, unit: -r2(m.carryIn), total: -r2(m.carryIn) });
+  return { lines, net: r2(m.payout), carryOut: r2(m.carryOut), hasInput: !!m.p };
+}
+async function txIssue(e, key) {
+  const s = tx.set, rec = txRecipient(e), draft = txNoteDraft(e, key);
+  if (['name', 'street', 'zip', 'city'].some(k => !s[k]) || !(s.tax_number || s.vat_id)) { txNote('Bitte zuerst die Firmendaten unter „Einstellungen“ vervollständigen.'); return; }
+  if (rec.miss.length) { txNote(`Für ${e.name} fehlt: ${rec.miss.join(', ')}. Bitte im Personal-Bereich unter „Stammdaten“ ergänzen.`); return; }
+  if (!draft.hasInput) { txNote(`Für ${e.name} gibt es in ${fmtMonth(key)} keine Eingabe unter Personal, „Performance“.`); return; }
+  const rate = rec.data.small_business ? 0 : Number(s.vat_rate), vat = r2(draft.net * rate / 100);
+  if (!confirm(`Gutschrift für ${e.name}, ${fmtMonth(key)} ausstellen?\n\nNetto ${eur(draft.net)}, Umsatzsteuer ${eur(vat)}, Auszahlung ${eur(draft.net + vat)}.\n\nDanach ist sie festgeschrieben und lässt sich nur noch stornieren.` + (key >= monthKey() ? '\n\nAchtung: Der Monat ist noch nicht abgeschlossen.' : ''))) return;
+  const snapshot = { issuer: { name: s.name, street: s.street, zip: s.zip, city: s.city, tax_number: s.tax_number, vat_id: s.vat_id, register: s.register, ceo: s.ceo, iban: s.iban, bank: s.bank, email: s.email }, recipient: rec.data, employee_name: e.name, lines: draft.lines, pay_days: Number(s.pay_days) || 0 };
+  const r = await sb.rpc('tx_issue_credit_note', { p_employee: e.id, p_month: key + '-01', p_issue_date: today(), p_net: draft.net, p_vat_rate: rate, p_carry_out: draft.carryOut, p_snapshot: snapshot });
+  if (r.error) { txNote('Ausstellen fehlgeschlagen: ' + r.error.message); return; }
+  txNote(''); await txLoad(); say('Gutschrift ausgestellt.');
+}
+function txNoteHtml(n) {
+  const s = n.snapshot, a = s.issuer, b = s.recipient, key = n.month.slice(0, 7), money = v => esc(eur(v));
+  const rows = s.lines.map(l => `<tr><td>${esc(l.text)}</td><td class="r">${esc(l.qty)}</td><td class="r">${money(l.unit)}</td><td class="r">${money(l.total)}</td></tr>`).join('');
+  const taxLine = Number(n.vat_rate) > 0 ? `<tr><td colspan="3" class="r">zzgl. ${esc(String(n.vat_rate).replace('.', ','))} % Umsatzsteuer</td><td class="r">${money(n.vat)}</td></tr>` : '';
+  const due = s.pay_days ? `Der Betrag wird innerhalb von ${esc(s.pay_days)} Tagen überwiesen` : 'Der Betrag wird überwiesen';
+  return `<!doctype html><html lang="de"><head><meta charset="utf-8"><title>Gutschrift ${esc(n.number)}</title><style>
+body{font:11pt/1.45 Arial,Helvetica,sans-serif;color:#111;max-width:180mm;margin:16mm auto;padding:0 8mm}h1{font-size:18pt;margin:10mm 0 2mm}small,.m{color:#555;font-size:9pt}
+.head{display:flex;justify-content:space-between;gap:10mm}.r{text-align:right}table{width:100%;border-collapse:collapse;margin:6mm 0}th,td{padding:2mm 1.5mm;border-bottom:1px solid #ccc;text-align:left;vertical-align:top}
+tfoot td{border:0}tfoot tr.sum td{border-top:2px solid #111;font-weight:bold}.storno{border:2px solid #b00;color:#b00;padding:2mm 3mm;font-weight:bold;margin:4mm 0}footer{margin-top:14mm;border-top:1px solid #ccc;padding-top:3mm}
+@media print{body{margin:0 auto}.noprint{display:none}}</style></head><body>
+<p class="noprint"><button onclick="print()">Drucken oder als PDF speichern</button></p>
+<p class="m">${esc(a.name)} · ${esc(a.street)} · ${esc(a.zip)} ${esc(a.city)}</p>
+<div class="head"><div><b>${esc(b.name)}</b><br>${b.person ? esc(b.person) + '<br>' : ''}${esc(b.street)}<br>${esc(b.zip)} ${esc(b.city)}<br><span class="m">${b.vat_id ? 'USt-IdNr. ' + esc(b.vat_id) : 'Steuernummer ' + esc(b.tax_number)}</span></div>
+<div class="r">Gutschrift Nr. <b>${esc(n.number)}</b><br>Datum: ${esc(fmtDate(n.issue_date))}<br>Leistungszeitraum: ${esc(fmtMonth(key))}</div></div>
+${n.cancelled_at ? `<p class="storno">STORNIERT am ${esc(fmtDate(n.cancelled_at.slice(0, 10)))}${n.cancel_reason ? ': ' + esc(n.cancel_reason) : ''}</p>` : ''}
+<h1>Gutschrift</h1><p>Provisionsabrechnung für ${esc(fmtMonth(key))}. Wir rechnen deine Leistungen wie folgt ab:</p>
+<table><thead><tr><th>Leistung</th><th class="r">Anzahl</th><th class="r">Einzelbetrag</th><th class="r">Betrag</th></tr></thead><tbody>${rows}</tbody>
+<tfoot><tr><td colspan="3" class="r">Summe netto</td><td class="r">${money(n.net)}</td></tr>${taxLine}<tr class="sum"><td colspan="3" class="r">Auszahlungsbetrag</td><td class="r">${money(n.gross)}</td></tr></tfoot></table>
+${Number(n.vat_rate) > 0 ? '' : '<p>Gemäß § 19 UStG wird keine Umsatzsteuer berechnet (Kleinunternehmer).</p>'}
+${Number(n.carry_out) > 0 ? `<p>Offener Rest aus Stornos: ${money(n.carry_out)}. Er wird mit den Provisionen der Folgemonate verrechnet.</p>` : ''}
+<p>${due}${b.iban ? ' auf das Konto ' + esc(b.iban) + (b.account_holder ? ' (' + esc(b.account_holder) + ')' : '') : ''}.</p>
+<p class="m">Diese Gutschrift ist eine Rechnung im Sinne des § 14 Abs. 2 UStG. Sie verliert diese Wirkung, wenn du ihr widersprichst. Bitte prüfe sie und melde dich bei Unstimmigkeiten umgehend.</p>
+<footer class="m">${esc(a.name)} · ${esc(a.street)} · ${esc(a.zip)} ${esc(a.city)}${a.register ? ' · ' + esc(a.register) : ''}${a.ceo ? ' · Geschäftsführer: ' + esc(a.ceo) : ''}<br>${a.vat_id ? 'USt-IdNr. ' + esc(a.vat_id) : 'Steuernummer ' + esc(a.tax_number)}${a.iban ? ' · IBAN ' + esc(a.iban) : ''}${a.bank ? ' · ' + esc(a.bank) : ''}${a.email ? ' · ' + esc(a.email) : ''}</footer></body></html>`;
+}
+function txOpenNote(n) {
+  const blob = new Blob([txNoteHtml(n)], { type: 'text/html;charset=utf-8' }), url = URL.createObjectURL(blob);
+  if (!window.open(url, '_blank')) download(blob, `Gutschrift_${n.number}.html`);
+  setTimeout(() => URL.revokeObjectURL(url), 60000);
+}
+async function txCancelNote(n) {
+  const reason = prompt(`Gutschrift ${n.number} stornieren? Das lässt sich nicht zurücknehmen.\n\nGrund:`);
+  if (reason === null) return;
+  if (!reason.trim()) { txNote('Bitte einen Grund für das Storno angeben.'); return; }
+  const r = await sb.from('tx_credit_notes').update({ cancelled_at: new Date().toISOString(), cancel_reason: reason.trim().slice(0, 300) }).eq('id', n.id);
+  if (r.error) { txNote('Storno fehlgeschlagen: ' + r.error.message); return; }
+  txNote(''); await txLoad();
+}
+async function txPaid(table, x, date) {
+  const r = await sb.from(table).update({ paid_at: date || null }).eq('id', x.id);
+  if (r.error) { txNote('Speichern fehlgeschlagen: ' + r.error.message); return; }
+  txNote(''); await txLoad();
+}
+const txPaidInput = (table, x) => h('label', null, 'Bezahlt am', h('input', { class: 'hr-sel', type: 'date', value: x.paid_at || '', onchange: ev => txPaid(table, x, ev.target.value) }));
+function txViewNotes() {
+  const key = tx.month, out = [txMonthInput(), h('h3', null, 'Abrechnung ' + fmtMonth(key))];
+  const emps = hr.emps.filter(e => hrIsFree(e) && hrMonthNo(e, key) >= 1 && (e.status === 'aktiv' || hrPerfOf(e.id, key) || hrPerfOf(e.id, prevMonthKey(key)))).sort((a, b) => a.name.localeCompare(b.name, 'de'));
+  if (!emps.length) out.push(h('p', { class: 'hr-muted' }, 'Keine freien Vertreter in diesem Monat. Vertreter und Zahlen pflegst du im Personal-Bereich.'));
+  for (const e of emps) {
+    const n = tx.notes.find(x => x.employee_id === e.id && x.month.slice(0, 7) === key && !x.cancelled_at), d = txNoteDraft(e, key), rec = txRecipient(e);
+    if (n) { out.push(h('div', { class: 'hr-card' }, h('b', null, `${e.name} · ${n.number}`), h('span', null, `Netto ${eur(n.net)} · Umsatzsteuer ${eur(n.vat)} · Auszahlung ${eur(n.gross)}`), h('small', null, 'Ausgestellt am ' + fmtDate(n.issue_date) + (n.paid_at ? ' · bezahlt am ' + fmtDate(n.paid_at) : ' · noch nicht bezahlt')),
+      h('div', { class: 'hr-act' }, h('button', { class: 'btn primary', type: 'button', onclick: () => txOpenNote(n) }, 'Ansehen / Drucken'), h('button', { class: 'btn danger', type: 'button', onclick: () => txCancelNote(n) }, 'Stornieren')), txPaidInput('tx_credit_notes', n))); continue; }
+    out.push(h('div', { class: 'hr-card' }, h('b', null, e.name), h('span', null, d.hasInput ? `Auszahlung netto ${eur(d.net)}` + (d.carryOut ? ` · Rest offen ${eur(d.carryOut)}` : '') : 'Keine Eingabe unter „Performance“'),
+      ...d.lines.map(l => h('small', null, `${l.text}: ${l.qty} × ${eur(l.unit)} = ${eur(l.total)}`)),
+      rec.miss.length ? h('small', { class: 'hr-neg' }, 'Fehlt: ' + rec.miss.join(', ')) : h('small', null, rec.data.small_business ? 'Kleinunternehmer: ohne Umsatzsteuer' : `zzgl. ${String(tx.set.vat_rate).replace('.', ',')} % Umsatzsteuer`),
+      h('div', { class: 'hr-act' }, h('button', { class: 'btn primary', type: 'button', disabled: !d.hasInput || !!rec.miss.length, onclick: () => txIssue(e, key) }, 'Gutschrift ausstellen'))));
+  }
+  const all = tx.notes.map(n => { const e = hr.emps.find(x => x.id === n.employee_id); return h('tr', null, h('td', null, n.number + (n.cancelled_at ? ' (storniert)' : '')), h('td', null, e ? e.name : (n.snapshot.employee_name || '–')), h('td', null, fmtMonth(n.month.slice(0, 7))), h('td', null, fmtDate(n.issue_date)), h('td', null, eur(n.net)), h('td', null, eur(n.vat)), h('td', null, eur(n.gross)), h('td', null, n.cancelled_at ? '–' : n.paid_at ? fmtDate(n.paid_at) : 'offen'), h('td', null, h('button', { class: 'btn', type: 'button', onclick: () => txOpenNote(n) }, 'Öffnen'))); });
+  out.push(h('h3', null, 'Alle Gutschriften'), all.length ? h('div', { class: 'hr-tblwrap' }, h('table', { class: 'hr-tbl' }, h('thead', null, h('tr', null, ...['Nummer', 'Vertreter', 'Monat', 'Datum', 'Netto', 'USt', 'Auszahlung', 'Bezahlt', ''].map(t => h('th', null, t)))), h('tbody', null, all))) : h('p', { class: 'hr-muted' }, 'Noch keine Gutschriften.'),
+    h('p', { class: 'hr-muted' }, 'Die Beträge kommen aus der Abrechnung im Personal-Bereich (Reiter „Freie Vertreter“). Mit dem Ausstellen bekommt die Gutschrift eine fortlaufende Nummer und ist festgeschrieben. Fehler korrigierst du über Storno und eine neue Gutschrift. Festangestellte werden über die Lohnabrechnung abgerechnet, nicht hier.'));
+  return out;
+}
+
+/* --- Belege --- */
+function txDocForm(d) {
+  const f = {}, lab = (t, el) => h('label', null, t, el), dec = v => v == null || v === '' ? '' : String(v).replace('.', ',');
+  f.direction = h('select', null, h('option', { value: 'ein', selected: d.direction === 'ein' }, 'Ausgabe (Eingangsrechnung)'), h('option', { value: 'aus', selected: d.direction === 'aus' }, 'Einnahme (Rechnung oder erhaltene Gutschrift)'));
+  f.doc_date = h('input', { type: 'date', value: d.doc_date || today() });
+  f.partner = h('input', { type: 'text', value: d.partner || '', maxlength: 120, autocomplete: 'off' });
+  f.doc_number = h('input', { type: 'text', value: d.doc_number || '', maxlength: 60, autocomplete: 'off' });
+  f.description = h('input', { type: 'text', value: d.description || '', maxlength: 200, autocomplete: 'off' });
+  f.category = h('select');
+  f.account = h('input', { type: 'text', inputmode: 'numeric', value: d.account || '', maxlength: 9 });
+  f.vat_case = h('select', null, ...TX_VAT_CASES.map(([v, t]) => h('option', { value: v, selected: d.vat_case === v }, t)));
+  f.vat_rate = h('select', null, ...[19, 7, 0].map(v => h('option', { value: v, selected: Number(d.vat_rate == null ? 19 : d.vat_rate) === v }, v + ' %')));
+  f.gross = h('input', { type: 'text', inputmode: 'decimal', value: dec(d.gross) });
+  f.net = h('input', { type: 'text', inputmode: 'decimal', value: dec(d.net) });
+  f.vat = h('input', { type: 'text', inputmode: 'decimal', value: dec(d.vat) });
+  f.paid_at = h('input', { type: 'date', value: d.paid_at || '' });
+  f.file = h('input', { type: 'file', accept: '.pdf,.xml,.jpg,.jpeg,.png,.webp' });
+  let accTouched = !d._new && !!d.account;
+  f.account.addEventListener('input', () => { accTouched = true; });
+  const cats = () => { const dir = f.direction.value, cur = f.category.value || d.category; f.category.textContent = ''; for (const c of TX_CATS.filter(c => c[4] === dir)) f.category.append(h('option', { value: c[0], selected: c[0] === cur }, c[1])); if (!accTouched) f.account.value = txAccount(f.category.value); };
+  const calc = from => { // Brutto ist führend; Netto und Steuer werden vorgeschlagen und bleiben änderbar
+    const vc = f.vat_case.value, rate = vc === 'normal' ? Number(f.vat_rate.value) : 0; f.vat_rate.disabled = vc !== 'normal';
+    if (from === 'net') { const n = hrNum(f.net.value); f.vat.value = dec(r2(n * rate / 100).toFixed(2)); f.gross.value = dec(r2(n + n * rate / 100).toFixed(2)); return; }
+    if (from === 'vat') return;
+    const g = hrNum(f.gross.value), n = r2(g / (1 + rate / 100)); f.net.value = dec(n.toFixed(2)); f.vat.value = dec(r2(g - n).toFixed(2));
+  };
+  f.direction.addEventListener('change', cats); f.category.addEventListener('change', () => { if (!accTouched) f.account.value = txAccount(f.category.value); });
+  f.gross.addEventListener('input', () => calc('gross')); f.net.addEventListener('input', () => calc('net')); f.vat_case.addEventListener('change', () => calc('gross')); f.vat_rate.addEventListener('change', () => calc('gross'));
+  cats(); f.vat_rate.disabled = f.vat_case.value !== 'normal';
+  return h('form', { class: 'hr-form', novalidate: true, onsubmit: async ev => {
+    ev.preventDefault();
+    const row = { direction: f.direction.value, doc_date: f.doc_date.value, partner: f.partner.value.trim(), doc_number: f.doc_number.value.trim(), description: f.description.value.trim(), category: f.category.value, account: f.account.value.trim(), vat_case: f.vat_case.value,
+      vat_rate: f.vat_case.value === 'normal' ? Number(f.vat_rate.value) : 0, net: r2(hrNum(f.net.value)), vat: f.vat_case.value === 'normal' ? r2(hrNum(f.vat.value)) : 0, gross: r2(hrNum(f.gross.value)), paid_at: f.paid_at.value || null };
+    if (!row.doc_date || !row.partner || !row.gross) { txNote('Datum, Geschäftspartner und Betrag sind Pflicht.'); return; }
+    if (Math.abs(row.net + row.vat - row.gross) > 0.02) { txNote('Netto plus Umsatzsteuer ergibt nicht den Bruttobetrag.'); return; }
+    const file = f.file.files[0];
+    if (file) {
+      if (file.size > 15 * 1024 * 1024) { txNote('Die Datei ist größer als 15 MB.'); return; }
+      const path = row.doc_date.slice(0, 4) + '/' + crypto.randomUUID() + '.' + (file.name.split('.').pop() || 'pdf').toLowerCase().replace(/[^a-z0-9]/g, '');
+      const up = await sb.storage.from('belege').upload(path, file, { contentType: file.type || undefined });
+      if (up.error) { txNote('Datei konnte nicht hochgeladen werden: ' + up.error.message); return; }
+      row.file_path = path; row.file_name = file.name.slice(0, 200);
+    }
+    const r = d._new ? await sb.from('tx_documents').insert(row) : await sb.from('tx_documents').update(row).eq('id', d.id);
+    if (r.error) { txNote('Speichern fehlgeschlagen: ' + r.error.message); return; }
+    if (file && d.file_path) await sb.storage.from('belege').remove([d.file_path]);
+    tx.edit = null; txNote(''); await txLoad();
+  } },
+    h('b', null, d._new ? 'Neuer Beleg' : 'Beleg bearbeiten'),
+    h('div', { class: 'hr-row2' }, lab('Art', f.direction), lab('Belegdatum', f.doc_date)),
+    h('div', { class: 'hr-row2' }, lab('Geschäftspartner', f.partner), lab('Belegnummer', f.doc_number)),
+    lab('Beschreibung', f.description),
+    h('div', { class: 'hr-row2' }, lab('Kategorie', f.category), lab('Sachkonto (Vorschlag)', f.account)),
+    h('div', { class: 'hr-row2' }, lab('Umsatzsteuer-Fall', f.vat_case), lab('Steuersatz', f.vat_rate)),
+    h('div', { class: 'hr-row3' }, lab('Brutto (€)', f.gross), lab('Netto (€)', f.net), lab('Umsatzsteuer (€)', f.vat)),
+    h('div', { class: 'hr-row2' }, lab('Bezahlt am (leer = offen)', f.paid_at), lab(d.file_name ? 'Datei ersetzen (aktuell: ' + d.file_name + ')' : 'Datei (PDF, XML, Bild)', f.file)),
+    h('div', { class: 'hr-act' }, h('button', { class: 'btn primary', type: 'submit' }, 'Speichern'), h('button', { class: 'btn', type: 'button', onclick: () => { tx.edit = null; renderTx(); } }, 'Abbrechen')));
+}
+async function txOpenFile(d) {
+  const r = await sb.storage.from('belege').createSignedUrl(d.file_path, 300);
+  if (r.error) { txNote('Datei konnte nicht geöffnet werden: ' + r.error.message); return; }
+  window.open(r.data.signedUrl, '_blank', 'noopener');
+}
+async function txLockDoc(d) {
+  if (!confirm(`Beleg „${d.partner}“ vom ${fmtDate(d.doc_date)} festschreiben? Danach lässt er sich nicht mehr ändern oder löschen.`)) return;
+  const r = await sb.from('tx_documents').update({ locked: true }).eq('id', d.id);
+  if (r.error) { txNote('Festschreiben fehlgeschlagen: ' + r.error.message); return; }
+  await txLoad();
+}
+async function txLockMonth(key) {
+  const open = tx.docs.filter(d => txInMonth(d.doc_date, key) && !d.locked);
+  if (!open.length || !confirm(`${open.length} Belege aus ${fmtMonth(key)} festschreiben? Danach lassen sie sich nicht mehr ändern oder löschen.`)) return;
+  const r = await sb.from('tx_documents').update({ locked: true }).in('id', open.map(d => d.id));
+  if (r.error) { txNote('Festschreiben fehlgeschlagen: ' + r.error.message); return; }
+  await txLoad(); say('Monat festgeschrieben.');
+}
+async function txDeleteDoc(d) {
+  if (!confirm(`Beleg „${d.partner}“ vom ${fmtDate(d.doc_date)} löschen?`)) return;
+  const r = await sb.from('tx_documents').delete().eq('id', d.id);
+  if (r.error) { txNote('Löschen fehlgeschlagen: ' + r.error.message); return; }
+  if (d.file_path) await sb.storage.from('belege').remove([d.file_path]);
+  await txLoad();
+}
+function txViewDocs() {
+  const key = tx.month, out = [txMonthInput()];
+  if (tx.edit) out.push(txDocForm(tx.edit));
+  else out.push(h('button', { class: 'btn primary', type: 'button', onclick: () => { tx.edit = { _new: true, direction: 'ein', doc_date: key === monthKey() ? today() : key + '-01', vat_case: 'normal', vat_rate: 19, category: 'sonstiges' }; renderTx(); } }, '+ Beleg erfassen'));
+  const list = tx.docs.filter(d => txInMonth(d.doc_date, key));
+  out.push(h('h3', null, 'Belege ' + fmtMonth(key)));
+  if (!list.length) out.push(h('p', { class: 'hr-muted' }, 'Keine Belege in diesem Monat.'));
+  for (const d of list) {
+    const vc = TX_VAT_CASES.find(c => c[0] === d.vat_case);
+    out.push(h('div', { class: 'hr-card' }, h('b', null, (d.direction === 'aus' ? 'Einnahme · ' : 'Ausgabe · ') + d.partner + (d.locked ? ' · festgeschrieben' : '')),
+      h('span', null, `${fmtDate(d.doc_date)} · brutto ${eur(d.gross)} · netto ${eur(d.net)} · USt ${eur(d.vat)}`),
+      h('small', null, [d.doc_number && 'Nr. ' + d.doc_number, txCat(d.category)[1], d.account && 'Konto ' + d.account, d.vat_case !== 'normal' && vc && vc[1], d.description].filter(Boolean).join(' · ')),
+      !d.file_path ? h('small', { class: 'hr-neg' }, 'Keine Datei hinterlegt') : null,
+      h('div', { class: 'hr-act' }, d.file_path ? h('button', { class: 'btn', type: 'button', onclick: () => txOpenFile(d) }, 'Datei öffnen') : null,
+        d.locked ? null : h('button', { class: 'btn', type: 'button', onclick: () => { tx.edit = { ...d }; renderTx(); $('txBody').scrollTop = 0; } }, 'Bearbeiten'),
+        d.locked ? null : h('button', { class: 'btn', type: 'button', onclick: () => txLockDoc(d) }, 'Festschreiben'),
+        d.locked ? null : h('button', { class: 'btn danger', type: 'button', onclick: () => txDeleteDoc(d) }, 'Löschen')),
+      txPaidInput('tx_documents', d)));
+  }
+  if (list.some(d => !d.locked)) out.push(h('button', { class: 'btn', type: 'button', onclick: () => txLockMonth(key) }, 'Alle Belege des Monats festschreiben'));
+  out.push(h('p', { class: 'hr-muted' }, 'Erfasse hier alle Eingangsrechnungen und deine Einnahmen (zum Beispiel die Provisionsabrechnungen der Distribution). Gutschriften an Vertreter entstehen im Reiter „Gutschriften“ und müssen hier nicht noch einmal erfasst werden. Das Sachkonto ist ein Vorschlag nach dem eingestellten Kontenrahmen; dein Steuerberater prüft die Zuordnung. Schreibe einen Monat fest, sobald er an den Steuerberater gegangen ist.'));
+  return out;
+}
+
+/* --- Export für den Steuerberater --- */
+const txCsv = rows => rows.map(r => r.map(v => { v = v == null ? '' : String(v); return /[";\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; }).join(';')).join('\r\n') + '\r\n';
+const txDe = n => r2(n).toFixed(2).replace('.', ',');
+function txAnsi(text) { // DATEV erwartet Windows-1252
+  const map = { '€': 0x80, '‚': 0x82, '„': 0x84, '…': 0x85, '‘': 0x91, '’': 0x92, '“': 0x93, '”': 0x94, '–': 0x96, '—': 0x97 }, out = new Uint8Array(text.length);
+  for (let i = 0; i < text.length; i++) { const c = text.charCodeAt(i); out[i] = c < 256 ? c : map[text[i]] || 0x3f; }
+  return out;
+}
+function txExportRows(key) {
+  const docs = tx.docs.filter(d => txInMonth(d.doc_date, key)).map(d => ({ date: d.doc_date, dir: d.direction, partner: d.partner, number: d.doc_number, text: d.description || txCat(d.category)[1], cat: txCat(d.category)[1], account: d.account || txAccount(d.category), vat_case: d.vat_case, rate: Number(d.vat_rate), net: Number(d.net), vat: Number(d.vat), gross: Number(d.gross), paid: d.paid_at, file: d.file_name || '', locked: d.locked }));
+  const notes = tx.notes.filter(n => !n.cancelled_at && txInMonth(n.issue_date, key)).map(n => ({ date: n.issue_date, dir: 'ein', partner: n.snapshot.recipient.name, number: n.number, text: 'Provisionsgutschrift ' + fmtMonth(n.month.slice(0, 7)), cat: txCat('provision')[1], account: txAccount('provision'), vat_case: Number(n.vat_rate) > 0 ? 'normal' : 'ku', rate: Number(n.vat_rate), net: Number(n.net), vat: Number(n.vat), gross: Number(n.gross), paid: n.paid_at, file: 'Gutschrift ' + n.number, locked: true }));
+  return [...docs, ...notes].sort((a, b) => a.date.localeCompare(b.date) || a.number.localeCompare(b.number));
+}
+function txExportList(key) {
+  const rows = [['Belegdatum', 'Art', 'Geschäftspartner', 'Belegnummer', 'Text', 'Kategorie', 'Sachkonto', 'USt-Fall', 'Steuersatz', 'Netto', 'Umsatzsteuer', 'Brutto', 'Bezahlt am', 'Datei', 'Festgeschrieben']];
+  for (const x of txExportRows(key)) rows.push([fmtDate(x.date), x.dir === 'aus' ? 'Einnahme' : 'Ausgabe', x.partner, x.number, x.text, x.cat, x.account, (TX_VAT_CASES.find(c => c[0] === x.vat_case) || [])[1], txDe(x.rate), txDe(x.net), txDe(x.vat), txDe(x.gross), x.paid ? fmtDate(x.paid) : '', x.file, x.locked ? 'ja' : 'nein']);
+  download(new Blob(['﻿' + txCsv(rows)], { type: 'text/csv;charset=utf-8' }), `Belegliste_${key}.csv`);
+}
+function txExportDatev(key) {
+  const s = tx.set, acc = txAcc(), [y, m] = key.split('-').map(Number), last = new Date(Date.UTC(y, m, 0)).getUTCDate(), p2 = n => String(n).padStart(2, '0');
+  const now = new Date(), stamp = now.getFullYear() + p2(now.getMonth() + 1) + p2(now.getDate()) + p2(now.getHours()) + p2(now.getMinutes()) + p2(now.getSeconds()) + '000';
+  const q = v => '"' + String(v || '').replace(/"/g, '') + '"';
+  const head = ['"EXTF"', 700, 21, '"Buchungsstapel"', 13, stamp, '', '"RE"', '""', '""', s.datev_berater || '', s.datev_mandant || '', y + '0101', 4, y + p2(m) + '01', y + p2(m) + p2(last), q('Belege ' + p2(m) + '/' + y), '""', 1, 0, 0, '"EUR"', '', '""', '', '', q(s.skr), '', '', '""', '""'].join(';');
+  const cols = ['Umsatz (ohne Soll/Haben-Kz)', 'Soll/Haben-Kennzeichen', 'WKZ Umsatz', 'Kurs', 'Basis-Umsatz', 'WKZ Basis-Umsatz', 'Konto', 'Gegenkonto (ohne BU-Schlüssel)', 'BU-Schlüssel', 'Belegdatum', 'Belegfeld 1', 'Belegfeld 2', 'Skonto', 'Buchungstext'].join(';');
+  const lines = txExportRows(key).map(x => {
+    // Ausgabe: Aufwand (Soll) an Verbindlichkeiten. Einnahme: Forderungen (Soll) an Erlöse. Erlöskonten 8400/4400 sind Automatikkonten, daher dort kein BU-Schlüssel.
+    const bu = x.dir === 'aus' ? '' : x.vat_case === 'normal' ? (x.rate === 19 ? '9' : x.rate === 7 ? '8' : '') : x.vat_case.startsWith('13b') ? '94' : '';
+    const konto = x.dir === 'aus' ? acc.debitor : x.account, gegen = x.dir === 'aus' ? x.account : acc.kreditor;
+    const amount = x.vat_case.startsWith('13b') ? x.net : x.gross;
+    return [txDe(Math.abs(amount)), amount < 0 ? '"H"' : '"S"', '"EUR"', '', '', '', konto, gegen, bu ? q(bu) : '', x.date.slice(8, 10) + x.date.slice(5, 7), q(x.number.replace(/[^A-Za-z0-9$%&*+\-/]/g, '').slice(0, 36)), '', '', q((x.partner + ' ' + x.text).slice(0, 60))].join(';');
+  });
+  download(new Blob([txAnsi([head, cols, ...lines].join('\r\n') + '\r\n')], { type: 'text/csv' }), `EXTF_Buchungsstapel_${key}.csv`);
+}
+function txViewExport() {
+  const key = tx.month, rows = txExportRows(key), unlocked = rows.filter(x => !x.locked).length, nofile = tx.docs.filter(d => txInMonth(d.doc_date, key) && !d.file_path).length;
+  return [txMonthInput(), h('h3', null, 'Export ' + fmtMonth(key)),
+    h('div', { class: 'hr-card' }, h('b', null, `${rows.length} Buchungen im Monat`), unlocked ? h('small', { class: 'hr-neg' }, `${unlocked} Belege sind noch nicht festgeschrieben.`) : h('small', null, 'Alle Belege sind festgeschrieben.'), nofile ? h('small', { class: 'hr-neg' }, `${nofile} Belege haben keine Datei.`) : null),
+    h('div', { class: 'hr-act' }, h('button', { class: 'btn primary', type: 'button', disabled: !rows.length, onclick: () => txExportList(key) }, 'Belegliste (CSV für Excel)'), h('button', { class: 'btn', type: 'button', disabled: !rows.length, onclick: () => txExportDatev(key) }, 'DATEV-Buchungsstapel (Entwurf)')),
+    h('p', { class: 'hr-muted' }, `Die Belegliste enthält alle Belege und Gutschriften des Monats mit Konto, Steuerfall und Zahldatum. Der DATEV-Buchungsstapel bucht Ausgaben gegen Konto ${txAcc().kreditor} und Einnahmen gegen Konto ${txAcc().debitor} (Kontenrahmen SKR${tx.set.skr}); er ist ein Entwurf, den dein Steuerberater vor dem ersten Einsatz mit einem Testimport prüfen muss. Beraternummer und Mandantennummer trägst du unter „Einstellungen“ ein. Die Belegdateien selbst gibst du dem Steuerberater zusätzlich, zum Beispiel über DATEV Unternehmen online.`)];
+}
+
+function txViewSettings() {
+  const fields = [['name', 'Firma (wie im Handelsregister)'], ['street', 'Straße und Hausnummer'], ['zip', 'PLZ'], ['city', 'Ort'], ['tax_number', 'Steuernummer'], ['vat_id', 'USt-IdNr.'], ['register', 'Registergericht und HRB-Nummer'], ['ceo', 'Geschäftsführer'], ['iban', 'IBAN'], ['bank', 'Bank'], ['email', 'E-Mail für Rückfragen'],
+    ['service_text', 'Leistungstext auf Gutschriften'], ['vat_rate', 'Regelsteuersatz (%)'], ['pay_days', 'Zahlungsziel für Gutschriften (Tage)'], ['datev_berater', 'DATEV-Beraternummer'], ['datev_mandant', 'DATEV-Mandantennummer']];
+  const els = {}, rows = [];
+  for (const [k, t] of fields) { els[k] = h('input', { type: 'text', value: String(tx.set[k] == null ? '' : tx.set[k]), maxlength: 200, autocomplete: 'off' }); rows.push(h('label', null, t, els[k])); }
+  const skr = h('select', null, h('option', { value: '03', selected: tx.set.skr !== '04' }, 'SKR03'), h('option', { value: '04', selected: tx.set.skr === '04' }, 'SKR04'));
+  return [h('h3', null, 'Einstellungen'), h('form', { class: 'hr-form', onsubmit: async ev => {
+    ev.preventDefault();
+    const data = { ...tx.set }; for (const [k] of fields) data[k] = els[k].value.trim();
+    data.vat_rate = hrNum(data.vat_rate) || 19; data.pay_days = Math.max(0, Math.floor(hrNum(data.pay_days))); data.skr = skr.value;
+    const r = await sb.from('tx_settings').upsert({ id: 1, data }, { onConflict: 'id' });
+    if (r.error) { txNote('Speichern fehlgeschlagen: ' + r.error.message); return; }
+    txNote(''); await txLoad(); say('Einstellungen gespeichert.');
+  } }, ...rows, h('label', null, 'Kontenrahmen (beim Steuerberater erfragen)', skr), h('button', { class: 'btn primary', type: 'submit' }, 'Speichern')),
+    h('p', { class: 'hr-muted' }, 'Die Firmendaten stehen auf jeder Gutschrift. Ein Wechsel des Kontenrahmens ändert nur die Vorschläge für neue Belege; bereits gespeicherte Konten bleiben, wie sie sind.')];
+}
+
 /* ===== P² Sales Academy ===== */
 /* Inhalte nach dem Workbook P²Sales 1A. Stufe 1 = Pflicht vor der ersten Tür. */
 const A_STAGES = [
@@ -3066,7 +3444,7 @@ function acadNote(t) { const n = $('acadNote'); n.textContent = t; n.hidden = !t
 function openAcad(view) {
   if (!me) return;
   acadOpen = true; $('acad').hidden = false;
-  if (current) closeSheet(); if (chatOpen) closeChat(); if (dashOpen) closeDash(); if (wmOpen) closeWm(); if (hrOpen) closeHr(); if (maOpen) closeMa();
+  if (current) closeSheet(); if (chatOpen) closeChat(); if (dashOpen) closeDash(); if (wmOpen) closeWm(); if (hrOpen) closeHr(); if (txOpen) closeTx(); if (maOpen) closeMa();
   if (view) acadView = view;
   renderAcad(); loadAcad();
 }
@@ -3453,7 +3831,7 @@ $('acadClose').addEventListener('click', closeAcad);
 function openWm() {
   if (!me || !(WM_OPEN || isAdmin())) return;
   wmOpen = true; $('wm').hidden = false;
-  if (current) closeSheet(); if (chatOpen) closeChat(); if (dashOpen) closeDash(); if (acadOpen) closeAcad(); if (hrOpen) closeHr(); if (maOpen) closeMa();
+  if (current) closeSheet(); if (chatOpen) closeChat(); if (dashOpen) closeDash(); if (acadOpen) closeAcad(); if (hrOpen) closeHr(); if (txOpen) closeTx(); if (maOpen) closeMa();
   if (!$('wmBody').firstChild) $('wmBody').append(h('iframe', { src: './wechselmeister/?vertreter=1&embed=1', title: 'Wechselmeister Tarifrechner', allow: 'clipboard-write' }));
 }
 function closeWm() { wmOpen = false; $('wm').hidden = true; }
