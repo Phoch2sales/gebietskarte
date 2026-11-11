@@ -1,5 +1,5 @@
 // P² Sales Vertriebs MultiTool – Offline-Speicher
-const APP = 'p2gk-app-v6';
+const APP = 'p2gk-app-v7';
 const TILES = 'p2gk-tiles-v1';
 const IMG = 'p2gk-img-v1'; // Kundenbilder: ändern sich nie, daher aus dem Speicher
 const MAX_TILES = 4000;
