@@ -791,7 +791,7 @@ dialog::backdrop{background:rgba(5,15,22,.55)}
 <script>
 (() => {
 'use strict';
-const VERSION = '2.39';
+const VERSION = '2.40';
 const WM_OPEN = false; // Wechselmeister für Vertreter: erst auf Florians Signal auf true setzen (bis dahin nur Admin)
 const APP = 'P² Gebietskarte';
 const $ = id => document.getElementById(id);
@@ -2937,12 +2937,12 @@ function hrViewMembers() {
   const people = Object.values(team).filter(t => t.active).sort((a, b) => memberName(a.id).localeCompare(memberName(b.id), 'de'));
   if (!people.length) out.push(h('p', { class: 'hr-muted' }, 'Keine aktiven Zugänge.'));
   for (const t of people) {
-    const row = hr.members.find(m => m.user_id === t.id), st = maStatus(row);
+    const row = hr.members.find(m => m.user_id === t.id), st0 = maStatus(row), adm = t.role === 'admin', st = adm && st0.cls !== 'hr-pos' ? { cls: 'hr-muted', txt: 'Admin: Stammdatenblatt freiwillig' } : st0; // Admins brauchen kein Blatt
     out.push(h('div', { class: 'hr-card' }, h('b', null, memberName(t.id)),
       h('span', null, h('b', { class: st.cls }, st.txt), row ? ' · ' + (row.member_type === 'fest' ? 'Festangestellter' : 'Freier Handelsvertreter') : ''),
-      (() => { const done = {}; for (const c of hr.checks) if (c.user_id === t.id) done[c.item_key] = true; const pr = maProgress((row && row.member_type) || 'frei', done, row); return h('small', null, `Einstieg: ${pr.done} von ${pr.total} erledigt` + (pr.open.length ? ' · offen: ' + pr.open.map(i => i.t).join(', ') : '')); })(),
+      adm ? null : (() => { const done = {}; for (const c of hr.checks) if (c.user_id === t.id) done[c.item_key] = true; const pr = maProgress((row && row.member_type) || 'frei', done, row); return h('small', null, `Einstieg: ${pr.done} von ${pr.total} erledigt` + (pr.open.length ? ' · offen: ' + pr.open.map(i => i.t).join(', ') : '')); })(),
       h('small', null, row && row.location_sharing ? 'Live-Standort freigegeben seit ' + fmtDate((row.location_consent_at || '').slice(0, 10)) : 'Live-Standort nicht freigegeben'),
-      h('div', { class: 'hr-act' }, h('button', { class: 'btn', type: 'button', onclick: () => { hr.maEdit = t.id; renderHr(); $('hrBody').scrollTop = 0; } }, row ? 'Ansehen / Bearbeiten' : 'Für ihn ausfüllen'))));
+      h('div', { class: 'hr-act' }, h('button', { class: 'btn', type: 'button', onclick: () => { hr.maEdit = t.id; renderHr(); $('hrBody').scrollTop = 0; } }, row ? 'Ansehen / Bearbeiten' : adm ? 'Freiwillig ausfüllen' : 'Für ihn ausfüllen'))));
   }
   out.push(h('p', { class: 'hr-muted' }, 'Vertreter sehen nur ihr eigenes Blatt. Die Daten sind personenbezogen (Steuer-ID, IBAN): nicht weitergeben oder per Chat teilen.'));
   return out;
