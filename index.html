@@ -299,6 +299,18 @@ dialog::backdrop{background:rgba(5,15,22,.55)}
 .hr-bar span{flex:1;min-width:0}
 .hr-bar .btn{background:#fff;color:#13212b;border:0;min-height:36px;font-weight:800}
 .hr-bar button.x{background:none;border:0;color:inherit;width:32px;height:32px;font-size:1em}
+/* Leads */
+.ld-row{display:grid;gap:2px;text-align:left;width:100%;border:1px solid var(--line);border-radius:12px;padding:10px 12px;background:var(--field);color:var(--fg);font:inherit;cursor:pointer;margin-bottom:8px}
+.ld-top{display:flex;gap:8px;align-items:center;justify-content:space-between}
+.ld-pill{display:inline-block;color:#fff;border-radius:999px;padding:2px 9px;font-size:.78em;font-weight:800;white-space:nowrap}
+.ld-due{color:var(--s-part);font-weight:800}.ld-due.over{color:var(--danger)}
+.ld-stats{display:flex;gap:14px;flex-wrap:wrap;font-size:.92em}
+.ld-chips,.ld-checks,.ld-quick{display:flex;gap:6px;flex-wrap:wrap}
+.ld-chip{border:1.5px solid var(--c,var(--line));background:var(--field);color:var(--fg);border-radius:999px;padding:6px 11px;font:inherit;font-size:.85em;font-weight:700;cursor:pointer}
+.ld-chip[aria-pressed=true]{background:var(--c,var(--accent,#13212b));color:#fff}
+.ld-check{display:flex;gap:8px;align-items:center;font-size:.92em}
+.ld-check input{width:20px;height:20px}
+.ld-quick .btn{flex:1 1 130px}
 /* Academy */
 .acad{grid-template-rows:auto auto auto 1fr}
 .wm{grid-template-rows:auto 1fr}
@@ -582,6 +594,11 @@ dialog::backdrop{background:rgba(5,15,22,.55)}
       <div class="row-wrap"><a class="btn" id="mUsersLink" target="_blank" rel="noopener">Zugänge in Supabase öffnen</a></div>
     </div>
     <div class="stack admin-only" hidden>
+      <h3>Leads</h3>
+      <p>Telefon-CRM für Gewerbekunden: Listen importieren, Anrufe protokollieren, Wiedervorlagen im Blick behalten. Nur für Admins sichtbar.</p>
+      <div class="row-wrap"><button class="btn" type="button" id="mLeads">Leads öffnen</button></div>
+    </div>
+    <div class="stack admin-only" hidden>
     <h3>Sichern</h3>
     <div class="row-wrap">
       <button class="btn" type="button" id="mSave">Sicherung speichern</button>
@@ -770,6 +787,17 @@ dialog::backdrop{background:rgba(5,15,22,.55)}
   <div class="acad-body hr-body" id="txBody"></div>
 </section>
 
+<!-- Leads (nur Admin) -->
+<section class="chat acad hr leads" id="leads" hidden aria-labelledby="leadTitle">
+  <div class="chat-head">
+    <h2 id="leadTitle">Leads<small>Nur für Admins · Telefon-CRM</small></h2>
+    <button class="close" id="leadClose" type="button" aria-label="Leads schließen">✕</button>
+  </div>
+  <nav class="acad-tabs" id="leadTabs" aria-label="Leads-Bereiche"><button type="button" data-v="today">Heute</button><button type="button" data-v="all">Alle Leads</button><button type="button" data-v="import">Import</button></nav>
+  <p class="chat-note" id="leadNote" hidden style="padding:8px 16px 0"></p>
+  <div class="acad-body hr-body" id="leadBody"></div>
+</section>
+
 <!-- Anmeldung -->
 <section class="auth" id="auth" hidden>
   <form class="auth-card" id="authForm" novalidate>
@@ -791,7 +819,7 @@ dialog::backdrop{background:rgba(5,15,22,.55)}
 <script>
 (() => {
 'use strict';
-const VERSION = '2.40';
+const VERSION = '2.42';
 const WM_OPEN = false; // Wechselmeister für Vertreter: erst auf Florians Signal auf true setzen (bis dahin nur Admin)
 const APP = 'P² Gebietskarte';
 const $ = id => document.getElementById(id);
@@ -1249,7 +1277,7 @@ function touch(id) {
 }
 function openSheet(id) {
   const prev = current; current = id; if (prev) restyle(prev); restyle(id);
-  if (chatOpen) closeChat(); if (dashOpen) closeDash(); if (acadOpen) closeAcad(); if (hrOpen) closeHr(); if (txOpen) closeTx(); if (maOpen) closeMa();
+  if (chatOpen) closeChat(); if (dashOpen) closeDash(); if (acadOpen) closeAcad(); if (hrOpen) closeHr(); if (txOpen) closeTx(); if (maOpen) closeMa(); if (leadOpen) closeLead();
   sheet.hidden = false; renderSheet();
 }
 function closeSheet() { const prev = current; current = null; sheet.hidden = true; if (prev) restyle(prev); }
@@ -1261,7 +1289,7 @@ map.on('click', e => {
   if (map.getZoom() < 15) say('Zum Markieren näher heranzoomen, bis die einzelnen Häuser zu sehen sind.');
   else if (!loadedTiles[lon2x(e.latlng.lng) + '/' + lat2y(e.latlng.lat)]) say(loading ? 'Die Häuser hier werden gerade geladen …' : 'Hier sind noch keine Häuser geladen. Erst „Häuser finden“ tippen, dann ein Haus anklicken.');
 });
-document.addEventListener('keydown', e => { if (e.key !== 'Escape') return; if (wmOpen) closeWm(); else if (maOpen) closeMa(); else if (txOpen) closeTx(); else if (hrOpen) closeHr(); else if (acadOpen) closeAcad(); else if (dashOpen) closeDash(); else if (chatOpen) closeChat(); else if (current) closeSheet(); });
+document.addEventListener('keydown', e => { if (e.key !== 'Escape') return; if (wmOpen) closeWm(); else if (leadOpen) closeLead(); else if (maOpen) closeMa(); else if (txOpen) closeTx(); else if (hrOpen) closeHr(); else if (acadOpen) closeAcad(); else if (dashOpen) closeDash(); else if (chatOpen) closeChat(); else if (current) closeSheet(); });
 
 function infoFor(r, unit) {
   const x = unit || r;
@@ -1880,11 +1908,11 @@ function applyRole() {
   if (!me) { closeWm(); $('wmBody').textContent = ''; }
   if (!me && acadOpen) closeAcad();
   if (!me && dashOpen) closeDash();
-  if (!me) { if (maOpen) closeMa(); ma.row = null; ma.done = {}; ma.loaded = false; $('maBody').textContent = ''; } // Stammdaten nie im Speicher lassen, wenn abgemeldet
+  if (!me) { if (leadOpen) closeLead(); lead.rows = []; lead.today = []; lead.hist = []; lead.loaded = false; lead.sel = null; lead.imp = null; $('leadBody').textContent = ''; if (maOpen) closeMa(); ma.row = null; ma.done = {}; ma.loaded = false; $('maBody').textContent = ''; } // Stammdaten nie im Speicher lassen, wenn abgemeldet
   if (hrOpen && !isAdmin()) closeHr();
   if (txOpen && !isAdmin()) closeTx();
   if (!isAdmin()) { tx.notes = []; tx.docs = []; tx.queue = []; txPrevClear(); tx.loaded = false; $('txBody').textContent = ''; } // Steuer-Daten nie im Speicher behalten, wenn kein Admin
-  if (!isAdmin()) { hr.emps = []; hr.perf = []; hr.loaded = false; $('hrBar').hidden = true; } // Personal-Daten nie im Speicher behalten, wenn kein Admin
+  if (!isAdmin()) { if (leadOpen) closeLead(); lead.rows = []; lead.today = []; lead.hist = []; lead.loaded = false; lead.sel = null; lead.imp = null; $('leadBody').textContent = ''; hr.emps = []; hr.perf = []; hr.loaded = false; $('hrBar').hidden = true; } // Personal-Daten nie im Speicher behalten, wenn kein Admin
   if (!me && chatOpen) closeChat();
 }
 // Wer ist gerade aktiv? Jeder meldet sich alle 2 Minuten, solange die App offen ist. Nur der Admin sieht die Liste.
@@ -2162,7 +2190,7 @@ function renderAttach() {
 function openChat() {
   if (!me) return;
   chatOpen = true; $('chat').hidden = false;
-  if (current) closeSheet(); if (dashOpen) closeDash(); if (acadOpen) closeAcad(); if (wmOpen) closeWm(); if (hrOpen) closeHr(); if (txOpen) closeTx(); if (maOpen) closeMa();
+  if (current) closeSheet(); if (dashOpen) closeDash(); if (acadOpen) closeAcad(); if (wmOpen) closeWm(); if (hrOpen) closeHr(); if (txOpen) closeTx(); if (maOpen) closeMa(); if (leadOpen) closeLead();
   renderAttach(); renderChat(true); markChatSeen();
   if (!chatLoaded) loadChat();
   if (!isTouch) setTimeout(() => $('chatIn').focus(), 50);
@@ -2381,7 +2409,7 @@ function renderDash() {
 function openDash() {
   if (!me) return;
   dashOpen = true; $('dash').hidden = false;
-  if (current) closeSheet(); if (chatOpen) closeChat(); if (acadOpen) closeAcad(); if (wmOpen) closeWm(); if (hrOpen) closeHr(); if (txOpen) closeTx(); if (maOpen) closeMa();
+  if (current) closeSheet(); if (chatOpen) closeChat(); if (acadOpen) closeAcad(); if (wmOpen) closeWm(); if (hrOpen) closeHr(); if (txOpen) closeTx(); if (maOpen) closeMa(); if (leadOpen) closeLead();
   if (statsDay !== today()) { stats = {}; statsDay = today(); loadPendingStat(); }
   updateTally(); renderDash(); loadStats();
 }
@@ -2395,6 +2423,262 @@ $('gGoalMinus').addEventListener('click', () => changeStat('goal', -1));
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && me && navigator.onLine) { loadStats(); if (LS.get('p2gk-stat-pending', null)) saveStat(); } });
 window.addEventListener('online', () => { if (me && LS.get('p2gk-stat-pending', null)) saveStat(); });
 setInterval(() => { if (me && statsDay && statsDay !== today()) { stats = {}; statsDay = today(); statPending = false; renderDash(); loadStats(); } }, 60000);
+
+/* ===== Leads: Telefon-CRM (nur Admin, supabase/leads.sql). Kontaktdaten werden nie im Browser gespeichert. ===== */
+const LEAD_ST = [
+  ['neu', 'Neu', '#7d8b95'], ['nicht_erreicht', 'Nicht erreicht', '#d9730d'], ['rueckruf', 'Rückruf', '#2f6fde'], ['interesse', 'Interesse', '#7c4dcc'],
+  ['termin', 'Termin', '#0b7285'], ['angebot', 'Angebot', '#1971c2'], ['abschluss', 'Abschluss', '#1f9d55'], ['kein_interesse', 'Kein Interesse', '#c62828'], ['falsche_nummer', 'Falsche Nummer', '#495057']
+];
+const LEAD_DONE = new Set(['abschluss', 'kein_interesse', 'falsche_nummer']); // erledigt: keine Wiedervorlage mehr
+const leadSt = k => LEAD_ST.find(x => x[0] === k) || LEAD_ST[0];
+const lead = { rows: [], today: [], hist: [], loaded: false, busy: false, err: '', view: 'today', sel: null, call: null, imp: null, f: { q: '', status: '', src: '', region: '', phone: false, fit: true } };
+let leadOpen = false;
+const leadDate = n => { const x = new Date(); x.setDate(x.getDate() + n); return x.getFullYear() + '-' + String(x.getMonth() + 1).padStart(2, '0') + '-' + String(x.getDate()).padStart(2, '0'); };
+const leadTxt = v => (v === null || v === undefined ? '' : String(v)).trim();
+const leadNorm = v => leadTxt(v).toLowerCase().replace(/ß/g, 'ss').normalize('NFKD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, ' ').trim();
+const leadDigits = v => leadTxt(v).replace(/\D/g, '');
+const leadKey = o => [leadNorm(o.company), leadDigits(o.phone), leadNorm(o.email), leadNorm(o.contact_name)].join('|');
+
+async function leadFetchAll() { // Supabase liefert höchstens 1000 Zeilen pro Abfrage
+  let all = [], from = 0;
+  for (;;) {
+    const r = await sb.from('leads').select('*').order('company').range(from, from + 999);
+    if (r.error) return { error: r.error };
+    all = all.concat(r.data); if (r.data.length < 1000) break; from += 1000;
+  }
+  return { data: all };
+}
+async function leadLoad() {
+  if (!sb || !me || !isAdmin()) return;
+  lead.busy = true; renderLead();
+  const start = new Date(); start.setHours(0, 0, 0, 0);
+  const [l, c] = await Promise.all([leadFetchAll(), sb.from('lead_calls').select('id,lead_id,created_at,result').gte('created_at', start.toISOString())]);
+  lead.busy = false;
+  const err = l.error || c.error;
+  if (err) { lead.err = /does not exist|schema cache/i.test(err.message || '') ? 'Das Leads-Modul ist auf dem Server noch nicht eingerichtet (supabase/leads.sql ausführen).' : 'Leads konnten nicht geladen werden.'; renderLead(); return; }
+  lead.err = ''; lead.rows = l.data; lead.today = c.data; lead.loaded = true; renderLead();
+}
+function openLeads(view) {
+  if (!me || !isAdmin()) return;
+  leadOpen = true; $('leads').hidden = false;
+  if (current) closeSheet(); if (chatOpen) closeChat(); if (dashOpen) closeDash(); if (acadOpen) closeAcad(); if (wmOpen) closeWm(); if (hrOpen) closeHr(); if (txOpen) closeTx(); if (maOpen) closeMa();
+  if (view) lead.view = view; renderLead(); leadLoad();
+}
+function closeLead() { leadOpen = false; $('leads').hidden = true; }
+$('mLeads').addEventListener('click', () => { $('dlgMore').close(); openLeads(); });
+$('leadClose').addEventListener('click', closeLead);
+$('leadTabs').addEventListener('click', ev => { const b = ev.target.closest('button[data-v]'); if (b) { lead.view = b.dataset.v; lead.sel = null; lead.call = null; renderLead(); $('leadBody').scrollTop = 0; } });
+
+function renderLead() {
+  if (!leadOpen) return;
+  if (!isAdmin()) { closeLead(); return; }
+  for (const b of $('leadTabs').querySelectorAll('button')) b.setAttribute('aria-current', b.dataset.v === lead.view ? 'page' : 'false');
+  const n = $('leadNote'); n.textContent = lead.err; n.hidden = !lead.err;
+  const body = $('leadBody'), top = body.scrollTop; body.textContent = '';
+  if (lead.err) return;
+  if (!lead.loaded) { body.append(h('p', { class: 'hr-muted' }, lead.busy ? 'Lade Leads …' : '')); return; }
+  const sel = lead.sel && lead.rows.find(r => r.id === lead.sel);
+  body.append(...(sel ? leadDetail(sel) : lead.view === 'all' ? leadViewAll() : lead.view === 'import' ? leadViewImport() : leadViewToday()).filter(Boolean));
+  body.scrollTop = top;
+}
+const leadOpenRow = r => { lead.sel = r.id; lead.call = null; lead.hist = []; renderLead(); $('leadBody').scrollTop = 0; leadHist(r.id); };
+const leadIsDue = (r, t = today()) => !LEAD_DONE.has(r.status) && !!r.next_call && r.next_call <= t;
+
+function leadStats() {
+  const t = today(), over = lead.rows.filter(r => leadIsDue(r, t) && r.next_call < t).length;
+  return h('div', { class: 'ld-stats' }, h('span', null, h('b', null, lead.rows.filter(r => leadIsDue(r, t)).length), ' fällig'), over ? h('span', { class: 'hr-neg' }, h('b', null, over), ' überfällig') : null,
+    h('span', null, h('b', null, lead.today.length), ' Anrufe heute'), h('span', null, h('b', null, lead.rows.filter(r => r.status === 'neu' && r.phone && r.fit !== 'ungeeignet').length), ' neu mit Telefon'));
+}
+function leadRow(r) {
+  const st = leadSt(r.status), t = today(), due = r.next_call && !LEAD_DONE.has(r.status);
+  return h('button', { class: 'ld-row', type: 'button', onclick: () => leadOpenRow(r) },
+    h('span', { class: 'ld-top' }, h('b', null, r.company), h('span', { class: 'ld-pill', style: 'background:' + st[2] }, st[1])),
+    r.contact_name ? h('span', null, r.contact_name + (r.contact_role ? ' · ' + r.contact_role : '')) : null,
+    h('small', { class: 'hr-muted' }, [r.city, r.industry, r.phone || (r.email ? 'nur E-Mail' : 'keine Nummer')].filter(Boolean).join(' · ')),
+    due ? h('small', { class: 'ld-due' + (r.next_call < t ? ' over' : '') }, r.next_call < t ? 'Überfällig seit ' + fmtDate(r.next_call) : r.next_call === t ? 'Heute fällig' : 'Fällig am ' + fmtDate(r.next_call)) : null);
+}
+function leadViewToday() {
+  const t = today(), due = lead.rows.filter(r => leadIsDue(r, t)).sort((a, b) => a.next_call.localeCompare(b.next_call) || a.company.localeCompare(b.company, 'de'));
+  const cand = lead.rows.filter(r => r.status === 'neu' && r.phone && r.fit !== 'ungeeignet' && r.region !== 'Nein'), nxt = cand.find(r => r.region === 'Ja') || cand[0];
+  const out = [leadStats(), h('div', { class: 'hr-act' }, h('button', { class: 'btn primary', type: 'button', disabled: !nxt, onclick: () => leadOpenRow(nxt) }, 'Nächsten neuen Lead anrufen')), h('h3', null, 'Heute fällig')];
+  if (!lead.rows.length) out.push(h('p', { class: 'hr-muted' }, 'Noch keine Leads. Importiere deine Listen im Reiter „Import“.'));
+  else if (!due.length) out.push(h('p', { class: 'hr-muted' }, 'Heute ist nichts fällig. Starte mit „Nächsten neuen Lead anrufen“.'));
+  for (const r of due) out.push(leadRow(r));
+  return out;
+}
+function leadFiltered() {
+  const f = lead.f, q = f.q.trim().toLowerCase();
+  return lead.rows.filter(r => (!f.status || r.status === f.status) && (!f.src || r.source === f.src) && (!f.region || r.region === f.region) && (!f.phone || r.phone) && (!f.fit || r.fit !== 'ungeeignet')
+    && (!q || [r.company, r.contact_name, r.contact_role, r.city, r.industry, r.phone, r.email].join(' ').toLowerCase().includes(q)));
+}
+function leadViewAll() {
+  const f = lead.f, srcs = [...new Set(lead.rows.map(r => r.source).filter(Boolean))].sort();
+  const sel = (key, opts, label) => h('select', { class: 'hr-sel', 'aria-label': label, onchange: ev => { f[key] = ev.target.value; renderLead(); } }, ...opts.map(([v, t]) => h('option', { value: v, selected: f[key] === v }, t)));
+  const q = h('input', { class: 'hr-sel', type: 'search', placeholder: 'Suchen: Firma, Name, Stadt, Telefon …', value: f.q, 'aria-label': 'Suchen' });
+  const list = h('div', { class: 'ld-list' });
+  const draw = () => { const rows = leadFiltered(); list.textContent = ''; list.append(h('p', { class: 'hr-muted' }, `${rows.length} von ${lead.rows.length} Leads` + (rows.length > 150 ? ' (die ersten 150, bitte Filter nutzen)' : '')), ...rows.slice(0, 150).map(leadRow)); };
+  q.addEventListener('input', () => { f.q = q.value; draw(); });
+  const cnt = {}; for (const r of lead.rows) cnt[r.status] = (cnt[r.status] || 0) + 1;
+  const chips = h('div', { class: 'ld-chips' }, h('button', { class: 'ld-chip', type: 'button', 'aria-pressed': String(!f.status), onclick: () => { f.status = ''; renderLead(); } }, `Alle ${lead.rows.length}`),
+    ...LEAD_ST.map(([k, t, c]) => h('button', { class: 'ld-chip', type: 'button', style: `--c:${c}`, 'aria-pressed': String(f.status === k), onclick: () => { f.status = f.status === k ? '' : k; renderLead(); } }, `${t} ${cnt[k] || 0}`)));
+  const ck = (key, text) => { const cb = h('input', { type: 'checkbox' }); cb.checked = !!f[key]; cb.addEventListener('change', () => { f[key] = cb.checked; renderLead(); }); return h('label', { class: 'ld-check' }, cb, text); };
+  draw();
+  return [leadStats(), chips, q, h('div', { class: 'hr-row2' }, sel('src', [['', 'Alle Listen'], ...srcs.map(s => [s, s])], 'Liste'), sel('region', [['', 'Alle Regionen'], ['Ja', 'Zielregion: Ja'], ['Grenzfall', 'Grenzfall'], ['Nein', 'Außerhalb'], ['Unklar', 'Unklar']], 'Region')),
+    h('div', { class: 'ld-checks' }, ck('phone', 'Nur mit Telefon'), ck('fit', 'Ungeeignete ausblenden')), list];
+}
+
+async function leadHist(id) {
+  const r = await sb.from('lead_calls').select('*').eq('lead_id', id).order('created_at', { ascending: false });
+  if (lead.sel === id) { lead.hist = r.error ? [] : r.data; renderLead(); }
+}
+async function leadUpdate(r, patch) {
+  const u = await sb.from('leads').update({ ...patch, updated_at: new Date().toISOString() }).eq('id', r.id).select().single();
+  if (u.error) { say('Speichern fehlgeschlagen: ' + u.error.message, true); return false; }
+  Object.assign(r, u.data); return true;
+}
+async function leadLog(r, result, note, next) { // Anruf protokollieren und Status, Wiedervorlage und Zähler setzen
+  const now = new Date().toISOString(), nx = LEAD_DONE.has(result) ? null : next || null;
+  const c = await sb.from('lead_calls').insert({ lead_id: r.id, result, note: note || null, next_call: nx }).select().single();
+  if (c.error) { say('Speichern fehlgeschlagen: ' + c.error.message, true); return false; }
+  const ok = await leadUpdate(r, { status: result, next_call: nx, last_call: now, call_count: (r.call_count || 0) + 1 });
+  if (!ok) return false;
+  lead.today.push({ id: c.data.id, lead_id: r.id, created_at: c.data.created_at, result }); lead.hist.unshift(c.data);
+  say('Gespeichert: ' + leadSt(result)[1] + (nx ? ', Wiedervorlage ' + fmtDate(nx) : ''));
+  return true;
+}
+function leadCallForm(r) {
+  const k = lead.call.result, s = leadSt(k), done = LEAD_DONE.has(k);
+  const note = h('textarea', { rows: 3, maxlength: 2000, placeholder: 'Notiz zum Gespräch (optional)' });
+  const next = h('input', { type: 'date', value: { nicht_erreicht: leadDate(2), rueckruf: leadDate(1), interesse: leadDate(7), angebot: leadDate(7) }[k] || '' });
+  return h('form', { class: 'hr-form', onsubmit: async ev => { ev.preventDefault(); if (await leadLog(r, k, note.value.trim(), next.value)) { lead.call = null; renderLead(); } } },
+    h('b', null, 'Ergebnis: ' + s[1]), done ? null : h('label', null, 'Wiedervorlage (Rückruf am)', next), h('label', null, 'Notiz', note),
+    h('div', { class: 'hr-act' }, h('button', { class: 'btn primary', type: 'submit' }, 'Speichern'), h('button', { class: 'btn', type: 'button', onclick: () => { lead.call = null; renderLead(); } }, 'Abbrechen')));
+}
+function leadFields(r) {
+  const f = {}, lab = (t, el) => h('label', null, t, el);
+  const inp = (k, type, extra) => (f[k] = h('input', { type: type || 'text', value: leadTxt(r[k]), maxlength: 200, ...(extra || {}) }));
+  inp('contact_name'); inp('contact_role'); inp('phone', 'tel'); inp('email', 'email'); inp('supplier'); inp('consumption_kwh', 'text', { inputmode: 'decimal' }); inp('contract_end', 'date'); inp('next_call', 'date');
+  f.meter_type = h('select', null, h('option', { value: '' }, '–'), h('option', { value: 'slp', selected: r.meter_type === 'slp' }, 'SLP (Standardlastprofil)'), h('option', { value: 'rlm', selected: r.meter_type === 'rlm' }, 'RLM (Lastgang)'));
+  f.status = h('select', null, ...LEAD_ST.map(([k, t]) => h('option', { value: k, selected: r.status === k }, t)));
+  f.notes = h('textarea', { rows: 4, maxlength: 4000 }); f.notes.value = r.notes || '';
+  return h('form', { class: 'hr-form', onsubmit: async ev => {
+    ev.preventDefault();
+    const v = k => leadTxt(f[k].value) || null, kwh = leadTxt(f.consumption_kwh.value);
+    if (kwh && !/^\d+([.,]\d+)?$/.test(kwh)) { say('Jahresverbrauch bitte als Zahl in kWh eintragen.', true); return; }
+    const patch = { contact_name: v('contact_name'), contact_role: v('contact_role'), phone: v('phone'), email: v('email'), supplier: v('supplier'), consumption_kwh: kwh ? hrNum(kwh) : null, meter_type: v('meter_type'), contract_end: v('contract_end'), next_call: LEAD_DONE.has(f.status.value) ? null : v('next_call'), status: f.status.value, notes: f.notes.value.trim() };
+    if (await leadUpdate(r, patch)) { say('Gespeichert.'); renderLead(); }
+  } },
+    h('b', null, 'Kontakt, Vertrag und Notizen'),
+    h('div', { class: 'hr-row2' }, lab('Ansprechpartner', f.contact_name), lab('Funktion', f.contact_role)), h('div', { class: 'hr-row2' }, lab('Telefon', f.phone), lab('E-Mail', f.email)),
+    h('div', { class: 'hr-row2' }, lab('Status', f.status), lab('Wiedervorlage', f.next_call)),
+    h('div', { class: 'hr-row2' }, lab('Zähler', f.meter_type), lab('Jahresverbrauch (kWh)', f.consumption_kwh)), h('div', { class: 'hr-row2' }, lab('Aktueller Versorger', f.supplier), lab('Vertragsende', f.contract_end)),
+    lab('Notizen', f.notes), h('div', { class: 'hr-act' }, h('button', { class: 'btn primary', type: 'submit' }, 'Speichern'), h('button', { class: 'btn danger', type: 'button', onclick: () => leadDelete(r) }, 'Lead löschen')));
+}
+async function leadDelete(r) {
+  if (!confirm(`${r.company} samt Anrufprotokoll endgültig löschen?`)) return;
+  const d = await sb.from('leads').delete().eq('id', r.id);
+  if (d.error) { say('Löschen fehlgeschlagen: ' + d.error.message, true); return; }
+  lead.rows = lead.rows.filter(x => x.id !== r.id); lead.sel = null; renderLead();
+}
+function leadDetail(r) {
+  const st = leadSt(r.status), href = /^https?:/i.test(r.website || '') ? r.website : 'https://' + (r.website || '');
+  const out = [h('button', { class: 'btn', type: 'button', onclick: () => { lead.sel = null; lead.call = null; renderLead(); } }, '← Zurück zur Liste'),
+    h('div', { class: 'hr-card' }, h('div', { class: 'ld-top' }, h('b', null, r.company), h('span', { class: 'ld-pill', style: 'background:' + st[2] }, st[1])),
+      h('span', null, [r.street, [r.zip, r.city].filter(Boolean).join(' ')].filter(Boolean).join(', ')), h('small', { class: 'hr-muted' }, [r.industry, r.size && r.size + ' Mitarbeiter', r.source].filter(Boolean).join(' · ')),
+      h('div', { class: 'hr-act' }, r.phone ? h('a', { class: 'btn primary', href: 'tel:' + r.phone.replace(/[^\d+]/g, '') }, '📞 ' + r.phone) : h('span', { class: 'hr-muted' }, 'Keine Telefonnummer'),
+        r.email ? h('a', { class: 'btn', href: 'mailto:' + r.email }, '✉ E-Mail') : null, r.website ? h('a', { class: 'btn', href, target: '_blank', rel: 'noopener' }, 'Website') : null),
+      r.region || r.fit === 'ungeeignet' ? h('small', { class: 'hr-muted' }, 'Zielregion: ' + (r.region || '–') + (r.fit === 'ungeeignet' ? ' · als ungeeignet markiert' : '')) : null),
+    h('h3', null, 'Ergebnis des Anrufs'),
+    h('div', { class: 'ld-quick' }, ...LEAD_ST.filter(x => x[0] !== 'neu').map(([k, t, c]) => h('button', { class: 'btn', type: 'button', style: `border-color:${c};color:${c};font-weight:800`, onclick: () => { lead.call = { result: k }; renderLead(); } }, t)))];
+  if (lead.call) out.push(leadCallForm(r));
+  out.push(leadFields(r), h('h3', null, `Anrufverlauf (${r.call_count || 0})`));
+  if (!lead.hist.length) out.push(h('p', { class: 'hr-muted' }, 'Noch kein Anruf protokolliert.'));
+  for (const c of lead.hist) out.push(h('div', { class: 'hr-card' }, h('span', null, h('span', { class: 'ld-pill', style: 'background:' + leadSt(c.result)[2] }, leadSt(c.result)[1]), ' ' + new Date(c.created_at).toLocaleString('de-DE', { dateStyle: 'short', timeStyle: 'short' })),
+    c.note ? h('small', null, c.note) : null, c.next_call ? h('small', { class: 'hr-muted' }, 'Wiedervorlage: ' + fmtDate(c.next_call)) : null));
+  return out;
+}
+
+/* ----- Import: aus Excel eingefügt oder als CSV-Datei ----- */
+const LEAD_COLS = { company: ['firma', 'unternehmen', 'company'], contact_name: ['name', 'ansprechpartner', 'kontakt'], contact_role: ['funktion', 'position', 'rolle'], phone: ['telefon', 'tel', 'telefonnummer', 'phone'], email: ['e mail', 'email', 'mail'],
+  street: ['strasse'], zip: ['plz'], city: ['stadt firma', 'stadt', 'ort'], industry: ['branche'], size: ['mitarbeiter'], revenue: ['umsatz usd', 'umsatz'], website: ['website', 'webseite'], linkedin: ['linkedin'],
+  region: ['zielregion nach plz', 'zielregion nach stadt', 'zielregion nach firmensitz', 'zielregion'], fit: ['eignung'], hint: ['hinweis', 'notiz', 'notizen'] };
+function leadParseTable(text) {
+  text = String(text).replace(/^﻿/, '');
+  const first = text.split(/\r?\n/, 1)[0] || '', delim = first.includes('\t') ? '\t' : first.split(';').length >= first.split(',').length ? ';' : ',';
+  const rows = []; let row = [], cell = '', q = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (q) { if (c === '"') { if (text[i + 1] === '"') { cell += '"'; i++; } else q = false; } else cell += c; }
+    else if (c === '"' && cell === '') q = true;
+    else if (c === delim) { row.push(cell); cell = ''; }
+    else if (c === '\n' || c === '\r') { if (c === '\r' && text[i + 1] === '\n') i++; row.push(cell); cell = ''; if (row.some(x => x.trim() !== '')) rows.push(row); row = []; }
+    else cell += c;
+  }
+  row.push(cell); if (row.some(x => x.trim() !== '')) rows.push(row);
+  return rows;
+}
+function leadMap(headers, row, source) {
+  const idx = {}; headers.forEach((t, i) => { const k = leadNorm(t); if (!(k in idx)) idx[k] = i; });
+  const get = names => { for (const n of names) if (n in idx) { const v = leadTxt(row[idx[n]]); if (v) return v; } return ''; };
+  const o = { source }; for (const [k, names] of Object.entries(LEAD_COLS)) o[k] = get(names);
+  if (!o.contact_name) o.contact_name = [get(['vorname']), get(['nachname'])].filter(Boolean).join(' ');
+  o.fit = /ungeeignet/i.test(o.fit) ? 'ungeeignet' : 'passt';
+  if (!['Ja', 'Nein', 'Grenzfall', 'Unklar'].includes(o.region)) o.region = '';
+  o.notes = o.hint; delete o.hint;
+  return o;
+}
+function leadPrepare(text, source, existing) { // Zeilen einlesen, Doppelte erkennen (in der Datei und in der Datenbank)
+  const t = leadParseTable(text), res = { source, total: 0, noCompany: 0, dups: 0, rows: [], headers: t[0] || [] };
+  const seen = new Set(existing.map(leadKey));
+  for (const row of t.slice(1)) {
+    res.total++; const o = leadMap(t[0], row, source);
+    if (!o.company) { res.noCompany++; continue; }
+    const k = leadKey(o); if (seen.has(k)) { res.dups++; continue; }
+    seen.add(k); res.rows.push(o);
+  }
+  return res;
+}
+const LEAD_NULLABLE = ['contact_name', 'contact_role', 'phone', 'email', 'street', 'zip', 'city', 'industry', 'size', 'revenue', 'website', 'linkedin'];
+const leadToDb = o => { const d = { ...o }; for (const k of LEAD_NULLABLE) d[k] = d[k] || null; return d; };
+async function leadImport() {
+  const imp = lead.imp; if (!imp || !imp.rows.length) return;
+  for (let i = 0; i < imp.rows.length; i += 100) {
+    const r = await sb.from('leads').insert(imp.rows.slice(i, i + 100).map(leadToDb));
+    if (r.error) { say(`Import abgebrochen nach ${i} Leads: ${r.error.message}`, true); await leadLoad(); return; }
+  }
+  say(`${imp.rows.length} Leads importiert.`); lead.imp = null; lead.view = 'all'; lead.f = { ...lead.f, src: '', status: '', region: '', phone: false, fit: true }; await leadLoad();
+}
+async function leadDeleteSource(src) {
+  const n = lead.rows.filter(r => r.source === src).length;
+  if (!confirm(`Alle ${n} Leads der Liste „${src}“ samt Anrufprotokoll endgültig löschen?`)) return;
+  const d = await sb.from('leads').delete().eq('source', src);
+  if (d.error) { say('Löschen fehlgeschlagen: ' + d.error.message, true); return; }
+  say('Liste gelöscht.'); await leadLoad();
+}
+function leadViewImport() {
+  const srcIn = h('input', { type: 'text', maxlength: 80, placeholder: 'z. B. Liste 3 SLP-Betriebe', value: lead.imp ? lead.imp.source : '' });
+  const ta = h('textarea', { rows: 5, placeholder: 'Aus Excel einfügen: Tabelle öffnen, Strg+A, Strg+C, hier Strg+V', 'aria-label': 'Daten aus Excel einfügen' });
+  const file = h('input', { type: 'file', accept: '.csv,.txt,text/csv,text/plain' });
+  const prev = h('div', { class: 'ld-prev' });
+  const show = () => {
+    prev.textContent = ''; const imp = lead.imp; if (!imp) return;
+    prev.append(h('p', null, h('b', null, `${imp.rows.length} neue Leads`), ` von ${imp.total} Zeilen. Schon vorhanden: ${imp.dups}. Ohne Firmenname übersprungen: ${imp.noCompany}.`));
+    if (!imp.rows.length) { prev.append(h('p', { class: 'hr-muted' }, imp.total ? 'Es gibt nichts Neues zu importieren.' : 'Keine Zeilen erkannt. Die erste Zeile muss die Spaltenüberschriften enthalten (z. B. Firma, Telefon).')); return; }
+    prev.append(h('div', { class: 'hr-tblwrap' }, h('table', { class: 'hr-tbl' }, h('thead', null, h('tr', null, ...['Firma', 'Kontakt', 'Telefon', 'Stadt'].map(t => h('th', null, t)))),
+      h('tbody', null, imp.rows.slice(0, 5).map(r => h('tr', null, h('td', null, r.company), h('td', null, r.contact_name), h('td', null, r.phone), h('td', null, r.city)))))),
+      h('button', { class: 'btn primary', type: 'button', onclick: () => leadImport() }, `${imp.rows.length} Leads importieren`));
+  };
+  const run = (text, name) => { const src = srcIn.value.trim() || name; if (!src) { say('Bitte zuerst einen Namen für die Liste eintragen.', true); return; } srcIn.value = src; lead.imp = leadPrepare(text, src, lead.rows); show(); };
+  file.addEventListener('change', () => { const f = file.files[0]; if (!f) return; const rd = new FileReader(); rd.onload = () => run(String(rd.result), f.name.replace(/\.[^.]+$/, '')); rd.readAsText(f, 'utf-8'); });
+  const srcs = {}; for (const r of lead.rows) srcs[r.source || '(ohne Name)'] = (srcs[r.source || '(ohne Name)'] || 0) + 1;
+  show();
+  return [h('h3', null, 'Liste importieren'), h('div', { class: 'hr-form' }, h('label', null, 'Name der Liste', srcIn), h('label', null, 'CSV-Datei wählen', file), h('label', null, 'oder aus Excel einfügen', ta),
+      h('button', { class: 'btn', type: 'button', onclick: () => run(ta.value, '') }, 'Vorschau anzeigen'), prev),
+    h('p', { class: 'hr-muted' }, 'Erkannt werden die Spalten Firma, Ansprechpartner (oder Vorname und Nachname), Funktion, Telefon, E-Mail, Stadt, PLZ, Straße, Branche, Mitarbeiter, Umsatz, Website, LinkedIn, Zielregion, Eignung und Hinweis. Doppelte Einträge werden übersprungen.'),
+    Object.keys(srcs).length ? h('h3', null, 'Vorhandene Listen') : null,
+    ...Object.entries(srcs).map(([s, n]) => h('div', { class: 'hr-card' }, h('b', null, s), h('small', { class: 'hr-muted' }, n + ' Leads'), h('div', { class: 'hr-act' }, h('button', { class: 'btn danger', type: 'button', onclick: () => leadDeleteSource(s === '(ohne Name)' ? '' : s) }, 'Liste löschen')))),
+    h('p', { class: 'hr-muted' }, 'Die Daten enthalten Namen und E-Mail-Adressen von Ansprechpartnern. Sie sind nur für dich als Admin sichtbar und liegen nur in der Datenbank, nicht im Browser.')];
+}
 
 /* ===== Mitarbeiterbereich: Stammdatenblatt (supabase/mitarbeiterbereich.sql). Jeder sieht nur sein eigenes Blatt, Admins alle (RLS). ===== */
 const ma = { row: null, done: {}, chkErr: false, loaded: false, busy: false };
@@ -2501,7 +2785,7 @@ function maNote(t) { const n = $('maNote'); n.textContent = t; n.hidden = !t; }
 function openMa() {
   if (!me) return;
   maOpen = true; $('ma').hidden = false;
-  if (current) closeSheet(); if (chatOpen) closeChat(); if (dashOpen) closeDash(); if (acadOpen) closeAcad(); if (wmOpen) closeWm(); if (hrOpen) closeHr(); if (txOpen) closeTx();
+  if (current) closeSheet(); if (chatOpen) closeChat(); if (dashOpen) closeDash(); if (acadOpen) closeAcad(); if (wmOpen) closeWm(); if (hrOpen) closeHr(); if (txOpen) closeTx(); if (leadOpen) closeLead();
   renderMa(); maLoad();
 }
 function closeMa() { maOpen = false; $('ma').hidden = true; }
@@ -2738,7 +3022,7 @@ function hrBanner() {
 function openHr(view) {
   if (!me || !isAdmin()) return;
   hrOpen = true; $('hr').hidden = false;
-  if (current) closeSheet(); if (chatOpen) closeChat(); if (dashOpen) closeDash(); if (acadOpen) closeAcad(); if (wmOpen) closeWm(); if (maOpen) closeMa(); if (txOpen) closeTx();
+  if (current) closeSheet(); if (chatOpen) closeChat(); if (dashOpen) closeDash(); if (acadOpen) closeAcad(); if (wmOpen) closeWm(); if (maOpen) closeMa(); if (leadOpen) closeLead(); if (txOpen) closeTx();
   if (view) hrView = view;
   renderHr(); hrLoad(); if (!acadLoaded) loadAcad();
 }
@@ -3002,7 +3286,7 @@ async function txLoad() {
 function openTx(view) {
   if (!me || !isAdmin()) return;
   txOpen = true; $('tx').hidden = false;
-  if (current) closeSheet(); if (chatOpen) closeChat(); if (dashOpen) closeDash(); if (acadOpen) closeAcad(); if (wmOpen) closeWm(); if (maOpen) closeMa(); if (hrOpen) closeHr();
+  if (current) closeSheet(); if (chatOpen) closeChat(); if (dashOpen) closeDash(); if (acadOpen) closeAcad(); if (wmOpen) closeWm(); if (maOpen) closeMa(); if (leadOpen) closeLead(); if (hrOpen) closeHr();
   if (view) txView = view;
   if (!tx.month) tx.month = monthKey();
   renderTx(); txLoad();
@@ -3493,7 +3777,7 @@ function acadNote(t) { const n = $('acadNote'); n.textContent = t; n.hidden = !t
 function openAcad(view) {
   if (!me) return;
   acadOpen = true; $('acad').hidden = false;
-  if (current) closeSheet(); if (chatOpen) closeChat(); if (dashOpen) closeDash(); if (wmOpen) closeWm(); if (hrOpen) closeHr(); if (txOpen) closeTx(); if (maOpen) closeMa();
+  if (current) closeSheet(); if (chatOpen) closeChat(); if (dashOpen) closeDash(); if (wmOpen) closeWm(); if (hrOpen) closeHr(); if (txOpen) closeTx(); if (maOpen) closeMa(); if (leadOpen) closeLead();
   if (view) acadView = view;
   renderAcad(); loadAcad();
 }
@@ -3880,7 +4164,7 @@ $('acadClose').addEventListener('click', closeAcad);
 function openWm() {
   if (!me || !(WM_OPEN || isAdmin())) return;
   wmOpen = true; $('wm').hidden = false;
-  if (current) closeSheet(); if (chatOpen) closeChat(); if (dashOpen) closeDash(); if (acadOpen) closeAcad(); if (hrOpen) closeHr(); if (txOpen) closeTx(); if (maOpen) closeMa();
+  if (current) closeSheet(); if (chatOpen) closeChat(); if (dashOpen) closeDash(); if (acadOpen) closeAcad(); if (hrOpen) closeHr(); if (txOpen) closeTx(); if (maOpen) closeMa(); if (leadOpen) closeLead();
   if (!$('wmBody').firstChild) $('wmBody').append(h('iframe', { src: './wechselmeister/?vertreter=1&embed=1', title: 'Wechselmeister Tarifrechner', allow: 'clipboard-write' }));
 }
 function closeWm() { wmOpen = false; $('wm').hidden = true; }
