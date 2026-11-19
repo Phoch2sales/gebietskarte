@@ -41,7 +41,8 @@ button{cursor:pointer}
 header.top{background:var(--chrome);color:var(--chrome-fg);display:flex;align-items:center;gap:12px;padding:calc(env(safe-area-inset-top,0px) + 8px) 16px 8px}
 .brand{font-weight:750;letter-spacing:.01em;font-size:1.05em;white-space:nowrap}
 .brand small{font-weight:500;color:var(--chrome-muted);font-size:.72em;margin-left:6px;letter-spacing:.06em}
-.tally{display:flex;gap:10px;flex-wrap:wrap;margin-left:auto;font-variant-numeric:tabular-nums;font-size:.86em}
+.tally{display:flex;gap:10px;flex-wrap:wrap;margin-left:6px;font-variant-numeric:tabular-nums;font-size:.86em}
+.top-actions{flex:1;display:flex;align-items:center;justify-content:center;gap:14px;min-width:0}
 .tally span{display:inline-flex;align-items:center;gap:5px;white-space:nowrap}
 .tally i{width:10px;height:10px;border-radius:2px;display:inline-block}
 .iconbtn{background:var(--chrome-2);border:0;color:var(--chrome-fg);height:var(--btn-h);min-width:var(--btn-h);border-radius:10px;display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:0 12px;font-weight:600}
@@ -80,7 +81,7 @@ header.top{background:var(--chrome);color:var(--chrome-fg);display:flex;align-it
 .search-res small{color:var(--muted)}
 .search-res .hint{padding:8px 6px;color:var(--muted);font-size:.85em;border-top:1px solid var(--line)}
 @media (max-width:430px){.brand small{display:none}.tally{gap:7px}}
-@media (max-width:520px){.brand-full{display:none}header.top{gap:8px}.tally{flex-wrap:nowrap;gap:6px;font-size:.8em}.tally span{gap:3px}}
+@media (max-width:520px){.brand-full{display:none}header.top{gap:8px}.top-actions{gap:4px;justify-content:flex-end}.top-actions .iconbtn{flex:0 1 44px;min-width:0;padding:0 2px}.tally{flex-wrap:nowrap;gap:6px;font-size:.8em}.tally span{gap:3px}}
 .tally{flex-wrap:nowrap}
 .search-pin{width:22px;height:22px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);background:var(--mark);border:3px solid #13212b;box-shadow:0 2px 6px rgba(0,0,0,.35)}
 
@@ -456,6 +457,7 @@ dialog::backdrop{background:rgba(5,15,22,.55)}
   <header class="top">
     <div class="brand">P²<span class="brand-full"> Sales Vertriebs MultiTool</span><small id="ver"></small><span class="sync off" id="syncDot" role="img" aria-label="Nicht angemeldet" title="Nicht angemeldet"></span></div>
     <div class="tally" id="tally" aria-label="Zähler"></div>
+    <div class="top-actions">
     <button class="iconbtn admin-only" id="btnHr" aria-label="Personal (Admin)" title="Personal" hidden>
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c0-3.6 2.9-6 6.5-6s6.5 2.4 6.5 6"/><path d="M17 5.5a3.2 3.2 0 0 1 0 6M18.5 14.2c2.1.7 3.5 2.6 3.5 5.8"/></svg>
     </button>
@@ -482,6 +484,7 @@ dialog::backdrop{background:rgba(5,15,22,.55)}
     <button class="iconbtn" id="btnMore" aria-label="Mehr: Sicherung, Team, Excel, Einstellungen">
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
     </button>
+    </div>
   </header>
 
   <main id="map">
@@ -819,7 +822,7 @@ dialog::backdrop{background:rgba(5,15,22,.55)}
 <script>
 (() => {
 'use strict';
-const VERSION = '2.42';
+const VERSION = '2.43';
 const WM_OPEN = false; // Wechselmeister für Vertreter: erst auf Florians Signal auf true setzen (bis dahin nur Admin)
 const APP = 'P² Gebietskarte';
 const $ = id => document.getElementById(id);
