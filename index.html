@@ -302,6 +302,26 @@ dialog::backdrop{background:rgba(5,15,22,.55)}
 .hr-bar button.x{background:none;border:0;color:inherit;width:32px;height:32px;font-size:1em}
 /* Leads */
 .ld-row{display:grid;gap:2px;text-align:left;width:100%;border:1px solid var(--line);border-radius:12px;padding:10px 12px;background:var(--field);color:var(--fg);font:inherit;cursor:pointer;margin-bottom:8px}
+/* Videocall: kleines Kästchen unten rechts, bei laufendem oder eingehendem Anruf über allem */
+.call{position:fixed;right:10px;bottom:calc(env(safe-area-inset-bottom,0px) + 70px);z-index:850;display:grid;justify-items:end}
+.call.act{z-index:1300}
+.call-fab{width:44px;height:44px;border-radius:50%;border:0;background:var(--chrome);color:var(--chrome-fg);display:grid;place-items:center;box-shadow:0 4px 14px rgba(0,0,0,.3);cursor:pointer}
+.call-box{width:200px;background:var(--panel);color:var(--fg);border:1px solid var(--line);border-radius:12px;box-shadow:0 8px 26px rgba(0,0,0,.35);overflow:hidden;font-size:.88em}
+.call-head{display:flex;align-items:center;justify-content:space-between;gap:6px;padding:6px 8px;background:var(--chrome);color:var(--chrome-fg);font-weight:700;cursor:grab;touch-action:none;user-select:none}
+.call-head button{background:none;border:0;color:inherit;font-size:1.1em;cursor:pointer;padding:0 4px}
+.call-body{display:grid;gap:6px;padding:8px}
+.call-body p{margin:0}
+.call-contact{display:flex;justify-content:space-between;align-items:center;gap:6px;text-align:left;width:100%;border:1px solid var(--line);background:var(--field);color:var(--fg);border-radius:8px;padding:7px 9px;font:inherit;font-weight:600;cursor:pointer}
+.call-contact small{color:var(--muted);font-weight:400}
+.call-vid{position:relative;background:#000;border-radius:8px;overflow:hidden;aspect-ratio:4/3}
+.call-vid video{width:100%;height:100%;object-fit:cover;display:block}
+.call-vid .loc{position:absolute;right:4px;bottom:4px;width:34%;height:auto;aspect-ratio:4/3;border-radius:6px;border:1px solid rgba(255,255,255,.7);object-fit:cover}
+.call-ctl{display:flex;gap:6px;justify-content:center}
+.call-ctl button{flex:1;height:34px;border-radius:8px;border:1px solid var(--line);background:var(--field);color:var(--fg);font:inherit;font-weight:700;cursor:pointer}
+.call-ctl .ok{background:#1f9d55;color:#fff;border-color:transparent}
+.call-ctl .no{background:#d64545;color:#fff;border-color:transparent}
+.call-ctl .off{opacity:.55;text-decoration:line-through}
+@media (max-width:520px){.call-box{width:158px}}
 .ld-drop{display:grid;gap:4px;justify-items:center;text-align:center;border:2px dashed var(--line);border-radius:12px;padding:22px 14px;background:var(--panel);color:var(--fg);font:inherit;font-weight:700;cursor:pointer;width:100%}
 .ld-drop small{font-weight:400;color:var(--muted)}
 .ld-drop:hover,.ld-drop:focus-visible,#leads.dragging .ld-drop{border-color:var(--chrome);background:var(--field)}
@@ -714,6 +734,7 @@ dialog::backdrop{background:rgba(5,15,22,.55)}
   </form>
 </section>
 
+<div class="call" id="call" hidden aria-live="polite"></div>
 <div class="cheer" id="cheer" hidden role="status" aria-live="polite"><b id="cheerText"></b><small id="cheerSub"></small></div>
 
 <!-- Wechselmeister (Tarifrechner für Vertreter) -->
@@ -829,7 +850,7 @@ dialog::backdrop{background:rgba(5,15,22,.55)}
 <script>
 (() => {
 'use strict';
-const VERSION = '2.44';
+const VERSION = '2.46';
 const WM_OPEN = false; // Wechselmeister für Vertreter: erst auf Florians Signal auf true setzen (bis dahin nur Admin)
 const APP = 'P² Gebietskarte';
 const $ = id => document.getElementById(id);
@@ -1877,7 +1898,7 @@ function wipeLocal() {
   drawSketches(); restyleAll();
 }
 async function blocked() {
-  wipeLocal(); me = null; applyRole(); updateSyncDot();
+  callStop(); wipeLocal(); me = null; applyRole(); updateSyncDot();
   try { await sb.auth.signOut({ scope: 'local' }); } catch (e) {}
   showAuth('blocked');
 }
@@ -1905,7 +1926,7 @@ async function startSession(session) {
     if (isAdmin()) hrLoad(); // Hinweis-Banner (Probezeit, Monat 12, Befristung)
     say('Daten werden abgeglichen …', false, true);
     await pullAll();
-    subscribe(); flush(); loadChat(); loadStats(); touchPresence(); if (LS.get('p2gk-stat-pending', null)) saveStat();
+    subscribe(); callStart(); flush(); loadChat(); loadStats(); touchPresence(); if (LS.get('p2gk-stat-pending', null)) saveStat();
     say(`Angemeldet als ${me.name || me.email}. Alle Markierungen sind aktuell.`);
   } catch (e) {
     say('Keine Verbindung zum Server. Du kannst weiterarbeiten, die Änderungen werden später übertragen.', true);
@@ -1967,6 +1988,12 @@ async function refreshTeam() {
   team = {}; for (const x of data) team[x.id] = x;
   renderTeam();
 }
+function waLink(phone) { // Handynummer aus dem Stammdatenblatt -> wa.me-Link (deutsche Nummern ohne Ländervorwahl bekommen +49); nur für Admins sichtbar
+  let n = String(phone || '').trim().replace(/[^\d+]/g, '');
+  if (n.startsWith('+')) n = n.slice(1); else if (n.startsWith('00')) n = n.slice(2); else if (n.startsWith('0')) n = '49' + n.slice(1);
+  return /^\d{8,15}$/.test(n) ? 'https://wa.me/' + n : '';
+}
+const memberPhone = id => { const m = hr.members.find(x => x.user_id === id); return m ? m.phone : ''; };
 function renderTeam() {
   const box = $('mTeam'); box.textContent = '';
   const counts = {};
@@ -1982,12 +2009,19 @@ function renderTeam() {
     const row = document.createElement('div'); row.className = 'team-row' + (x.active ? '' : ' off');
     const info = document.createElement('div');
     const b = document.createElement('b'); b.textContent = x.name || x.email;
-    const sm = document.createElement('small'); sm.textContent = `${x.email} · ${counts[x.id] || 0} Häuser bearbeitet${x.role === 'admin' ? ' · Admin' : ''}`;
+    const sm = document.createElement('small'); sm.textContent = `${x.email} · ${counts[x.id] || 0} Häuser bearbeitet${x.role === 'admin' ? ' · Admin' : teamLeads.has(x.id) ? ' · Teamleiter' : ''}`;
     info.append(b, sm);
     if (!(me && x.id === me.id)) { const [txt, on] = seenText(x.id); const sn = document.createElement('small'); sn.className = 'seen' + (on ? ' on' : ''); sn.textContent = txt; info.append(sn); }
     const rn = document.createElement('button'); rn.type = 'button'; rn.className = 'linkbtn'; rn.style.justifySelf = 'start'; rn.style.paddingLeft = '0';
     rn.textContent = 'Namen ändern'; rn.addEventListener('click', () => renameMember(x));
-    info.append(rn); row.append(info);
+    info.append(rn);
+    const wa = !(me && x.id === me.id) && x.active ? waLink(memberPhone(x.id)) : '';
+    if (wa) { const a = document.createElement('a'); a.className = 'linkbtn'; a.href = wa; a.target = '_blank'; a.rel = 'noopener noreferrer'; a.style.justifySelf = 'start'; a.style.paddingLeft = '0'; a.textContent = 'In WhatsApp öffnen'; info.append(a); }
+    if (call.ready && x.role !== 'admin' && x.active) { // Teamleiter dürfen alle anrufen, Vertreter nur Admin und Teamleiter
+      const tl = teamLeads.has(x.id), tb = document.createElement('button'); tb.type = 'button'; tb.className = 'linkbtn'; tb.style.justifySelf = 'start'; tb.style.paddingLeft = '0';
+      tb.textContent = tl ? 'Teamleiter-Rolle entfernen' : 'Zum Teamleiter machen'; tb.addEventListener('click', () => setTeamLead(x, !tl)); info.append(tb);
+    }
+    row.append(info);
     if (me && x.id === me.id) { const s = document.createElement('span'); s.className = 'pill'; s.textContent = 'Du'; row.append(s); }
     else {
       if (!x.active) { const s = document.createElement('span'); s.className = 'pill off'; s.textContent = 'Gesperrt'; row.append(s); }
@@ -2020,6 +2054,7 @@ $('mLogout').addEventListener('click', async () => {
   if (!n && !confirm('Abmelden? Die Kundendaten werden von diesem Gerät entfernt und beim nächsten Anmelden neu geladen.')) return;
   $('dlgMore').close();
   if (rtChannel) { sb.removeChannel(rtChannel); rtChannel = null; }
+  callStop();
   wipeLocal(); me = null; applyRole(); updateSyncDot();
   try { await sb.auth.signOut(); } catch (e) {}
   showAuth('login');
@@ -2726,6 +2761,153 @@ function leadViewImport() {
     h('p', { class: 'hr-muted' }, 'Die Daten enthalten Namen und E-Mail-Adressen von Ansprechpartnern. Sie sind nur für dich als Admin sichtbar und liegen nur in der Datenbank, nicht im Browser.')];
 }
 
+/* ===== Videocall (supabase/videocall.sql): 1:1 per WebRTC, Bild und Ton direkt zwischen den Geräten.
+   Die Verbindungsnachrichten laufen über call_signals. Wer wen anrufen darf, erzwingt die Datenbank (can_call):
+   Admin und Teamleiter rufen alle an, Vertreter nur Admin und Teamleiter. Die App zeigt nur die erlaubten Kontakte. ===== */
+const CALL_ICE = [{ urls: 'stun:stun.l.google.com:19302' }, { urls: 'stun:stun1.l.google.com:19302' }]; // bei Bedarf einen TURN-Server ergänzen (Mobilfunk-Netze blockieren manchmal die direkte Verbindung)
+let teamLeads = new Set(), rtCalls = null;
+const call = { ready: false, open: false, st: 'idle', id: null, peer: null, pc: null, local: null, remote: null, timer: null, ice: [], mic: true, cam: true, pos: null };
+const callPower = () => !!me && (isAdmin() || teamLeads.has(me.id));
+const callIsLead = id => teamLeads.has(id) || !!(team[id] && team[id].role === 'admin');
+const callAllowed = id => !!me && id !== me.id && !!team[id] && !!team[id].active && (callPower() || callIsLead(id));
+const callRole = id => team[id] && team[id].role === 'admin' ? 'Admin' : teamLeads.has(id) ? 'Teamleiter' : '';
+async function callLoadLeads() {
+  const r = await sb.from('team_leads').select('user_id');
+  if (r.error) return false;
+  teamLeads = new Set(r.data.map(x => x.user_id)); return true;
+}
+async function callStart() {
+  callStop();
+  if (!sb || !me) return;
+  if (!(await callLoadLeads())) { renderCall(); return; } // Modul auf dem Server noch nicht eingerichtet: Kästchen bleibt unsichtbar
+  call.ready = true;
+  rtCalls = sb.channel('calls').on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'call_signals', filter: 'to_user=eq.' + me.id }, p => { if (p.new) callSignal(p.new); }).subscribe(); // eigener Kanal, damit ein Fehler hier den Rest nicht stört
+  renderCall();
+}
+function callStop() {
+  callEnd(true);
+  if (rtCalls) { sb.removeChannel(rtCalls); rtCalls = null; }
+  call.ready = false; call.open = false; teamLeads = new Set(); renderCall();
+}
+async function callSend(kind, to, payload, id = call.id) {
+  if (!sb || !me) return false;
+  const r = await sb.from('call_signals').insert({ call_id: id, from_user: me.id, to_user: to, kind, payload: payload || null });
+  if (r.error) { if (kind === 'invite') say('Anruf nicht möglich: ' + r.error.message, true); return false; }
+  return true;
+}
+async function callMedia() {
+  try { call.local = await navigator.mediaDevices.getUserMedia({ video: { width: 320, height: 240, facingMode: 'user' }, audio: true }); call.cam = true; return true; } catch (e) {}
+  try { call.local = await navigator.mediaDevices.getUserMedia({ audio: true }); call.cam = false; say('Keine Kamera gefunden oder freigegeben, der Anruf läuft nur mit Ton.'); return true; } catch (e) {}
+  say('Kamera oder Mikrofon sind nicht freigegeben. Bitte im Browser erlauben.', true); return false;
+}
+function callPc() {
+  const pc = new RTCPeerConnection({ iceServers: CALL_ICE }); call.pc = pc;
+  for (const t of call.local.getTracks()) pc.addTrack(t, call.local);
+  pc.ontrack = ev => { call.remote = ev.streams[0] || new MediaStream([ev.track]); callAttach(); };
+  pc.onicecandidate = ev => { if (ev.candidate) callSend('ice', call.peer, ev.candidate.toJSON()); };
+  pc.onconnectionstatechange = () => {
+    if (call.pc !== pc) return;
+    if (pc.connectionState === 'connected' && call.st !== 'live') { call.st = 'live'; clearTimeout(call.timer); renderCall(); }
+    if (pc.connectionState === 'failed') { say('Verbindung fehlgeschlagen. Das Netzwerk blockiert vermutlich Videoanrufe.', true); callEnd(true); }
+  };
+}
+async function callDial(id) {
+  if (call.st !== 'idle' || !callAllowed(id)) return;
+  if (!(await callMedia())) return;
+  call.id = crypto.randomUUID(); call.peer = id; call.st = 'out'; call.ice = []; renderCall();
+  if (!(await callSend('invite', id))) { callEnd(false); return; }
+  call.timer = setTimeout(() => { if (call.st === 'out') { say(memberName(id) + ' hat nicht geantwortet.', true); callEnd(true); } }, 45000);
+}
+async function callAccept() {
+  if (call.st !== 'in') return;
+  clearTimeout(call.timer);
+  const id = call.id, peer = call.peer;
+  if (!(await callMedia())) { callSend('decline', peer, null, id); callEnd(false); return; }
+  if (call.st !== 'in' || call.id !== id) { for (const t of call.local.getTracks()) t.stop(); call.local = null; return; } // Anrufer hat inzwischen aufgelegt
+  call.st = 'conn'; callPc(); renderCall(); callSend('accept', peer);
+}
+function callEnd(notify) {
+  clearTimeout(call.timer);
+  if (notify && call.peer && call.id) callSend(call.st === 'in' ? 'decline' : 'hangup', call.peer);
+  if (call.pc) { try { call.pc.close(); } catch (e) {} }
+  if (call.local) for (const t of call.local.getTracks()) t.stop();
+  Object.assign(call, { st: 'idle', id: null, peer: null, pc: null, local: null, remote: null, ice: [], mic: true, cam: true, camOn: undefined });
+  renderCall();
+}
+async function callFlushIce() { const q = call.ice; call.ice = []; for (const c of q) { try { await call.pc.addIceCandidate(c); } catch (e) {} } }
+async function callSignal(sig) {
+  sb.from('call_signals').delete().eq('id', sig.id).then(() => {}, () => {}); // gelesene Nachricht aufräumen
+  if (!me || !callAllowed(sig.from_user)) return;
+  if (Date.now() - new Date(sig.created_at).getTime() > 60000) return; // veraltete Einladung
+  const k = sig.kind;
+  try {
+    if (k === 'invite') {
+      if (call.st !== 'idle') { callSend('busy', sig.from_user, null, sig.call_id); return; }
+      Object.assign(call, { id: sig.call_id, peer: sig.from_user, st: 'in', ice: [] }); renderCall();
+      if (navigator.vibrate) navigator.vibrate([300, 150, 300]);
+      call.timer = setTimeout(() => { if (call.st === 'in') callEnd(false); }, 45000);
+      return;
+    }
+    if (sig.call_id !== call.id || sig.from_user !== call.peer) return;
+    if (k === 'accept' && call.st === 'out') { clearTimeout(call.timer); call.st = 'conn'; callPc(); renderCall(); const o = await call.pc.createOffer(); await call.pc.setLocalDescription(o); callSend('offer', call.peer, { type: o.type, sdp: o.sdp }); }
+    else if (k === 'offer' && call.pc) { await call.pc.setRemoteDescription(sig.payload); await callFlushIce(); const a = await call.pc.createAnswer(); await call.pc.setLocalDescription(a); callSend('answer', call.peer, { type: a.type, sdp: a.sdp }); }
+    else if (k === 'answer' && call.pc) { await call.pc.setRemoteDescription(sig.payload); await callFlushIce(); }
+    else if (k === 'ice') { if (call.pc && call.pc.remoteDescription) await call.pc.addIceCandidate(sig.payload); else call.ice.push(sig.payload); }
+    else if (k === 'hangup' || k === 'decline' || k === 'busy') { say(k === 'decline' ? memberName(sig.from_user) + ' hat abgelehnt.' : k === 'busy' ? memberName(sig.from_user) + ' ist gerade in einem Anruf.' : 'Anruf beendet.', k !== 'hangup'); callEnd(false); }
+  } catch (e) { say('Anruf fehlgeschlagen.', true); callEnd(true); }
+}
+function callAttach() {
+  const r = $('call').querySelector('video.rem'), l = $('call').querySelector('video.loc');
+  if (r && call.remote && r.srcObject !== call.remote) r.srcObject = call.remote;
+  if (l && call.local && l.srcObject !== call.local) l.srcObject = call.local;
+}
+function callIcon() { const s = document.createElement('span'); s.innerHTML = '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"><rect x="2.5" y="6" width="12.5" height="12" rx="2.5"/><path d="M15 10.5l6-3.5v10l-6-3.5z"/></svg>'; return s.firstChild; }
+function renderCall() {
+  const box = $('call'); box.textContent = '';
+  box.hidden = !(me && call.ready); box.classList.toggle('act', call.st !== 'idle');
+  if (box.hidden) return;
+  if (call.pos) { box.style.right = 'auto'; box.style.bottom = 'auto'; box.style.left = call.pos[0] + 'px'; box.style.top = call.pos[1] + 'px'; }
+  if (call.st === 'idle' && !call.open) { box.append(h('button', { class: 'call-fab', type: 'button', 'aria-label': 'Videoanruf', title: 'Videoanruf', onclick: async () => { call.open = true; renderCall(); await callLoadLeads(); renderCall(); } }, callIcon())); return; }
+  const title = call.st === 'idle' ? 'Videoanruf' : memberName(call.peer);
+  const head = h('div', { class: 'call-head' }, h('span', null, title), call.st === 'idle' ? h('button', { type: 'button', 'aria-label': 'Schließen', onclick: () => { call.open = false; renderCall(); } }, '✕') : null);
+  const body = h('div', { class: 'call-body' });
+  if (call.st === 'idle') {
+    const list = Object.values(team).filter(x => callAllowed(x.id)).sort((a, b) => !!callRole(b.id) - !!callRole(a.id) || (a.name || a.email || '').localeCompare(b.name || b.email || '', 'de'));
+    if (!list.length) body.append(h('p', { class: 'hr-muted' }, 'Gerade ist niemand zum Anrufen freigegeben.'));
+    for (const x of list) body.append(h('button', { class: 'call-contact', type: 'button', onclick: () => callDial(x.id) }, h('span', null, x.name || x.email), callRole(x.id) ? h('small', null, callRole(x.id)) : null));
+  } else if (call.st === 'out') {
+    body.append(h('p', null, 'Rufe an …'), h('div', { class: 'call-ctl' }, h('button', { class: 'no', type: 'button', onclick: () => callEnd(true) }, 'Abbrechen')));
+  } else if (call.st === 'in') {
+    body.append(h('p', null, h('b', null, 'Eingehender Videoanruf')), h('div', { class: 'call-ctl' }, h('button', { class: 'ok', type: 'button', onclick: callAccept }, 'Annehmen'), h('button', { class: 'no', type: 'button', onclick: () => callEnd(true) }, 'Ablehnen')));
+  } else {
+    const vid = h('div', { class: 'call-vid' }, h('video', { class: 'rem', autoplay: true, playsinline: true }), call.local ? h('video', { class: 'loc', autoplay: true, playsinline: true, muted: true }) : null);
+    const loc = vid.querySelector('video.loc'); if (loc) loc.muted = true;
+    const tog = (kind, on) => { if (!call.local) return; for (const t of call.local.getTracks()) if (t.kind === kind) t.enabled = on; };
+    body.append(vid, h('div', { class: 'call-ctl' },
+      h('button', { class: call.mic ? '' : 'off', type: 'button', title: 'Mikrofon', 'aria-pressed': String(call.mic), onclick: () => { call.mic = !call.mic; tog('audio', call.mic); renderCall(); } }, 'Mikro'),
+      call.cam && call.local && call.local.getVideoTracks().length ? h('button', { class: call.camOn === false ? 'off' : '', type: 'button', title: 'Kamera', onclick: () => { call.camOn = call.camOn === false; tog('video', call.camOn); renderCall(); } }, 'Kamera') : null,
+      h('button', { class: 'no', type: 'button', onclick: () => callEnd(true) }, 'Auflegen')));
+  }
+  box.append(h('div', { class: 'call-box', role: call.st === 'in' ? 'alertdialog' : 'group', 'aria-label': 'Videoanruf' }, head, body));
+  callAttach();
+  head.addEventListener('pointerdown', ev => { // Kästchen verschieben
+    if (ev.target.closest('button')) return;
+    const r = box.getBoundingClientRect(), dx = ev.clientX - r.left, dy = ev.clientY - r.top;
+    head.setPointerCapture(ev.pointerId);
+    const mv = e => { call.pos = [Math.max(0, Math.min(innerWidth - r.width, e.clientX - dx)), Math.max(0, Math.min(innerHeight - r.height, e.clientY - dy))]; box.style.right = 'auto'; box.style.bottom = 'auto'; box.style.left = call.pos[0] + 'px'; box.style.top = call.pos[1] + 'px'; };
+    const up = () => { head.removeEventListener('pointermove', mv); head.removeEventListener('pointerup', up); };
+    head.addEventListener('pointermove', mv); head.addEventListener('pointerup', up);
+  });
+}
+async function setTeamLead(x, on) {
+  const r = on ? await sb.from('team_leads').insert({ user_id: x.id }) : await sb.from('team_leads').delete().eq('user_id', x.id);
+  if (r.error) { say('Ändern hat nicht geklappt: ' + r.error.message, true); return; }
+  if (on) teamLeads.add(x.id); else teamLeads.delete(x.id);
+  say(on ? `${x.name || x.email} ist jetzt Teamleiter und darf alle anrufen.` : `${x.name || x.email} ist kein Teamleiter mehr.`);
+  renderTeam(); renderCall();
+}
+window.addEventListener('pagehide', () => { if (call.st !== 'idle') callEnd(true); });
+
 /* ===== Mitarbeiterbereich: Stammdatenblatt (supabase/mitarbeiterbereich.sql). Jeder sieht nur sein eigenes Blatt, Admins alle (RLS). ===== */
 const ma = { row: null, done: {}, chkErr: false, loaded: false, busy: false };
 let maOpen = false, maView = 'data';
@@ -3272,7 +3454,8 @@ function hrViewMembers() {
       h('span', null, h('b', { class: st.cls }, st.txt), row ? ' · ' + (row.member_type === 'fest' ? 'Festangestellter' : 'Freier Handelsvertreter') : ''),
       adm ? null : (() => { const done = {}; for (const c of hr.checks) if (c.user_id === t.id) done[c.item_key] = true; const pr = maProgress((row && row.member_type) || 'frei', done, row); return h('small', null, `Einstieg: ${pr.done} von ${pr.total} erledigt` + (pr.open.length ? ' · offen: ' + pr.open.map(i => i.t).join(', ') : '')); })(),
       h('small', null, row && row.location_sharing ? 'Live-Standort freigegeben seit ' + fmtDate((row.location_consent_at || '').slice(0, 10)) : 'Live-Standort nicht freigegeben'),
-      h('div', { class: 'hr-act' }, h('button', { class: 'btn', type: 'button', onclick: () => { hr.maEdit = t.id; renderHr(); $('hrBody').scrollTop = 0; } }, row ? 'Ansehen / Bearbeiten' : adm ? 'Freiwillig ausfüllen' : 'Für ihn ausfüllen'))));
+      h('div', { class: 'hr-act' }, h('button', { class: 'btn', type: 'button', onclick: () => { hr.maEdit = t.id; renderHr(); $('hrBody').scrollTop = 0; } }, row ? 'Ansehen / Bearbeiten' : adm ? 'Freiwillig ausfüllen' : 'Für ihn ausfüllen'),
+        row && row.phone && !(me && t.id === me.id) && waLink(row.phone) ? h('a', { class: 'btn', href: waLink(row.phone), target: '_blank', rel: 'noopener noreferrer' }, 'WhatsApp') : null)));
   }
   out.push(h('p', { class: 'hr-muted' }, 'Vertreter sehen nur ihr eigenes Blatt. Die Daten sind personenbezogen (Steuer-ID, IBAN): nicht weitergeben oder per Chat teilen.'));
   return out;
