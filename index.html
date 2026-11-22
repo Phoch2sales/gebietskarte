@@ -625,7 +625,7 @@ dialog::backdrop{background:rgba(5,15,22,.55)}
     </div>
     <div class="stack admin-only" hidden>
       <h3>Leads</h3>
-      <p>Telefon-CRM für Gewerbekunden: Listen importieren, Anrufe protokollieren, Wiedervorlagen im Blick behalten. Nur für Admins sichtbar.</p>
+      <p>Telefon-CRM für Gewerbekunden: Listen importieren, Anrufe protokollieren, Wiedervorlagen im Blick behalten. Im Reiter „Powertown“ liegen die Anfragen aus Instagram und der Tarifcheck-Seite. Nur für Admins sichtbar.</p>
       <div class="row-wrap"><button class="btn" type="button" id="mLeads">Leads öffnen</button></div>
     </div>
     <div class="stack admin-only" hidden>
@@ -824,7 +824,7 @@ dialog::backdrop{background:rgba(5,15,22,.55)}
     <h2 id="leadTitle">Leads<small>Nur für Admins · Telefon-CRM</small></h2>
     <button class="close" id="leadClose" type="button" aria-label="Leads schließen">✕</button>
   </div>
-  <nav class="acad-tabs" id="leadTabs" aria-label="Leads-Bereiche"><button type="button" data-v="today">Heute</button><button type="button" data-v="all">Alle Leads</button><button type="button" data-v="import">Import</button></nav>
+  <nav class="acad-tabs" id="leadTabs" aria-label="Leads-Bereiche"><button type="button" data-v="today">Heute</button><button type="button" data-v="all">Alle Leads</button><button type="button" data-v="import">Import</button><button type="button" data-v="pt">Powertown</button></nav>
   <p class="chat-note" id="leadNote" hidden style="padding:8px 16px 0"></p>
   <div class="acad-body hr-body" id="leadBody"></div>
 </section>
@@ -850,7 +850,7 @@ dialog::backdrop{background:rgba(5,15,22,.55)}
 <script>
 (() => {
 'use strict';
-const VERSION = '2.46';
+const VERSION = '2.47';
 const WM_OPEN = false; // Wechselmeister für Vertreter: erst auf Florians Signal auf true setzen (bis dahin nur Admin)
 const APP = 'P² Gebietskarte';
 const $ = id => document.getElementById(id);
@@ -1939,11 +1939,11 @@ function applyRole() {
   if (!me) { closeWm(); $('wmBody').textContent = ''; }
   if (!me && acadOpen) closeAcad();
   if (!me && dashOpen) closeDash();
-  if (!me) { if (leadOpen) closeLead(); lead.rows = []; lead.today = []; lead.hist = []; lead.loaded = false; lead.sel = null; lead.imp = null; $('leadBody').textContent = ''; if (maOpen) closeMa(); ma.row = null; ma.done = {}; ma.loaded = false; $('maBody').textContent = ''; } // Stammdaten nie im Speicher lassen, wenn abgemeldet
+  if (!me) { if (leadOpen) closeLead(); lead.rows = []; lead.today = []; lead.hist = []; lead.loaded = false; lead.sel = null; lead.imp = null; $('leadBody').textContent = ''; ptClear(); if (maOpen) closeMa(); ma.row = null; ma.done = {}; ma.loaded = false; $('maBody').textContent = ''; } // Stammdaten nie im Speicher lassen, wenn abgemeldet
   if (hrOpen && !isAdmin()) closeHr();
   if (txOpen && !isAdmin()) closeTx();
   if (!isAdmin()) { tx.notes = []; tx.docs = []; tx.queue = []; txPrevClear(); tx.loaded = false; $('txBody').textContent = ''; } // Steuer-Daten nie im Speicher behalten, wenn kein Admin
-  if (!isAdmin()) { if (leadOpen) closeLead(); lead.rows = []; lead.today = []; lead.hist = []; lead.loaded = false; lead.sel = null; lead.imp = null; $('leadBody').textContent = ''; hr.emps = []; hr.perf = []; hr.loaded = false; $('hrBar').hidden = true; } // Personal-Daten nie im Speicher behalten, wenn kein Admin
+  if (!isAdmin()) { if (leadOpen) closeLead(); lead.rows = []; lead.today = []; lead.hist = []; lead.loaded = false; lead.sel = null; lead.imp = null; $('leadBody').textContent = ''; ptClear(); hr.emps = []; hr.perf = []; hr.loaded = false; $('hrBar').hidden = true; } // Personal-Daten nie im Speicher behalten, wenn kein Admin
   if (!me && chatOpen) closeChat();
 }
 // Wer ist gerade aktiv? Jeder meldet sich alle 2 Minuten, solange die App offen ist. Nur der Admin sieht die Liste.
@@ -2507,7 +2507,7 @@ function openLeads(view) {
   if (!me || !isAdmin()) return;
   leadOpen = true; $('leads').hidden = false;
   if (current) closeSheet(); if (chatOpen) closeChat(); if (dashOpen) closeDash(); if (acadOpen) closeAcad(); if (wmOpen) closeWm(); if (hrOpen) closeHr(); if (txOpen) closeTx(); if (maOpen) closeMa();
-  if (view) lead.view = view; renderLead(); leadLoad();
+  if (view) lead.view = view; renderLead(); leadLoad(); if (lead.view === 'pt') ptLoad();
 }
 function closeLead() { leadOpen = false; $('leads').hidden = true; }
 $('mLeads').addEventListener('click', () => { $('dlgMore').close(); openLeads(); });
@@ -2525,14 +2525,16 @@ $('btnLead').addEventListener('click', () => leadOpen ? closeLead() : openLeads(
     lead.drop = fs[0]; lead.view = 'import'; lead.sel = null; lead.call = null; renderLead(); $('leadBody').scrollTop = 0;
   });
 }
-$('leadTabs').addEventListener('click', ev => { const b = ev.target.closest('button[data-v]'); if (b) { lead.view = b.dataset.v; lead.sel = null; lead.call = null; renderLead(); $('leadBody').scrollTop = 0; } });
+$('leadTabs').addEventListener('click', ev => { const b = ev.target.closest('button[data-v]'); if (b) { lead.view = b.dataset.v; lead.sel = null; lead.call = null; renderLead(); $('leadBody').scrollTop = 0; if (lead.view === 'pt') ptLoad(); } });
 
 function renderLead() {
   if (!leadOpen) return;
   if (!isAdmin()) { closeLead(); return; }
   for (const b of $('leadTabs').querySelectorAll('button')) b.setAttribute('aria-current', b.dataset.v === lead.view ? 'page' : 'false');
+  const body = $('leadBody'), top = body.scrollTop;
+  if (lead.view === 'pt') { $('leadNote').hidden = true; body.textContent = ''; body.append(...ptView().filter(Boolean)); body.scrollTop = top; return; } // Powertown-Leadpool: eigene Tabellen, unabhängig vom Telefon-CRM
   const n = $('leadNote'); n.textContent = lead.err; n.hidden = !lead.err;
-  const body = $('leadBody'), top = body.scrollTop; body.textContent = '';
+  body.textContent = '';
   if (lead.err) return;
   if (!lead.loaded) { body.append(h('p', { class: 'hr-muted' }, lead.busy ? 'Lade Leads …' : '')); return; }
   const sel = lead.sel && lead.rows.find(r => r.id === lead.sel);
@@ -2653,6 +2655,228 @@ function leadDetail(r) {
   if (!lead.hist.length) out.push(h('p', { class: 'hr-muted' }, 'Noch kein Anruf protokolliert.'));
   for (const c of lead.hist) out.push(h('div', { class: 'hr-card' }, h('span', null, h('span', { class: 'ld-pill', style: 'background:' + leadSt(c.result)[2] }, leadSt(c.result)[1]), ' ' + new Date(c.created_at).toLocaleString('de-DE', { dateStyle: 'short', timeStyle: 'short' })),
     c.note ? h('small', null, c.note) : null, c.next_call ? h('small', { class: 'hr-muted' }, 'Wiedervorlage: ' + fmtDate(c.next_call)) : null));
+  return out;
+}
+
+/* ===== Powertown-Leadpool (nur Admin, supabase/powertown_leads.sql) =====
+   Anfragen aus Instagram/Facebook/Landingpage. Keine Weitergabe an Vertreter; Export nur einzeln, protokolliert und wenn freigeschaltet. */
+const PT_ST = [
+  ['neu', 'Neu', '#7d8b95'], ['bestaetigt', 'Eingang bestätigt', '#0b7285'], ['kontaktieren', 'Kontaktieren', '#2f6fde'], ['info_fehlt', 'Infos fehlen', '#d9730d'],
+  ['vergleich', 'Tarifvergleich', '#7c4dcc'], ['angebot', 'Angebot', '#1971c2'], ['wiedervorlage', 'Wiedervorlage', '#5c7cfa'], ['gewonnen', 'Gewonnen', '#1f9d55'], ['verloren', 'Verloren', '#c62828']
+];
+const PT_DONE = new Set(['gewonnen', 'verloren']);
+const PT_CH = { landingpage: 'Tarifcheck-Seite', instagram: 'Instagram', instagram_dm: 'Instagram-DM', facebook: 'Facebook', whatsapp: 'WhatsApp', email: 'E-Mail', telefon: 'Telefon', manuell: 'Manuell' };
+const PT_PROD = { strom: 'Strom', gas: 'Gas', beides: 'Strom + Gas' };
+const PT_PREF = { telefon: 'Anruf', whatsapp: 'WhatsApp', email: 'E-Mail' };
+const ptSt = k => PT_ST.find(x => x[0] === k) || PT_ST[0];
+const pt = { rows: [], ev: [], set: null, log: [], loaded: false, busy: false, err: '', view: 'inbox', sel: null, q: '', exp: false, add: false };
+const ptIsDue = (r, t = today()) => !PT_DONE.has(r.status) && !!r.next_due && r.next_due <= t;
+
+async function ptLoad() {
+  if (!sb || !me || !isAdmin()) return;
+  pt.busy = true; renderLead();
+  const [l, s] = await Promise.all([sb.from('powertown_leads').select('*').order('created_at', { ascending: false }).limit(2000), sb.from('powertown_settings').select('*').eq('id', 1).maybeSingle()]);
+  pt.busy = false;
+  const err = l.error || s.error;
+  if (err) { pt.err = /does not exist|schema cache/i.test(err.message || '') ? 'Der Powertown-Leadpool ist auf dem Server noch nicht eingerichtet (supabase/powertown_leads.sql ausführen).' : 'Powertown-Leads konnten nicht geladen werden.'; renderLead(); return; }
+  pt.err = ''; pt.rows = l.data; pt.set = s.data; pt.loaded = true; renderLead();
+}
+function ptClear() { pt.rows = []; pt.ev = []; pt.set = null; pt.log = []; pt.loaded = false; pt.sel = null; pt.exp = false; }
+
+function ptPill(k) { const s = ptSt(k); return h('span', { class: 'ld-pill', style: 'background:' + s[2] }, s[1]); }
+function ptRow(r) {
+  const t = today(), due = r.next_due && !PT_DONE.has(r.status);
+  return h('button', { class: 'ld-row', type: 'button', onclick: () => ptOpen(r) },
+    h('span', { class: 'ld-top' }, h('b', null, r.name), ptPill(r.status)),
+    h('span', null, [PT_PROD[r.product], r.customer_type === 'gewerbe' ? 'Gewerbe' : 'Privat', r.zip, 'möchte ' + PT_PREF[r.contact_pref]].filter(Boolean).join(' · ')),
+    h('small', { class: 'hr-muted' }, [new Date(r.created_at).toLocaleString('de-DE', { dateStyle: 'short', timeStyle: 'short' }), PT_CH[r.channel] || r.channel, r.reel_id && 'Reel ' + r.reel_id, r.utm_campaign].filter(Boolean).join(' · ')),
+    due ? h('small', { class: 'ld-due' + (r.next_due < t ? ' over' : '') }, r.next_due < t ? 'Überfällig seit ' + fmtDate(r.next_due) : r.next_due === t ? 'Heute fällig' : 'Fällig am ' + fmtDate(r.next_due)) : null);
+}
+function ptStats() {
+  const t = today(), n = pt.rows.filter(r => r.status === 'neu').length, due = pt.rows.filter(r => ptIsDue(r, t)), over = due.filter(r => r.next_due < t).length;
+  return h('div', { class: 'ld-stats' }, h('span', null, h('b', null, n), ' neu'), h('span', null, h('b', null, due.length), ' fällig'), over ? h('span', { class: 'hr-neg' }, h('b', null, over), ' überfällig') : null,
+    h('span', null, h('b', null, pt.rows.filter(r => r.status === 'gewonnen').length), ' gewonnen'),
+    pt.set && pt.set.publishing_enabled ? h('span', { class: 'hr-pos' }, 'Veröffentlichen: AN') : h('span', { class: 'hr-muted' }, 'Veröffentlichen: aus'));
+}
+function ptNav() {
+  const tabs = [['inbox', 'Eingang'], ['pipe', 'Pipeline'], ['all', 'Alle'], ['due', 'Rückrufe'], ['stats', 'Auswertung'], ['set', 'Einstellungen']];
+  return h('div', { class: 'ld-chips' }, ...tabs.map(([k, t]) => h('button', { class: 'ld-chip', type: 'button', 'aria-pressed': String(pt.view === k), onclick: () => { pt.view = k; pt.sel = null; renderLead(); $('leadBody').scrollTop = 0; } }, t)));
+}
+function ptList(rows, empty) { return rows.length ? rows.map(ptRow) : [h('p', { class: 'hr-muted' }, empty)]; }
+
+function ptView() {
+  if (pt.err) return [h('p', { class: 'hr-muted' }, pt.err)];
+  if (!pt.loaded) return [h('p', { class: 'hr-muted' }, pt.busy ? 'Lade Powertown-Leads …' : '')];
+  const sel = pt.sel && pt.rows.find(r => r.id === pt.sel);
+  if (sel) return ptDetail(sel);
+  const out = [ptStats(), ptNav()], t = today();
+  if (pt.view === 'inbox') out.push(ptNewForm(), h('h3', null, 'Neue Anfragen'), ...ptList(pt.rows.filter(r => r.status === 'neu'), 'Keine neuen Anfragen. Sobald jemand die Tarifcheck-Seite ausfüllt, erscheint er hier.'));
+  else if (pt.view === 'due') out.push(h('h3', null, 'Rückrufe und nächste Schritte'), ...ptList(pt.rows.filter(r => ptIsDue(r, t)).sort((a, b) => a.next_due.localeCompare(b.next_due)), 'Heute ist nichts fällig.'));
+  else if (pt.view === 'pipe') {
+    for (const [k, txt, c] of PT_ST) { const rows = pt.rows.filter(r => r.status === k); if (!rows.length) continue; out.push(h('h3', { style: 'border-left:5px solid ' + c + ';padding-left:8px' }, `${txt} (${rows.length})`), ...rows.slice(0, 50).map(ptRow)); }
+    if (!pt.rows.length) out.push(h('p', { class: 'hr-muted' }, 'Noch keine Powertown-Leads.'));
+  } else if (pt.view === 'all') {
+    const q = h('input', { class: 'hr-sel', type: 'search', placeholder: 'Suchen: Name, PLZ, Telefon, E-Mail, Reel …', value: pt.q, 'aria-label': 'Suchen' }), list = h('div', { class: 'ld-list' });
+    const draw = () => { const s = pt.q.trim().toLowerCase(), rows = pt.rows.filter(r => !s || [r.name, r.zip, r.phone, r.email, r.reel_id, r.utm_campaign, r.notes].join(' ').toLowerCase().includes(s)); list.textContent = ''; list.append(h('p', { class: 'hr-muted' }, `${rows.length} von ${pt.rows.length}`), ...rows.slice(0, 200).map(ptRow)); };
+    q.addEventListener('input', () => { pt.q = q.value; draw(); }); draw(); out.push(q, list);
+  } else if (pt.view === 'stats') out.push(...ptStatsView());
+  else if (pt.view === 'set') out.push(...ptSettings());
+  return out;
+}
+
+function ptNewForm() {
+  if (!pt.add) return h('div', { class: 'hr-act' }, h('button', { class: 'btn', type: 'button', onclick: () => { pt.add = true; renderLead(); } }, '+ Anfrage manuell erfassen (z. B. aus Instagram-DM oder WhatsApp)'));
+  const f = {}, inp = (k, t, ph) => (f[k] = h('input', { type: t || 'text', maxlength: 200, placeholder: ph || '' }));
+  inp('name', 'text', 'Name'); inp('phone', 'tel', 'Telefon'); inp('email', 'email', 'E-Mail'); inp('zip', 'text', 'PLZ'); inp('reel_id', 'text', 'Reel (optional)');
+  f.channel = h('select', null, ...['instagram_dm', 'whatsapp', 'facebook', 'email', 'telefon', 'manuell'].map(k => h('option', { value: k }, PT_CH[k])));
+  f.product = h('select', null, ...Object.entries(PT_PROD).map(([k, t]) => h('option', { value: k, selected: k === 'beides' }, t)));
+  f.pref = h('select', null, ...Object.entries(PT_PREF).map(([k, t]) => h('option', { value: k }, t)));
+  const ok = h('input', { type: 'checkbox' });
+  return h('form', { class: 'hr-form', onsubmit: async ev => {
+    ev.preventDefault();
+    const v = k => leadTxt(f[k].value) || null;
+    if (!v('name') || (!v('phone') && !v('email'))) { say('Name und Telefon oder E-Mail sind nötig.', true); return; }
+    if (v('zip') && !/^\d{5}$/.test(v('zip'))) { say('PLZ bitte fünfstellig.', true); return; }
+    if (!ok.checked) { say('Bitte bestätigen, dass die Person selbst um Rückmeldung gebeten hat.', true); return; }
+    const now = new Date().toISOString(), key = (v('phone') || '').replace(/[^\d+]/g, '') || (v('email') || '').toLowerCase();
+    const dup = pt.rows.find(r => !PT_DONE.has(r.status) && r.dedupe_key && r.dedupe_key === key);
+    if (dup && !confirm(`Es gibt schon eine offene Anfrage von ${dup.name}. Trotzdem neu anlegen?`)) return;
+    const ins = await sb.from('powertown_leads').insert({ name: v('name'), phone: v('phone'), email: v('email'), zip: v('zip'), reel_id: v('reel_id'), channel: f.channel.value, product: f.product.value, contact_pref: f.pref.value,
+      consent_contact: true, consent_contact_at: now, consent_source: 'manuell erfasst: Person hat sich selbst gemeldet (' + PT_CH[f.channel.value] + ')', dedupe_key: key || null }).select().single();
+    if (ins.error) { say('Speichern fehlgeschlagen: ' + ins.error.message, true); return; }
+    await sb.from('powertown_lead_events').insert({ lead_id: ins.data.id, kind: 'eingang', channel: f.channel.value, note: 'Manuell erfasst' });
+    pt.rows.unshift(ins.data); pt.add = false; say('Anfrage angelegt.'); renderLead();
+  } }, h('b', null, 'Anfrage manuell erfassen'), h('div', { class: 'hr-row2' }, h('label', null, 'Name', f.name), h('label', null, 'Kanal', f.channel)),
+    h('div', { class: 'hr-row2' }, h('label', null, 'Telefon', f.phone), h('label', null, 'E-Mail', f.email)), h('div', { class: 'hr-row2' }, h('label', null, 'PLZ', f.zip), h('label', null, 'Reel', f.reel_id)),
+    h('div', { class: 'hr-row2' }, h('label', null, 'Prüfen', f.product), h('label', null, 'Rückmeldung per', f.pref)),
+    h('label', { class: 'ma-check' }, ok, 'Die Person hat sich selbst gemeldet und um Rückmeldung zu ihrem Tarif gebeten.'),
+    h('div', { class: 'hr-act' }, h('button', { class: 'btn primary', type: 'submit' }, 'Anlegen'), h('button', { class: 'btn', type: 'button', onclick: () => { pt.add = false; renderLead(); } }, 'Abbrechen')));
+}
+
+function ptStatsView() {
+  const cnt = key => { const m = {}; for (const r of pt.rows) { const k = (typeof key === 'function' ? key(r) : r[key]) || '–'; m[k] = m[k] || { n: 0, won: 0 }; m[k].n++; if (r.status === 'gewonnen') m[k].won++; } return Object.entries(m).sort((a, b) => b[1].n - a[1].n); };
+  const table = (title, rows, lab) => [h('h3', null, title), rows.length ? h('div', { class: 'hr-card' }, ...rows.map(([k, v]) => h('div', { class: 'ld-top' }, h('span', null, lab ? lab(k) : k), h('span', null, h('b', null, v.n), v.won ? ` · ${v.won} gewonnen` : '')))) : h('p', { class: 'hr-muted' }, 'Noch keine Daten.')];
+  const d30 = new Date(Date.now() - 30 * 864e5).toISOString();
+  return [h('p', { class: 'hr-muted' }, `${pt.rows.filter(r => r.created_at >= d30).length} Anfragen in den letzten 30 Tagen · ${pt.rows.length} insgesamt`),
+    ...table('Nach Eingangskanal', cnt('channel'), k => PT_CH[k] || k), ...table('Nach Reel', cnt('reel_id')), ...table('Nach Kampagne', cnt('utm_campaign')),
+    ...table('Nach Status', cnt('status'), k => ptSt(k)[1]), ...table('Nach Produkt', cnt('product'), k => PT_PROD[k] || k)];
+}
+
+async function ptSaveSet(patch) {
+  const u = await sb.from('powertown_settings').update({ ...patch, updated_at: new Date().toISOString() }).eq('id', 1).select().single();
+  if (u.error) { say('Speichern fehlgeschlagen: ' + u.error.message, true); return false; }
+  pt.set = u.data; say('Gespeichert.'); renderLead(); return true;
+}
+function ptSettings() {
+  const s = pt.set || {};
+  const out = [h('h3', null, 'Veröffentlichung (Meta) – Not-Aus'),
+    h('div', { class: 'hr-card' }, h('span', null, s.publishing_enabled ? h('b', { class: 'hr-pos' }, 'AN – freigegebene Inhalte dürfen veröffentlicht werden.') : h('b', null, 'AUS – es wird nichts veröffentlicht.')),
+      h('small', { class: 'hr-muted' }, 'Gilt für jede automatische Veröffentlichung auf Instagram/Facebook. Bei Warnungen von Meta sofort ausschalten. Nach einer Kontosperre wird nicht automatisch wieder eingeschaltet.'),
+      s.publishing_note ? h('small', null, 'Hinweis: ' + s.publishing_note) : null,
+      h('div', { class: 'hr-act' }, s.publishing_enabled
+        ? h('button', { class: 'btn danger', type: 'button', onclick: () => { const why = prompt('Grund für den Stopp (optional):', '') ?? ''; ptSaveSet({ publishing_enabled: false, publishing_note: why || null }); } }, 'Veröffentlichen sofort stoppen')
+        : h('button', { class: 'btn', type: 'button', onclick: () => { if (confirm('Veröffentlichen einschalten? Nur tun, wenn die Meta-Verbindung freigegeben ist und keine Warnung von Meta vorliegt.')) ptSaveSet({ publishing_enabled: true, publishing_note: null }); } }, 'Veröffentlichen einschalten'))),
+    h('h3', null, 'Weitergabe an Leadverteiler'),
+    h('div', { class: 'hr-card' }, h('span', null, s.export_enabled ? h('b', null, 'Freigeschaltet – nur einzeln, mit Empfänger, Zweck und Rechtsgrundlage.') : h('b', null, 'Gesperrt (Standard).')),
+      h('small', { class: 'hr-muted' }, 'Es gibt keine automatische Weitergabe an Vertreter oder Verteiler. Erst einschalten, wenn Empfänger und Rechtsgrundlage geprüft sind.'),
+      h('div', { class: 'hr-act' }, h('button', { class: 'btn', type: 'button', onclick: () => { if (s.export_enabled || confirm('Einzel-Export freischalten? Empfänger und Rechtsgrundlage müssen geprüft sein.')) ptSaveSet({ export_enabled: !s.export_enabled }); } }, s.export_enabled ? 'Export wieder sperren' : 'Einzel-Export freischalten'))),
+    h('h3', null, 'Löschfrist'),
+    h('div', { class: 'hr-card' }, h('span', null, `Neue Anfragen werden nach ${s.retention_days || 365} Tagen gelöscht (außer laufende Vorgänge).`),
+      h('div', { class: 'hr-act' }, h('button', { class: 'btn', type: 'button', onclick: async () => { const r = await sb.rpc('powertown_purge'); if (r.error) say('Fehlgeschlagen: ' + r.error.message, true); else { say(r.data + ' abgelaufene Leads gelöscht.'); ptLoad(); } } }, 'Abgelaufene jetzt löschen'))),
+    h('h3', null, 'Protokoll externer Aktionen'), h('div', { class: 'hr-act' }, h('button', { class: 'btn', type: 'button', onclick: ptLoadLog }, 'Protokoll laden'))];
+  for (const a of pt.log) out.push(h('div', { class: 'hr-card' }, h('span', null, h('b', null, a.kind), ' · ', a.status, ' · ', new Date(a.created_at).toLocaleString('de-DE')), a.account ? h('small', null, a.account + (a.target ? ' · ' + a.target : '')) : null, a.detail ? h('small', { class: 'hr-muted' }, a.detail) : null));
+  return out;
+}
+async function ptLoadLog() { const r = await sb.from('powertown_action_log').select('*').order('created_at', { ascending: false }).limit(100); if (r.error) { say('Protokoll konnte nicht geladen werden.', true); return; } pt.log = r.data; if (!r.data.length) say('Noch keine externen Aktionen protokolliert.'); renderLead(); }
+
+function ptOpen(r) { pt.sel = r.id; pt.ev = []; pt.exp = false; renderLead(); $('leadBody').scrollTop = 0; ptEvents(r.id); }
+async function ptEvents(id) { const r = await sb.from('powertown_lead_events').select('*').eq('lead_id', id).order('created_at', { ascending: false }); if (pt.sel === id) { pt.ev = r.error ? [] : r.data; renderLead(); } }
+async function ptUpdate(r, patch, evt) {
+  const prev = r.status;
+  const u = await sb.from('powertown_leads').update({ ...patch, updated_at: new Date().toISOString() }).eq('id', r.id).select().single();
+  if (u.error) { say('Speichern fehlgeschlagen: ' + u.error.message, true); return false; }
+  if (patch.status && patch.status !== prev) evt = evt || { kind: 'status', status: patch.status, note: ptSt(prev)[1] + ' → ' + ptSt(patch.status)[1] };
+  Object.assign(r, u.data);
+  if (evt) { const e = await sb.from('powertown_lead_events').insert({ lead_id: r.id, ...evt }).select().single(); if (!e.error) pt.ev.unshift(e.data); }
+  return true;
+}
+function ptContactForm(r) {
+  const ch = h('select', null, ...Object.entries(PT_PREF).map(([k, t]) => h('option', { value: k, selected: r.contact_pref === k }, t)));
+  const res = h('select', null, ...PT_ST.filter(x => x[0] !== 'neu').map(([k, t]) => h('option', { value: k, selected: k === (r.status === 'neu' ? 'kontaktieren' : r.status) }, t)));
+  const note = h('textarea', { rows: 3, maxlength: 2000, placeholder: 'Was wurde besprochen? (z. B. Rechnung folgt per Mail, Rückruf Dienstag)' });
+  const next = h('input', { type: 'date', value: r.next_due || '' }), act = h('input', { type: 'text', maxlength: 200, value: r.next_action || '', placeholder: 'Nächster Schritt' });
+  return h('form', { class: 'hr-form', onsubmit: async ev => {
+    ev.preventDefault();
+    const st = res.value, done = PT_DONE.has(st);
+    const ok = await ptUpdate(r, { status: st, last_contact: new Date().toISOString(), contact_count: (r.contact_count || 0) + 1, next_due: done ? null : (next.value || null), next_action: done ? null : (act.value.trim() || null) },
+      { kind: 'kontakt', channel: ch.value, status: st, note: note.value.trim() || null });
+    if (ok) { say('Kontakt gespeichert.'); renderLead(); }
+  } }, h('b', null, 'Kontakt dokumentieren'), h('div', { class: 'hr-row2' }, h('label', null, 'Kanal', ch), h('label', null, 'Neuer Status', res)), h('label', null, 'Notiz', note),
+    h('div', { class: 'hr-row2' }, h('label', null, 'Wiedervorlage', next), h('label', null, 'Nächster Schritt', act)), h('div', { class: 'hr-act' }, h('button', { class: 'btn primary', type: 'submit' }, 'Speichern')));
+}
+function ptExportForm(r) {
+  if (!pt.set || !pt.set.export_enabled) return h('p', { class: 'hr-muted' }, 'Weitergabe an einen Leadverteiler ist gesperrt (Einstellungen).');
+  if (!pt.exp) return h('div', { class: 'hr-act' }, h('button', { class: 'btn', type: 'button', onclick: () => { pt.exp = true; renderLead(); } }, 'An Leadverteiler übergeben …'));
+  const rec = h('input', { type: 'text', maxlength: 200, placeholder: 'Empfänger (Firma, Ansprechpartner)' }), why = h('input', { type: 'text', maxlength: 300, placeholder: 'Zweck der Übergabe' });
+  const basis = h('input', { type: 'text', maxlength: 300, placeholder: 'Rechtsgrundlage, z. B. Einwilligung vom … per …' });
+  const FIELDS = ['name', 'phone', 'email', 'zip', 'product', 'customer_type', 'current_supplier', 'consumption_kwh'];
+  const boxes = FIELDS.map(k => { const cb = h('input', { type: 'checkbox' }); cb.checked = ['name', 'phone', 'zip', 'product'].includes(k); cb.dataset.k = k; return h('label', { class: 'ld-check' }, cb, k); });
+  return h('form', { class: 'hr-form', onsubmit: async ev => {
+    ev.preventDefault();
+    if (!rec.value.trim() || !why.value.trim() || !basis.value.trim()) { say('Empfänger, Zweck und Rechtsgrundlage sind Pflicht.', true); return; }
+    const fields = boxes.map(b => b.querySelector('input')).filter(c => c.checked).map(c => c.dataset.k);
+    if (!confirm(`${r.name} an „${rec.value.trim()}“ übergeben? Felder: ${fields.join(', ')}`)) return;
+    const e = await sb.from('powertown_exports').insert({ lead_id: r.id, recipient: rec.value.trim(), purpose: why.value.trim(), legal_basis: basis.value.trim(), fields });
+    if (e.error) { say('Export nicht erlaubt: ' + e.error.message, true); return; }
+    const data = Object.fromEntries(fields.map(k => [k, r[k] ?? '']));
+    try { await navigator.clipboard.writeText(Object.entries(data).map(([k, v]) => k + ': ' + v).join('\n')); } catch (x) { /* Zwischenablage nicht verfügbar */ }
+    await ptUpdate(r, {}, { kind: 'export', note: `An ${rec.value.trim()} übergeben (${fields.join(', ')}). Zweck: ${why.value.trim()}` });
+    pt.exp = false; say('Protokolliert. Die Daten liegen in der Zwischenablage – bitte selbst an den Empfänger senden.'); renderLead();
+  } }, h('b', null, 'Einzelne Übergabe an Leadverteiler'), h('small', { class: 'hr-muted' }, 'Wird protokolliert. Nichts wird automatisch versendet – du schickst die Daten selbst.'),
+    h('label', null, 'Empfänger', rec), h('label', null, 'Zweck', why), h('label', null, 'Rechtsgrundlage', basis), h('div', { class: 'ld-checks' }, ...boxes),
+    h('div', { class: 'hr-act' }, h('button', { class: 'btn primary', type: 'submit' }, 'Übergabe protokollieren'), h('button', { class: 'btn', type: 'button', onclick: () => { pt.exp = false; renderLead(); } }, 'Abbrechen')));
+}
+function ptFields(r) {
+  const f = {}, inp = (k, type, extra) => (f[k] = h('input', { type: type || 'text', value: leadTxt(r[k]), maxlength: 200, ...(extra || {}) }));
+  inp('name'); inp('phone', 'tel'); inp('email', 'email'); inp('zip', 'text', { inputmode: 'numeric', maxlength: 5 }); inp('current_supplier'); inp('consumption_kwh', 'text', { inputmode: 'decimal' });
+  f.status = h('select', null, ...PT_ST.map(([k, t]) => h('option', { value: k, selected: r.status === k }, t)));
+  f.notes = h('textarea', { rows: 4, maxlength: 4000 }); f.notes.value = r.notes || '';
+  return h('form', { class: 'hr-form', onsubmit: async ev => {
+    ev.preventDefault();
+    const v = k => leadTxt(f[k].value) || null, kwh = leadTxt(f.consumption_kwh.value);
+    if (!v('name')) { say('Name darf nicht leer sein.', true); return; }
+    if (!v('phone') && !v('email')) { say('Telefon oder E-Mail wird gebraucht.', true); return; }
+    if (v('zip') && !/^\d{5}$/.test(v('zip'))) { say('PLZ bitte fünfstellig.', true); return; }
+    if (kwh && !/^\d+([.,]\d+)?$/.test(kwh)) { say('Verbrauch bitte als Zahl in kWh.', true); return; }
+    if (await ptUpdate(r, { name: v('name'), phone: v('phone'), email: v('email'), zip: v('zip'), current_supplier: v('current_supplier'), consumption_kwh: kwh ? hrNum(kwh) : null, status: f.status.value, notes: f.notes.value.trim(), ...(PT_DONE.has(f.status.value) ? { next_due: null } : {}) })) { say('Gespeichert.'); renderLead(); }
+  } }, h('b', null, 'Daten und Notizen'), h('div', { class: 'hr-row2' }, h('label', null, 'Name', f.name), h('label', null, 'Status', f.status)),
+    h('div', { class: 'hr-row2' }, h('label', null, 'Telefon', f.phone), h('label', null, 'E-Mail', f.email)), h('div', { class: 'hr-row2' }, h('label', null, 'PLZ', f.zip), h('label', null, 'Jahresverbrauch (kWh)', f.consumption_kwh)),
+    h('label', null, 'Aktueller Anbieter', f.current_supplier), h('label', null, 'Notizen', f.notes),
+    h('div', { class: 'hr-act' }, h('button', { class: 'btn primary', type: 'submit' }, 'Speichern'), h('button', { class: 'btn danger', type: 'button', onclick: () => ptDelete(r) }, 'Lead löschen')));
+}
+async function ptDelete(r) {
+  if (!confirm(`Anfrage von ${r.name} samt Verlauf endgültig löschen?`)) return;
+  const d = await sb.from('powertown_leads').delete().eq('id', r.id);
+  if (d.error) { say('Löschen fehlgeschlagen: ' + d.error.message, true); return; }
+  pt.rows = pt.rows.filter(x => x.id !== r.id); pt.sel = null; renderLead();
+}
+function ptDetail(r) {
+  const tel = r.phone ? r.phone.replace(/[^\d+]/g, '') : '', wa = tel.replace(/^\+/, '');
+  const ts = d => d ? new Date(d).toLocaleString('de-DE', { dateStyle: 'short', timeStyle: 'short' }) : '–';
+  const out = [h('button', { class: 'btn', type: 'button', onclick: () => { pt.sel = null; renderLead(); } }, '← Zurück'),
+    h('div', { class: 'hr-card' }, h('div', { class: 'ld-top' }, h('b', null, r.name), ptPill(r.status)),
+      h('span', null, [PT_PROD[r.product], r.customer_type === 'gewerbe' ? 'Gewerbe' : 'Privat', 'PLZ ' + (r.zip || '–'), 'Wunsch: ' + PT_PREF[r.contact_pref]].join(' · ')),
+      h('small', { class: 'hr-muted' }, ['Eingang ' + ts(r.created_at), 'über ' + (PT_CH[r.channel] || r.channel), r.reel_id && 'Reel ' + r.reel_id, r.utm_campaign && 'Kampagne ' + r.utm_campaign].filter(Boolean).join(' · ')),
+      r.current_supplier || r.consumption_kwh ? h('small', null, [r.current_supplier && 'Anbieter: ' + r.current_supplier, r.consumption_kwh && r.consumption_kwh + ' kWh'].filter(Boolean).join(' · ')) : null,
+      r.message ? h('small', null, '„' + r.message + '“') : null,
+      h('div', { class: 'hr-act' }, tel ? h('a', { class: 'btn primary', href: 'tel:' + tel }, '📞 ' + r.phone) : null, wa ? h('a', { class: 'btn', href: 'https://wa.me/' + wa, target: '_blank', rel: 'noopener' }, 'WhatsApp öffnen') : null, r.email ? h('a', { class: 'btn', href: 'mailto:' + r.email }, '✉ E-Mail') : null),
+      h('small', { class: 'hr-muted' }, 'Kontakt erlaubt: ' + (r.consent_contact ? 'ja, ' + ts(r.consent_contact_at) : 'nein') + ' · Werbung: ' + (r.consent_marketing ? 'ja, ' + ts(r.consent_marketing_at) : 'nein') + (r.consent_text_version ? ' · Fassung ' + r.consent_text_version : '')),
+      r.delete_after ? h('small', { class: 'hr-muted' }, 'Löschfrist: ' + fmtDate(r.delete_after)) : null),
+    r.status === 'neu' ? h('div', { class: 'hr-act' }, h('button', { class: 'btn', type: 'button', onclick: async () => { if (await ptUpdate(r, { status: 'bestaetigt' })) renderLead(); } }, 'Als „Eingang bestätigt“ markieren')) : null,
+    ptContactForm(r), ptFields(r), h('h3', null, 'Weitergabe'), ptExportForm(r), h('h3', null, `Verlauf (${pt.ev.length})`)];
+  if (!pt.ev.length) out.push(h('p', { class: 'hr-muted' }, 'Noch kein Verlauf.'));
+  const K = { eingang: 'Eingang', erneute_anfrage: 'Erneute Anfrage', status: 'Status', kontakt: 'Kontakt', notiz: 'Notiz', export: 'Übergabe' };
+  for (const e of pt.ev) out.push(h('div', { class: 'hr-card' }, h('span', null, h('b', null, K[e.kind] || e.kind), e.channel ? ' · ' + (PT_CH[e.channel] || PT_PREF[e.channel] || e.channel) : '', ' · ' + ts(e.created_at)), e.status ? h('small', null, ptPill(e.status)) : null, e.note ? h('small', null, e.note) : null));
   return out;
 }
 

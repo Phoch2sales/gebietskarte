@@ -1,0 +1,205 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Powertown Tarifcheck – Strom &amp; Gas checken lassen | P² Sales</title>
+<meta name="description" content="Strom- und Gastarif unverbindlich von P² Sales prüfen lassen. Kurze Anfrage, wir melden uns auf deinem Wunschweg.">
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#10264f">
+<link rel="icon" href="../assets/powertown/icon.webp">
+<style>
+/* Bewusst ohne externe Schriften/Skripte: keine Datenübertragung an Dritte beim Seitenaufruf */
+:root{--navy:#10264f;--navy2:#1c4082;--yellow:#ffc928;--ink:#1d2433;--muted:#5d6678;--line:#d8dde7;--card:#fff;--bg:#f2f5fa;--ok:#1f8a4c;--err:#b3261e;--r:18px}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif}
+a{color:var(--navy2)}
+.top{background:var(--navy);color:#fff;padding:14px max(16px,env(safe-area-inset-left))}
+.top .in{max-width:760px;margin:0 auto;display:flex;align-items:center;gap:12px}
+.top img{height:38px;width:auto;border-radius:6px;background:#fff;padding:3px}
+.top b{font-size:1.02rem}.top small{display:block;opacity:.85;font-size:.78rem}
+.ad{margin-left:auto;font-size:.72rem;border:1px solid rgba(255,255,255,.5);border-radius:999px;padding:2px 9px;opacity:.9;white-space:nowrap}
+main{max-width:760px;margin:0 auto;padding:0 max(16px,env(safe-area-inset-left)) 40px}
+.hero{margin:18px 0;border-radius:var(--r);overflow:hidden;background:var(--navy);color:#fff}
+.hero img{display:block;width:100%;height:auto;aspect-ratio:900/529;object-fit:cover}
+.hero .tx{padding:18px 20px 20px}
+.hero h1{margin:0 0 8px;font-size:clamp(1.5rem,5.5vw,2.1rem);line-height:1.12}
+.hero h1 em{font-style:normal;color:var(--yellow)}
+.hero p{margin:0;opacity:.92}
+.steps{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:0 0 18px;padding:0;list-style:none;counter-reset:s}
+.steps li{background:var(--card);border-radius:14px;padding:12px;font-size:.88rem;border:1px solid var(--line)}
+.steps li::before{counter-increment:s;content:counter(s);display:grid;place-items:center;width:26px;height:26px;border-radius:50%;background:var(--yellow);color:var(--navy);font-weight:800;margin-bottom:6px}
+@media (max-width:520px){.steps{grid-template-columns:1fr}}
+.card{background:var(--card);border-radius:var(--r);padding:clamp(16px,4vw,26px);border:1px solid var(--line)}
+.card h2{margin:0 0 4px;font-size:1.25rem}
+.card .sub{margin:0 0 16px;color:var(--muted);font-size:.92rem}
+form{display:grid;gap:14px}
+label.f{display:grid;gap:5px;font-weight:600;font-size:.9rem}
+label.f span.opt{font-weight:400;color:var(--muted)}
+input[type=text],input[type=tel],input[type=email],textarea,select{width:100%;border:1.5px solid var(--line);border-radius:12px;padding:12px 13px;font:inherit;font-size:16px;background:#fff;color:var(--ink)}
+input:focus,textarea:focus,select:focus{outline:3px solid rgba(28,64,130,.25);border-color:var(--navy2)}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:12px}@media (max-width:520px){.g2{grid-template-columns:1fr}}
+fieldset{border:0;margin:0;padding:0;display:grid;gap:6px}
+legend{font-weight:600;font-size:.9rem;margin-bottom:6px;padding:0}
+.seg{display:flex;flex-wrap:wrap;gap:8px}
+.seg label{flex:1 1 0;min-width:96px}
+.seg input{position:absolute;opacity:0;pointer-events:none}
+.seg span{display:block;text-align:center;border:1.5px solid var(--line);border-radius:999px;padding:10px 8px;font-weight:600;cursor:pointer;background:#fff}
+.seg input:checked+span{background:var(--navy);border-color:var(--navy);color:#fff}
+.seg input:focus-visible+span{outline:3px solid rgba(28,64,130,.35)}
+.chk{display:flex;gap:10px;align-items:flex-start;font-size:.9rem}
+.chk input{width:22px;height:22px;flex:0 0 auto;margin-top:1px;accent-color:var(--navy)}
+details{font-size:.9rem;color:var(--muted)}details summary{cursor:pointer;color:var(--navy2);font-weight:600}
+.hp{position:absolute;left:-5000px;width:1px;height:1px;overflow:hidden}
+button.go{border:0;border-radius:999px;background:var(--yellow);color:var(--navy);font:inherit;font-weight:800;font-size:1.05rem;padding:15px 18px;cursor:pointer;min-height:54px}
+button.go:disabled{opacity:.6;cursor:wait}
+.msg{border-radius:12px;padding:12px 14px;font-weight:600}
+.msg.err{background:#fdecea;color:var(--err)}
+.done{text-align:center;padding:10px 0}
+.done h2{color:var(--ok)}
+.note{font-size:.8rem;color:var(--muted);margin:16px 0 0}
+footer{max-width:760px;margin:0 auto;padding:0 16px 30px;font-size:.82rem;color:var(--muted);display:flex;flex-wrap:wrap;gap:6px 16px}
+footer button{background:none;border:0;padding:0;font:inherit;color:var(--navy2);text-decoration:underline;cursor:pointer}
+dialog{max-width:640px;width:calc(100% - 24px);border:0;border-radius:var(--r);padding:0}
+dialog::backdrop{background:rgba(10,20,40,.55)}
+dialog .dh{display:flex;justify-content:space-between;align-items:center;padding:14px 18px;background:var(--navy);color:#fff}
+dialog .dh button{background:none;border:0;color:#fff;font-size:1.3rem;cursor:pointer}
+dialog .db{padding:14px 18px 20px;font-size:.92rem;max-height:70vh;overflow:auto}
+</style>
+</head>
+<body>
+<header class="top"><div class="in">
+  <img src="../assets/powertown/logo.webp" alt="Powertown" width="134" height="38">
+  <div><b>Tarifcheck</b><small>von P² Sales (P hoch 2 Sales)</small></div>
+  <span class="ad">Werbung</span>
+</div></header>
+
+<main>
+  <section class="hero">
+    <img src="../assets/powertown/ensemble.webp" alt="Die Figuren aus Powertown vor einer Häuserzeile" width="900" height="529">
+    <div class="tx">
+      <h1>Strom &amp; Gas <em>checken lassen</em> – wie in Powertown.</h1>
+      <p>Du schickst uns ein paar Eckdaten, wir prüfen deinen Tarif und melden uns auf dem Weg, den du dir aussuchst. Unverbindlich, ohne Druck.</p>
+    </div>
+  </section>
+
+  <ol class="steps">
+    <li>Kurze Anfrage mit Namen, PLZ und Kontaktweg.</li>
+    <li>Wir schauen uns deine Situation an.</li>
+    <li>Du entscheidest in Ruhe, ob sich ein Wechsel für dich lohnt.</li>
+  </ol>
+
+  <section class="card" id="box">
+    <h2>Deine Anfrage</h2>
+    <p class="sub">Dauert etwa eine Minute. Pflichtfelder sind markiert, alles andere ist freiwillig.</p>
+    <form id="f" novalidate>
+      <label class="f">Dein Name *<input type="text" name="name" autocomplete="name" required maxlength="120"></label>
+      <div class="g2">
+        <label class="f">Postleitzahl *<input type="text" name="zip" inputmode="numeric" autocomplete="postal-code" pattern="[0-9]{5}" maxlength="5" required></label>
+        <fieldset><legend>Du bist *</legend>
+          <div class="seg"><label><input type="radio" name="customer_type" value="privat" checked><span>Privat</span></label><label><input type="radio" name="customer_type" value="gewerbe"><span>Gewerbe</span></label></div>
+        </fieldset>
+      </div>
+      <fieldset><legend>Was sollen wir prüfen? *</legend>
+        <div class="seg"><label><input type="radio" name="product" value="strom"><span>Strom</span></label><label><input type="radio" name="product" value="gas"><span>Gas</span></label><label><input type="radio" name="product" value="beides" checked><span>Beides</span></label></div>
+      </fieldset>
+      <fieldset><legend>Wie sollen wir uns melden? *</legend>
+        <div class="seg"><label><input type="radio" name="contact_pref" value="telefon" checked><span>Anruf</span></label><label><input type="radio" name="contact_pref" value="whatsapp"><span>WhatsApp</span></label><label><input type="radio" name="contact_pref" value="email"><span>E-Mail</span></label></div>
+      </fieldset>
+      <div class="g2">
+        <label class="f">Telefon <span class="opt" id="phoneHint">(für Anruf/WhatsApp)</span><input type="tel" name="phone" autocomplete="tel" maxlength="40"></label>
+        <label class="f">E-Mail <span class="opt" id="mailHint">(optional)</span><input type="email" name="email" autocomplete="email" maxlength="200"></label>
+      </div>
+      <details><summary>Freiwillig: aktueller Anbieter, Verbrauch, Nachricht</summary>
+        <div style="display:grid;gap:12px;margin-top:10px">
+          <div class="g2">
+            <label class="f">Aktueller Anbieter <span class="opt">(optional)</span><input type="text" name="current_supplier" maxlength="120"></label>
+            <label class="f">Jahresverbrauch in kWh <span class="opt">(ungefähr)</span><input type="text" name="consumption_kwh" inputmode="numeric" maxlength="12"></label>
+          </div>
+          <label class="f">Nachricht <span class="opt">(optional)</span><textarea name="message" rows="3" maxlength="1000" placeholder="z. B. beste Zeit für einen Rückruf"></textarea></label>
+          <p class="note" style="margin:0">Bitte schick uns hier keine Rechnungen, Zählernummern oder Kontodaten. Was wir für den Vergleich wirklich brauchen, klären wir mit dir direkt.</p>
+        </div>
+      </details>
+      <div class="hp" aria-hidden="true"><label>Website<input type="text" name="website" tabindex="-1" autocomplete="off"></label></div>
+      <label class="chk"><input type="checkbox" name="consent_contact" required><span>Ich möchte, dass P² Sales mich zu dieser Anfrage auf dem gewählten Weg kontaktiert, und habe die <button type="button" class="lnk" data-legal="datenschutz" style="background:none;border:0;padding:0;font:inherit;color:var(--navy2);text-decoration:underline;cursor:pointer">Datenschutzhinweise</button> gelesen. *</span></label>
+      <label class="chk"><input type="checkbox" name="consent_marketing"><span>Freiwillig: Ihr dürft mich auch später über neue Tarife und Aktionen informieren. Jederzeit widerrufbar.</span></label>
+      <div class="msg err" id="err" role="alert" hidden></div>
+      <button class="go" type="submit" id="go">Tarif checken lassen</button>
+    </form>
+    <p class="note">Die Figuren aus Powertown sind fiktive, KI-animierte Werbefiguren von P² Sales. Ob und wie viel du sparen kannst, hängt von deinem Tarif und Verbrauch ab.</p>
+  </section>
+</main>
+
+<footer>
+  <span>P hoch 2 Sales UG (haftungsbeschränkt)</span>
+  <a href="https://www.phoch2sales.de/impressum" target="_blank" rel="noopener">Impressum</a>
+  <button type="button" data-legal="datenschutz">Datenschutz</button>
+</footer>
+
+<dialog id="legal"><div class="dh"><b id="lt">Datenschutzhinweise</b><button type="button" id="lx" aria-label="Schließen">✕</button></div><div class="db" id="lb"></div></dialog>
+
+<script>
+// Endpunkt der Supabase Edge Function. Der Schlüssel ist öffentlich; Schreiben ist nur über die Funktion möglich.
+const ENDPOINT = 'https://exffdaiwysgcjinjkkfb.supabase.co/functions/v1/powertown-intake';
+const SB_KEY = 'sb_publishable_y8uRMV-ZZwJEbwsv0UbsVA_VwybfSsv';
+
+const LEGAL = { datenschutz: ['ENTWURF – vor Livegang anwaltlich prüfen lassen.',
+  'Verantwortlich: P hoch 2 Sales UG (haftungsbeschränkt), Königsallee 27, 40212 Düsseldorf, f.pfeufer@phoch2sales.de, +49 211 238 55 199.',
+  'Welche Daten: Name, Postleitzahl, Telefonnummer und/oder E-Mail-Adresse, Kundenart, gewünschte Prüfung (Strom/Gas), bevorzugter Kontaktweg sowie freiwillig aktueller Anbieter, ungefährer Verbrauch und deine Nachricht. Außerdem, über welchen Beitrag oder welche Kampagne du gekommen bist (z. B. Reel-Kennung).',
+  'Wozu: Bearbeitung deiner Anfrage und Kontaktaufnahme zur Tarifprüfung (Art. 6 Abs. 1 lit. b DSGVO, vorvertragliche Maßnahmen auf deine Anfrage). Werbliche Informationen nur, wenn du das zweite Häkchen setzt (Art. 6 Abs. 1 lit. a DSGVO); diese Einwilligung kannst du jederzeit widerrufen, z. B. per E-Mail.',
+  'Schutz vor Missbrauch: Zur Begrenzung von Massenanfragen speichern wir kurzzeitig einen verschlüsselten Kennwert (Hash) deiner IP-Adresse, nicht die IP-Adresse selbst; er wird nach spätestens zwei Tagen gelöscht.',
+  'Empfänger: Deine Anfrage wird ausschließlich von P² Sales bearbeitet und nicht automatisch an Dritte oder Vertriebspartner weitergegeben. Hosting der Datenbank: Supabase [Region bitte prüfen und eintragen]. Webseite: [Hosting-Anbieter bitte eintragen].',
+  'Speicherdauer: Anfragen ohne Vertragsabschluss löschen wir spätestens nach 12 Monaten, soweit keine gesetzlichen Aufbewahrungspflichten bestehen.',
+  'Deine Rechte: Auskunft, Berichtigung, Löschung, Einschränkung, Datenübertragbarkeit, Widerspruch und Beschwerde bei einer Datenschutz-Aufsichtsbehörde.'] };
+const dlg = document.getElementById('legal');
+document.addEventListener('click', e => { const b = e.target.closest('[data-legal]'); if (!b) return; e.preventDefault();
+  const lb = document.getElementById('lb'); lb.textContent = ''; for (const p of LEGAL[b.dataset.legal]) { const el = document.createElement('p'); el.textContent = p; lb.append(el); } dlg.showModal(); });
+document.getElementById('lx').addEventListener('click', () => dlg.close());
+
+// Herkunft (Reel/Kampagne) aus dem Link übernehmen, z. B. ?utm_source=instagram&utm_campaign=folge1&reel=F1
+const qs = new URLSearchParams(location.search);
+const src = { channel: ['instagram', 'facebook', 'whatsapp', 'email'].includes(qs.get('utm_source')) ? qs.get('utm_source') : 'landingpage',
+  reel_id: qs.get('reel') || '', utm_source: qs.get('utm_source') || '', utm_medium: qs.get('utm_medium') || '', utm_campaign: qs.get('utm_campaign') || '', utm_content: qs.get('utm_content') || '' };
+const startedAt = Date.now();
+const requestId = (crypto.randomUUID ? crypto.randomUUID() : null);
+
+const f = document.getElementById('f'), err = document.getElementById('err'), go = document.getElementById('go');
+const pref = () => f.contact_pref.value;
+function hints() {
+  const p = pref();
+  document.getElementById('phoneHint').textContent = p === 'email' ? '(optional)' : '* (für Anruf/WhatsApp)';
+  document.getElementById('mailHint').textContent = p === 'email' ? '*' : '(optional)';
+}
+f.addEventListener('change', hints); hints();
+const show = m => { err.textContent = m; err.hidden = !m; if (m) err.scrollIntoView({ block: 'center', behavior: 'smooth' }); };
+
+f.addEventListener('submit', async e => {
+  e.preventDefault(); show('');
+  const v = n => (f[n] && f[n].value || '').trim();
+  if (v('name').length < 2) return show('Bitte gib deinen Namen an.');
+  if (!/^\d{5}$/.test(v('zip'))) return show('Bitte gib eine gültige Postleitzahl an.');
+  if (pref() !== 'email' && v('phone').replace(/\D/g, '').length < 6) return show('Für einen Rückruf oder WhatsApp brauchen wir deine Telefonnummer.');
+  if (pref() === 'email' && !/^[^\s@]+@[^\s@]+\.[a-z]{2,}$/i.test(v('email'))) return show('Für eine Antwort per E-Mail brauchen wir deine E-Mail-Adresse.');
+  if (!f.consent_contact.checked) return show('Bitte bestätige, dass wir dich zu deiner Anfrage kontaktieren dürfen.');
+  const body = { ...src, request_id: requestId, started_at: startedAt, name: v('name'), zip: v('zip'), phone: v('phone'), email: v('email'),
+    customer_type: f.customer_type.value, product: f.product.value, contact_pref: pref(), current_supplier: v('current_supplier'),
+    consumption_kwh: v('consumption_kwh'), message: v('message'), website: v('website'),
+    consent_contact: f.consent_contact.checked, consent_marketing: f.consent_marketing.checked };
+  go.disabled = true; go.textContent = 'Wird gesendet …';
+  try {
+    const r = await fetch(ENDPOINT, { method: 'POST', headers: { 'Content-Type': 'application/json', apikey: SB_KEY }, body: JSON.stringify(body) });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok || !j.ok) throw new Error(j.error || 'Deine Anfrage konnte gerade nicht gesendet werden. Bitte versuche es gleich noch einmal.');
+    const box = document.getElementById('box'); box.textContent = '';
+    const d = document.createElement('div'); d.className = 'done';
+    d.innerHTML = '<h2>Danke, deine Anfrage ist da!</h2><p>Wir melden uns auf dem Weg, den du gewählt hast. Das kann je nach Aufkommen etwas dauern – deine Anfrage geht nicht verloren.</p>';
+    box.append(d); box.scrollIntoView({ block: 'start', behavior: 'smooth' });
+  } catch (x) {
+    show(x.message || 'Verbindung fehlgeschlagen. Bitte prüfe dein Internet und versuche es noch einmal.');
+    go.disabled = false; go.textContent = 'Tarif checken lassen';
+  }
+});
+</script>
+</body>
+</html>
